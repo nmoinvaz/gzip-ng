@@ -33,6 +33,7 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -1 --fast .. -9 --best  compression level, 6 by default\n");
     fprintf(out, "  -h --help        show this help\n");
     fprintf(out, "  -V --version     show the version\n");
+    fprintf(out, "  -L --license     show the license\n");
 }
 
 uint32_t gzng_parse_size(const char *arg) {
@@ -59,6 +60,16 @@ void gzng_options_personas(gzng_options *opt, const char *argv0) {
         opt->decompress = 1;
         opt->stdout_mode = 1;
     }
+}
+
+static void show_license(void) {
+    printf("gzip-ng %s, zlib license\n\n", gzng_version());
+    printf("This software is provided 'as-is', without any express or implied\n"
+           "warranty. In no event will the authors be held liable for any damages\n"
+           "arising from the use of this software.\n\n"
+           "Permission is granted to anyone to use this software for any purpose,\n"
+           "including commercial applications, and to alter it and redistribute it\n"
+           "freely, subject to the restrictions in LICENSE.md.\n");
 }
 
 static int bad(const char *prog, const char *what, const char *arg) {
@@ -125,6 +136,9 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg,
     } else if (strcmp(arg, "--help") == 0) {
         gzng_usage(stdout);
         return 1;
+    } else if (strcmp(arg, "--license") == 0) {
+        show_license();
+        return 1;
     } else if (strcmp(arg, "--version") == 0) {
         printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
         return 1;
@@ -165,6 +179,9 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
             case 'A': opt->text_mode = 1; break;
             case 'h':
                 gzng_usage(stdout);
+                return 1;
+            case 'L':
+                show_license();
                 return 1;
             case 'V':
                 printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
