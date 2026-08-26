@@ -1,4 +1,4 @@
-/* gzblockread.c -- the parallel reader for gzip members made of independent deflate blocks
+/* reader.c -- the parallel reader for gzip members made of independent deflate blocks
  * For conditions of distribution and use, see LICENSE.md
  */
 

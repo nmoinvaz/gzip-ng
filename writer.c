@@ -1,4 +1,4 @@
-/* gzblockwrite.c -- the parallel writer for gzip members made of independent deflate blocks
+/* writer.c -- the parallel writer for gzip members made of independent deflate blocks
  * For conditions of distribution and use, see LICENSE.md
  */
 

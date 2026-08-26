@@ -30,8 +30,8 @@ endif()
 
 add_library(gzng STATIC
     gzblock.c
-    gzblockread.c
-    gzblockwrite.c
+    reader.c
+    writer.c
     gzblock.h
     gzblock_p.h
     buf.c
