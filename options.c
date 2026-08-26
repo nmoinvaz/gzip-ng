@@ -18,17 +18,18 @@ void gzng_options_init(gzng_options *opt) {
 }
 
 void gzng_usage(FILE *out) {
-    fprintf(out, "Usage: gzip-ng [-c] [-d] [-k] [-f|-h|-R|-F|-T] [-A] [-b size] [-p threads] [-0 to -9] [--help] [--version] [files...]\n");
-    fprintf(out, "Compresses files in place. With no files, filters stdin to stdout.\n\n");
-    fprintf(out, "  -c : write to standard output, keep the files\n");
-    fprintf(out, "  -d : decompress\n");
-    fprintf(out, "  -k : keep input files\n");
-    fprintf(out, "  -0 to -9 : compression level, 6 by default\n");
+    fprintf(out, "Usage: gzip-ng [options] [files...]\n");
+    fprintf(out, "Compresses files in place. With no files, or -, filters stdin to stdout.\n\n");
+    fprintf(out, "  -c --stdout      write to standard output, keep the files\n");
+    fprintf(out, "  -d --decompress  decompress\n");
+    fprintf(out, "  -k --keep        keep input files\n");
     fprintf(out, "  -f : filtered strategy, -h : huffman only, -R : run length, -F : fixed codes\n");
-    fprintf(out, "  -b size : compress in independent blocks of size, K, M, and G suffixes\n");
-    fprintf(out, "  -p threads : threads to use, 0 picks the number of CPUs\n");
     fprintf(out, "  -T : store without compressing\n");
     fprintf(out, "  -A : text mode, accepted for compatibility\n");
+    fprintf(out, "  -b --blocksize size   compress in independent blocks, K, M, and G suffixes\n");
+    fprintf(out, "  -p --processes n      threads to use, 0 picks the number of CPUs\n");
+    fprintf(out, "  -1 --fast .. -9 --best  compression level, 6 by default\n");
+    fprintf(out, "     --help --version\n");
 }
 
 uint32_t gzng_parse_size(const char *arg) {
@@ -57,85 +58,123 @@ void gzng_options_personas(gzng_options *opt, const char *argv0) {
     }
 }
 
-int gzng_options_parse(gzng_options *opt, int argc, char **argv) {
-    int i;
+static int bad(const char *prog, const char *what, const char *arg) {
+    fprintf(stderr, "%s: %s %s\n", prog, what, arg);
+    fprintf(stderr, "Try %s --help for options.\n", prog);
+    return -1;
+}
 
-    (void)opt;
-    for (i = 1; i < argc; i++) {
-        const char *arg = argv[i];
-        if (arg[0] != '-')
-            break;
-        if (strcmp(arg, "--help") == 0) {
-            gzng_usage(stdout);
-            return 0;
-        }
-        if (strcmp(arg, "-V") == 0 || strcmp(arg, "--version") == 0) {
-            printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
-            return 0;
-        }
-        if (strcmp(arg, "-c") == 0) {
-            opt->stdout_mode = 1;
-            continue;
-        }
-        if (strcmp(arg, "-d") == 0) {
-            opt->decompress = 1;
-            continue;
-        }
-        if (strcmp(arg, "-k") == 0) {
-            opt->keep = 1;
-            continue;
-        }
-        if (strcmp(arg, "-p") == 0 && i + 1 < argc) {
-            char *end;
-            long n = strtol(argv[++i], &end, 10);
-            if (end == argv[i] || *end != 0 || n < 0 || n > 1024) {
-                fprintf(stderr, "%s: bad thread count %s\n", argv[0], argv[i]);
-                return -1;
-            }
-            opt->threads = (int)n;
-            continue;
-        }
-        if (strcmp(arg, "-p") == 0 && i + 1 < argc) {
-            char *end;
-            long n = strtol(argv[++i], &end, 10);
-            if (end == argv[i] || *end != 0 || n < 0 || n > 1024) {
-                fprintf(stderr, "%s: bad thread count %s\n", argv[0], argv[i]);
-                return -1;
-            }
-            opt->threads = (int)n;
-            continue;
-        }
-        if (strcmp(arg, "-b") == 0 && i + 1 < argc) {
-            opt->block_size = gzng_parse_size(argv[++i]);
-            if (opt->block_size == 0) {
-                fprintf(stderr, "%s: bad block size %s\n", argv[0], argv[i]);
-                return -1;
-            }
-            continue;
-        }
-        if (strcmp(arg, "-T") == 0) {
-            opt->transparent = 1;
-            continue;
-        }
-        if (strcmp(arg, "-A") == 0) {
-            opt->text_mode = 1;
-            continue;
-        }
-        if (strcmp(arg, "-f") == 0 || strcmp(arg, "-h") == 0 || strcmp(arg, "-R") == 0 ||
-            strcmp(arg, "-F") == 0) {
-            opt->strategy = arg[1] == 'f'   ? Z_FILTERED
-                            : arg[1] == 'h' ? Z_HUFFMAN_ONLY
-                            : arg[1] == 'R' ? Z_RLE
-                                            : Z_FIXED;
-            continue;
-        }
-        if (arg[1] >= '0' && arg[1] <= '9' && arg[2] == 0) {
-            opt->level = arg[1] - '0';
-            continue;
-        }
-        fprintf(stderr, "%s: unknown option %s\n", argv[0], arg);
-        gzng_usage(stderr);
-        return -1;
+/* The value for a short option, attached like -p8 or the next argument. NULL when missing. */
+static const char *shortval(const char *rest, int argc, char **argv, int *i) {
+    if (*rest != 0)
+        return rest;
+    if (*i + 1 < argc)
+        return argv[++*i];
+    return NULL;
+}
+
+static int set_blocksize(gzng_options *opt, const char *prog, const char *val) {
+    if (val == NULL || (opt->block_size = gzng_parse_size(val)) == 0)
+        return bad(prog, "bad block size", val ? val : "(missing)");
+    return 0;
+}
+
+static int set_threads(gzng_options *opt, const char *prog, const char *val) {
+    char *end;
+    long n = val ? strtol(val, &end, 10) : 0;
+
+    if (val == NULL || end == val || *end != 0 || n < 0 || n > 1024)
+        return bad(prog, "bad thread count", val ? val : "(missing)");
+    opt->threads = (int)n;
+    return 0;
+}
+
+static int parse_long(gzng_options *opt, const char *prog, const char *arg,
+                      int argc, char **argv, int *i) {
+    const char *val;
+
+    if (strcmp(arg, "--stdout") == 0 || strcmp(arg, "--to-stdout") == 0) {
+        opt->stdout_mode = 1;
+    } else if (strcmp(arg, "--decompress") == 0 || strcmp(arg, "--uncompress") == 0) {
+        opt->decompress = 1;
+    } else if (strcmp(arg, "--keep") == 0) {
+        opt->keep = 1;
+    } else if (strcmp(arg, "--fast") == 0) {
+        opt->level = 1;
+    } else if (strcmp(arg, "--best") == 0) {
+        opt->level = 9;
+    } else if (strcmp(arg, "--blocksize") == 0) {
+        val = *i + 1 < argc ? argv[++*i] : NULL;
+        return set_blocksize(opt, prog, val);
+    } else if (strcmp(arg, "--processes") == 0) {
+        val = *i + 1 < argc ? argv[++*i] : NULL;
+        return set_threads(opt, prog, val);
+    } else if (strcmp(arg, "--help") == 0) {
+        gzng_usage(stdout);
+        return 1;
+    } else if (strcmp(arg, "--version") == 0) {
+        printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
+        return 1;
+    } else {
+        return bad(prog, "unknown option", arg);
     }
-    return i;
+    return 0;
+}
+
+int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
+    const char *prog = argv[0];
+    int nf = 0, no_more = 0, rc;
+
+    for (int i = 1; i < argc; i++) {
+        const char *arg = argv[i];
+
+        if (no_more || arg[0] != '-' || arg[1] == 0) {
+            argv[1 + nf++] = argv[i];
+            continue;
+        }
+        if (arg[1] == '-') {
+            if (arg[2] == 0) {
+                no_more = 1;
+                continue;
+            }
+            rc = parse_long(opt, prog, arg, argc, argv, &i);
+            if (rc != 0)
+                return rc;
+            continue;
+        }
+        for (int j = 1; arg[j] != 0; j++) {
+            switch (arg[j]) {
+            case 'c': opt->stdout_mode = 1; break;
+            case 'd': opt->decompress = 1; break;
+            case 'k': opt->keep = 1; break;
+            case 'T': opt->transparent = 1; break;
+            case 'A': opt->text_mode = 1; break;
+            case 'f': opt->strategy = Z_FILTERED; break;
+            case 'h': opt->strategy = Z_HUFFMAN_ONLY; break;
+            case 'R': opt->strategy = Z_RLE; break;
+            case 'F': opt->strategy = Z_FIXED; break;
+            case 'b':
+                if (set_blocksize(opt, prog, shortval(arg + j + 1, argc, argv, &i)) != 0)
+                    return -1;
+                j = (int)strlen(arg) - 1;
+                break;
+            case 'p':
+                if (set_threads(opt, prog, shortval(arg + j + 1, argc, argv, &i)) != 0)
+                    return -1;
+                j = (int)strlen(arg) - 1;
+                break;
+            default:
+                if (arg[j] >= '0' && arg[j] <= '9') {
+                    opt->level = arg[j] - '0';
+                    break;
+                }
+                {
+                    char unk[3] = {'-', arg[j], 0};
+                    return bad(prog, "unknown option", unk);
+                }
+            }
+        }
+    }
+    *nfiles = nf;
+    return 0;
 }
