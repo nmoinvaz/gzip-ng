@@ -32,6 +32,29 @@ add_executable(gtest_gzng
     gtest_options.cc)
 target_link_libraries(gtest_gzng PRIVATE gzng GTest::Main)
 add_test(NAME gtest_gzng COMMAND gtest_gzng)
-add_test(NAME cli-roundtrip COMMAND ${CMAKE_COMMAND}
+
+# Test data
+string(REPEAT "the quick brown fox jumps over the lazy dog 0123456789 " 20000 GZNG_TEST_DATA)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/data/lorem.txt "${GZNG_TEST_DATA}")
+
+# Roundtrips through the compress-and-verify harness, gzip cross-checks included.
+macro(add_cav_test name)
+    add_test(NAME cav-${name} COMMAND ${CMAKE_COMMAND}
+        -DTARGET=$<TARGET_FILE:gzip-ng>
+        -DINPUT=${CMAKE_CURRENT_BINARY_DIR}/data/lorem.txt
+        -DTEST_NAME=${name}
+        ${ARGN}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/compress-and-verify.cmake)
+endmacro()
+
+add_cav_test(default)
+add_cav_test(level-1 "-DCOMPRESS_ARGS=-1\;-k\;-c")
+add_cav_test(level-9 "-DCOMPRESS_ARGS=-9\;-k\;-c")
+add_cav_test(rle "-DCOMPRESS_ARGS=-R\;-k\;-c")
+add_cav_test(transparent "-DCOMPRESS_ARGS=-T\;-k\;-c")
+add_cav_test(blocks "-DCOMPRESS_ARGS=-b\;64K\;-k\;-c")
+add_cav_test(blocks-threads "-DCOMPRESS_ARGS=-b\;64K\;-p\;3\;-k\;-c" "-DDECOMPRESS_ARGS=-d\;-p\;2\;-k\;-c")
+
+add_test(NAME cli-inplace COMMAND ${CMAKE_COMMAND}
     -DEXE=$<TARGET_FILE:gzip-ng> -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/clitest
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli-roundtrip.cmake)
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli-inplace.cmake)
