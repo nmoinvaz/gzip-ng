@@ -59,3 +59,15 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/k.txt ${WOR
 if(NOT rc EQUAL 0)
     message(FATAL_ERROR "-k roundtrip changed the data")
 endif()
+
+# Levels roundtrip, stored and fast.
+foreach(level 0 1)
+    file(WRITE ${WORKDIR}/l.txt "${DATA}")
+    execute_process(COMMAND ${EXE} -${level} ${WORKDIR}/l.txt RESULT_VARIABLE rc)
+    execute_process(COMMAND ${EXE} -d ${WORKDIR}/l.txt.gz RESULT_VARIABLE rc2)
+    execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/l.txt ${WORKDIR}/data.orig
+                    RESULT_VARIABLE rc3)
+    if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
+        message(FATAL_ERROR "level -${level} roundtrip failed")
+    endif()
+endforeach()

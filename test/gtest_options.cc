@@ -68,4 +68,16 @@ TEST(options, keep_flag) {
     EXPECT_EQ(1, opt.keep);
 }
 
+TEST(options, levels) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    char a0[] = "gzip-ng", a1[] = "-1";
+    char *argv[] = {a0, a1, nullptr};
+    EXPECT_EQ(2, gzng_options_parse(&opt, 2, argv));
+    EXPECT_EQ(1, opt.level);
+    argv[1][1] = '9';
+    EXPECT_EQ(2, gzng_options_parse(&opt, 2, argv));
+    EXPECT_EQ(9, opt.level);
+}
+
 }  // namespace
