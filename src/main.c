@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
     int first, rc = 0;
 
     gzng_options_init(&opt);
+    gzng_options_personas(&opt, argv[0]);
     first = gzng_options_parse(&opt, argc, argv);
     if (first == 0)
         return 0;

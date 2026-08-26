@@ -26,3 +26,19 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/data.txt ${
 if(NOT rc EQUAL 0)
     message(FATAL_ERROR "roundtrip changed the data")
 endif()
+
+# -c writes to stdout and keeps the file.
+file(WRITE ${WORKDIR}/c.txt "${DATA}")
+execute_process(COMMAND ${EXE} -c ${WORKDIR}/c.txt OUTPUT_FILE ${WORKDIR}/c.txt.gz RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0 OR NOT EXISTS ${WORKDIR}/c.txt)
+    message(FATAL_ERROR "-c compress failed or removed the file")
+endif()
+execute_process(COMMAND ${EXE} -d -c ${WORKDIR}/c.txt.gz OUTPUT_FILE ${WORKDIR}/c.out RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0 OR NOT EXISTS ${WORKDIR}/c.txt.gz)
+    message(FATAL_ERROR "-d -c failed or removed the file")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/c.txt ${WORKDIR}/c.out
+                RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "-c roundtrip changed the data")
+endif()

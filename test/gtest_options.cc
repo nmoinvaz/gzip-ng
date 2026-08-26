@@ -38,4 +38,25 @@ TEST(options, decompress_flag) {
     EXPECT_EQ(1, opt.decompress);
 }
 
+TEST(options, stdout_flag) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    char a0[] = "gzip-ng", a1[] = "-c";
+    char *argv[] = {a0, a1, nullptr};
+    EXPECT_EQ(2, gzng_options_parse(&opt, 2, argv));
+    EXPECT_EQ(1, opt.stdout_mode);
+}
+
+TEST(options, personas) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    gzng_options_personas(&opt, "/usr/bin/gunzip");
+    EXPECT_EQ(1, opt.decompress);
+    EXPECT_EQ(0, opt.stdout_mode);
+    gzng_options_init(&opt);
+    gzng_options_personas(&opt, "zcat");
+    EXPECT_EQ(1, opt.decompress);
+    EXPECT_EQ(1, opt.stdout_mode);
+}
+
 }  // namespace

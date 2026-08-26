@@ -16,9 +16,22 @@ void gzng_options_init(gzng_options *opt) {
 }
 
 void gzng_usage(FILE *out) {
-    fprintf(out, "Usage: gzip-ng [-d] [--help] [--version] [files...]\n");
+    fprintf(out, "Usage: gzip-ng [-c] [-d] [--help] [--version] [files...]\n");
     fprintf(out, "Compresses files in place. With no files, filters stdin to stdout.\n\n");
+    fprintf(out, "  -c : write to standard output, keep the files\n");
     fprintf(out, "  -d : decompress\n");
+}
+
+void gzng_options_personas(gzng_options *opt, const char *argv0) {
+    const char *base = strrchr(argv0, '/');
+
+    base = base ? base + 1 : argv0;
+    if (strcmp(base, "gunzip") == 0) {
+        opt->decompress = 1;
+    } else if (strcmp(base, "zcat") == 0 || strcmp(base, "gzcat") == 0) {
+        opt->decompress = 1;
+        opt->stdout_mode = 1;
+    }
 }
 
 int gzng_options_parse(gzng_options *opt, int argc, char **argv) {
@@ -36,6 +49,10 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv) {
         if (strcmp(arg, "-V") == 0 || strcmp(arg, "--version") == 0) {
             printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
             return 0;
+        }
+        if (strcmp(arg, "-c") == 0) {
+            opt->stdout_mode = 1;
+            continue;
         }
         if (strcmp(arg, "-d") == 0) {
             opt->decompress = 1;

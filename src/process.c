@@ -67,6 +67,15 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         fail(inpath);
         return -1;
     }
+    if (opt->stdout_mode) {
+        rc = run_stream(in, stdout, opt);
+        fclose(in);
+        if (rc != 0 || fflush(stdout) != 0) {
+            fail(inpath);
+            return -1;
+        }
+        return 0;
+    }
     out = fopen(outpath, "wb");
     if (out == NULL) {
         fail(outpath);

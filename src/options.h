@@ -26,6 +26,9 @@ typedef struct {
 
 void gzng_options_init(gzng_options *opt);
 
+/* Preset options from the program name, gunzip, zcat, and gzcat act as gzip's aliases do. */
+void gzng_options_personas(gzng_options *opt, const char *argv0);
+
 /* Parse the command line. Returns the index of the first file argument, 0 when the run is already
    complete (--help), or -1 on a bad option with a message printed. */
 int gzng_options_parse(gzng_options *opt, int argc, char **argv);
