@@ -190,4 +190,45 @@ TEST(block_writer, meta_lands_in_the_header) {
     EXPECT_EQ(data, block_read(out, 1));
 }
 
+std::vector<uint8_t> rsync_compress(const std::vector<uint8_t> &data) {
+    std::vector<uint8_t> out;
+    gzblock_writer *w = gzblock_wopen(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 64 * 1024, 1);
+    EXPECT_NE(nullptr, w);
+    EXPECT_EQ(0, gzblock_wrsyncable(w, 1));
+    EXPECT_EQ(0, gzblock_write(w, data.data(), data.size()));
+    EXPECT_EQ(0, gzblock_wfinish(w));
+    gzblock_wclose(w);
+    return out;
+}
+
+// Aperiodic but compressible bytes. Periodic sample data walks the rolling hash through a tiny
+// orbit that can miss the trigger entirely, which is exactly what this test must not do.
+std::vector<uint8_t> varied_data(size_t len) {
+    std::vector<uint8_t> data(len);
+    uint32_t s = 0x12345678;
+    for (size_t i = 0; i < len; i++) {
+        s = s * 1664525u + 1013904223u;
+        data[i] = static_cast<uint8_t>(0x20 + ((s >> 24) & 0x3f));
+    }
+    return data;
+}
+
+TEST(block_writer, rsyncable_realigns_after_an_edit) {
+    auto v1 = varied_data(4 << 20);
+    std::vector<uint8_t> v2 = v1;
+    std::vector<uint8_t> insert(100, 0x55);
+    v2.insert(v2.begin() + v2.size() / 4, insert.begin(), insert.end());
+
+    auto p1 = rsync_compress(v1);
+    auto p2 = rsync_compress(v2);
+    EXPECT_EQ(v1, block_read(p1, 3));
+    EXPECT_EQ(v2, block_read(p2, 3));
+
+    /* The 8 byte trailer always differs, crc and size, so compare ahead of it. */
+    size_t common = 0, n1 = p1.size() - 8, n2 = p2.size() - 8;
+    while (common < n1 && common < n2 && p1[n1 - 1 - common] == p2[n2 - 1 - common])
+        common++;
+    EXPECT_GT(common, std::min(n1, n2) / 4) << "tails did not re-align";
+}
+
 }  // namespace

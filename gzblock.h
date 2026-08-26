@@ -40,6 +40,10 @@ typedef struct gzblock_writer_s gzblock_writer;
 
 gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int strategy,
                               uint32_t block_size, int nthreads);
+/* End blocks at rolling hash hits after half fill, content-defined boundaries for rsync,
+   before the first write. The reader needs nothing special, pairs already carry any size. */
+int gzblock_wrsyncable(gzblock_writer *w, int on);
+
 /* Record a modification time and file name for the header, before the first write. */
 int gzblock_wmeta(gzblock_writer *w, uint32_t mtime, const char *name);
 int gzblock_write(gzblock_writer *w, const uint8_t *buf, size_t len);   /* 0, or -1 on error */

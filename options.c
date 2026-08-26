@@ -31,6 +31,7 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -N --name        save and restore name and time\n");
     fprintf(out, "  -l --list        list compressed file contents\n");
     fprintf(out, "  -t --test        check integrity without writing\n");
+    fprintf(out, "     --rsyncable   make the output rsync friendly\n");
     fprintf(out, "  -f --force       overwrite outputs, compress to a terminal\n");
     fprintf(out, "  -H --huffman     huffman only strategy, -U --rle run length\n");
     fprintf(out, "     --filtered --fixed   the remaining deflate strategies\n");
@@ -139,6 +140,8 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg,
     } else if (strcmp(arg, "--test") == 0) {
         opt->test_mode = 1;
         opt->decompress = 1;
+    } else if (strcmp(arg, "--rsyncable") == 0) {
+        opt->rsyncable = 1;
     } else if (strcmp(arg, "--filtered") == 0) {
         opt->strategy = Z_FILTERED;
     } else if (strcmp(arg, "--huffman") == 0) {

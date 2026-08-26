@@ -53,6 +53,8 @@ add_cav_test(level-9 "-DCOMPRESS_ARGS=-9\;-k\;-c")
 add_cav_test(rle "-DCOMPRESS_ARGS=-U\;-k\;-c")
 add_cav_test(transparent "-DCOMPRESS_ARGS=-T\;-k\;-c")
 add_cav_test(blocks "-DCOMPRESS_ARGS=-b\;64K\;-k\;-c")
+add_cav_test(rsyncable "-DCOMPRESS_ARGS=--rsyncable\;-k\;-c")
+add_cav_test(rsyncable-blocks "-DCOMPRESS_ARGS=--rsyncable\;-b\;64K\;-k\;-c")
 add_cav_test(blocks-threads "-DCOMPRESS_ARGS=-b\;64K\;-p\;3\;-k\;-c" "-DDECOMPRESS_ARGS=-d\;-p\;2\;-k\;-c")
 
 add_test(NAME cli-inplace COMMAND ${CMAKE_COMMAND}

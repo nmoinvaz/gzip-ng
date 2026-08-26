@@ -19,6 +19,9 @@ struct gzblock_writer_s {
     int hdr_written, finished, failed;
     uint32_t meta_mtime;
     char meta_name[GZBLOCK_NAME_MAX];
+    int rsyncable;          /* end blocks at rolling hash hits so edits stay local */
+    uint32_t rhash, rmask;
+    size_t rmin;            /* no early end before this much of the block is filled */
     int err;                /* zlib error code once failed */
     char msg[MSG_LEN];
 
@@ -83,6 +86,18 @@ static int w_header(gzblock_writer *w) {
     }
     w->hdr_written = 1;
     return w_out(w, hdr, n);
+}
+
+int gzblock_wrsyncable(gzblock_writer *w, int on) {
+    uint32_t bits = 12;
+    if (w == NULL || w->hdr_written || w->failed)
+        return -1;
+    w->rsyncable = on != 0;
+    w->rmin = w->block_size / 2;
+    while ((1u << bits) < (uint32_t)w->rmin && bits < 24)
+        bits++;
+    w->rmask = (1u << bits) - 1;
+    return 0;
 }
 
 int gzblock_wmeta(gzblock_writer *w, uint32_t mtime, const char *name) {
@@ -269,11 +284,24 @@ int gzblock_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
         take = w->block_size - w->cur->in_len;
         if (take > len)
             take = len;
+        if (w->rsyncable) {
+            /* A hash hit after the minimum fill ends the block there, so boundaries follow the
+               content and an edit re-aligns at the next hit instead of shifting every block. */
+            size_t k;
+            for (k = 0; k < take; k++) {
+                w->rhash = ((w->rhash << 1) ^ buf[k]) & 0xffffffu;
+                if (w->cur->in_len + k + 1 >= w->rmin && (w->rhash & w->rmask) == w->rmask) {
+                    take = k + 1;
+                    break;
+                }
+            }
+        }
         memcpy(w->cur->in + w->cur->in_len, buf, take);
         w->cur->in_len += take;
         buf += take;
         len -= take;
-        if (w->cur->in_len == w->block_size)
+        if (w->cur->in_len == w->block_size ||
+            (w->rsyncable && w->cur->in_len >= w->rmin && (w->rhash & w->rmask) == w->rmask))
             w_submit(w, 0);
     }
     return 0;

@@ -23,6 +23,7 @@ typedef struct {
     int name_mode;       /* -1 default, 0 with -n, 1 with -N */
     int list;            /* -l, list instead of decompressing */
     int test_mode;       /* -t, check integrity without writing */
+    int rsyncable;       /* --rsyncable, rsync friendly output */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */

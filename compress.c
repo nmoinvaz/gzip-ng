@@ -39,6 +39,8 @@ static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
         goto done;
     if (mtime != 0 || name != NULL)
         gzblock_wmeta(w, mtime, name);
+    if (opt->rsyncable)
+        gzblock_wrsyncable(w, 1);
     for (;;) {
         size_t n = fread(buf, 1, CHUNK, in);
         if (n == 0)
@@ -64,6 +66,52 @@ done:
     if (out_len != NULL)
         *out_len = sink.out;
     return rc;
+}
+
+/* Serial rsyncable, a sync flush at every rolling hash hit, the plain gzip flavor. */
+static int rsync_spans(zng_stream *z, FILE *in, FILE *out, uint8_t *ibuf, uint8_t *obuf) {
+    uint32_t rh = 0;
+    size_t have = 0, pos = 0;
+    int final = 0, err = Z_OK;
+
+    while (err != Z_STREAM_END) {
+        int flush;
+        size_t k, span;
+        if (pos == have && !final) {
+            have = fread(ibuf, 1, CHUNK, in);
+            pos = 0;
+            if (ferror(in))
+                return -1;
+            if (have < CHUNK)
+                final = 1;
+        }
+        span = have - pos;
+        flush = final ? Z_FINISH : Z_NO_FLUSH;
+        for (k = 0; k < span; k++) {
+            rh = ((rh << 1) ^ ibuf[pos + k]) & 0xfffu;
+            if (rh == 0xfffu) {
+                span = k + 1;
+                if (!final || pos + span < have)
+                    flush = Z_SYNC_FLUSH;
+                break;
+            }
+        }
+        z->next_in = ibuf + pos;
+        z->avail_in = (uint32_t)span;
+        pos += span;
+        do {
+            z->next_out = obuf;
+            z->avail_out = CHUNK;
+            err = zng_deflate(z, z->avail_in != 0 || pos == have ? flush : Z_NO_FLUSH);
+            if (err != Z_OK && err != Z_STREAM_END && err != Z_BUF_ERROR)
+                return -1;
+            if (fwrite(obuf, 1, CHUNK - z->avail_out, out) != CHUNK - z->avail_out)
+                return -1;
+        } while (z->avail_in != 0 || z->avail_out == 0);
+        if (flush != Z_FINISH && err == Z_STREAM_END)
+            return -1;
+    }
+    return 0;
 }
 
 int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
@@ -94,6 +142,10 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
         head.os = 3;
 #endif
         zng_deflateSetHeader(&z, &head);
+    }
+    if (opt->rsyncable) {
+        rc = rsync_spans(&z, in, out, ibuf, obuf) == 0 ? 0 : -1;
+        goto done;
     }
     while (err != Z_STREAM_END) {
         if (z.avail_in == 0 && flush == Z_NO_FLUSH) {
