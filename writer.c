@@ -273,8 +273,8 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
 
 /* With --rsyncable the block size is a target rather than a ceiling. A boundary is wanted
    every block_size / 2 bytes and refused before that much is buffered, which averages one block
-   of block_size, and a block is cut on size alone only at twice it. That headroom keeps 96% of
-   boundaries content-defined. */
+   of block_size, and a block is cut on size alone only at twice it. That headroom leaves all but
+   a few percent of boundaries content-defined. */
 int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
