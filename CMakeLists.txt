@@ -39,6 +39,8 @@ add_library(gzng STATIC
     compress.h
     decompress.c
     decompress.h
+    format.c
+    format.h
     gzng.c
     list.c
     list.h

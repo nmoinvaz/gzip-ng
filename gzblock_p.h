@@ -14,19 +14,15 @@
 #include <string.h>
 
 #define IO_CHUNK      (256 * 1024)
-#define GZ_TRAILER    8
 #define MSG_LEN       128
 
-#define ZB_PAIRED 1     /* "ZB" flags bit, block boundaries are marker pairs */
 
 void gzblk_msgv(char *msg, const char *fmt, va_list ap);
 void gzblk_msg(char *msg, const char *fmt, ...);
 
 #include "buf.h"
+#include "format.h"
 
-/* Returns the header length, 0 if more bytes are needed, (size_t)-1 if this is not a gzip
-   header. */
-size_t gzblk_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size, uint32_t *zb_flags);
 
 /* How one piece of a block ended, see gzblk_block_feed(). */
 enum { SEG_FULL, SEG_END, SEG_SHORT, SEG_OVERFLOW, SEG_ERROR };

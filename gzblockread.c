@@ -614,7 +614,7 @@ static int r_header(gzblock_reader *r) {
                 r->state = R_END;        /* trailing garbage, ignored like gzread() */
             return 0;
         }
-        hdr_len = gzblk_header_parse(buf_data(&r->buf), r->buf.len, &hdr_block_size, &zb_flags);
+        hdr_len = format_header_parse(buf_data(&r->buf), r->buf.len, &hdr_block_size, &zb_flags);
         if (hdr_len == (size_t)-1)
             return r_fail(r, Z_DATA_ERROR, "not in gzip format");
         if (hdr_len != 0)
