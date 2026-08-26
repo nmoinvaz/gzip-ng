@@ -34,6 +34,8 @@ add_library(gzng STATIC
     src/gzblock_p.h
     src/compress.c
     src/compress.h
+    src/decompress.c
+    src/decompress.h
     src/gzng.c
     src/process.c
     src/process.h

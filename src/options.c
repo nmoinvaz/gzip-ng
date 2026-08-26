@@ -16,8 +16,9 @@ void gzng_options_init(gzng_options *opt) {
 }
 
 void gzng_usage(FILE *out) {
-    fprintf(out, "Usage: gzip-ng [--help] [--version] [files...]\n");
-    fprintf(out, "Compresses files in place. With no files, compresses stdin to stdout.\n");
+    fprintf(out, "Usage: gzip-ng [-d] [--help] [--version] [files...]\n");
+    fprintf(out, "Compresses files in place. With no files, filters stdin to stdout.\n\n");
+    fprintf(out, "  -d : decompress\n");
 }
 
 int gzng_options_parse(gzng_options *opt, int argc, char **argv) {
@@ -35,6 +36,10 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv) {
         if (strcmp(arg, "-V") == 0 || strcmp(arg, "--version") == 0) {
             printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
             return 0;
+        }
+        if (strcmp(arg, "-d") == 0) {
+            opt->decompress = 1;
+            continue;
         }
         fprintf(stderr, "%s: unknown option %s\n", argv[0], arg);
         gzng_usage(stderr);

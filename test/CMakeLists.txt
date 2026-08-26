@@ -32,3 +32,6 @@ add_executable(gtest_gzng
     gtest_options.cc)
 target_link_libraries(gtest_gzng PRIVATE gzng GTest::Main)
 add_test(NAME gtest_gzng COMMAND gtest_gzng)
+add_test(NAME cli-roundtrip COMMAND ${CMAKE_COMMAND}
+    -DEXE=$<TARGET_FILE:gzip-ng> -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/clitest
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli-roundtrip.cmake)

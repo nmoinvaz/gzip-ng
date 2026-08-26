@@ -29,4 +29,13 @@ TEST(options, unknown_option_fails) {
     EXPECT_EQ(-1, gzng_options_parse(&opt, 2, argv));
 }
 
+TEST(options, decompress_flag) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    char a0[] = "gzip-ng", a1[] = "-d", a2[] = "f";
+    char *argv[] = {a0, a1, a2, nullptr};
+    EXPECT_EQ(2, gzng_options_parse(&opt, 3, argv));
+    EXPECT_EQ(1, opt.decompress);
+}
+
 }  // namespace
