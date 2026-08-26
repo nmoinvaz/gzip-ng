@@ -22,8 +22,8 @@
 #define MSG_LEN  128          /* room for one error message */
 
 /* The deflate and inflate codec, which the reader and writer hand to their pool. */
-int gzblock_codec_init(pool_t *p, zng_stream *z);
-void gzblock_codec_end(pool_t *p, zng_stream *z);
-void gzblock_codec_run(pool_t *p, zng_stream *z, slot_t *slot);
+int gzblock_codec_init(pool_t *pool, zng_stream *z);
+void gzblock_codec_end(pool_t *pool, zng_stream *z);
+void gzblock_codec_run(pool_t *pool, zng_stream *z, slot_t *slot);
 
 #endif /* GZBLOCK_P_H_ */
