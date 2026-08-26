@@ -130,7 +130,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     if (bufs == NULL)
         return -1;
     memset(&z, 0, sizeof(z));
-    if (zng_deflateInit2(&z, opt->level, Z_DEFLATED, 15 + 16, 8, opt->strategy) != Z_OK) {
+    if (zng_deflateInit2(&z, opt->level, Z_DEFLATED, MAX_WBITS + 16, 8, opt->strategy) != Z_OK) {
         free(bufs);
         return -1;
     }

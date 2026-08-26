@@ -43,7 +43,7 @@ std::vector<uint8_t> whole_inflate(const std::vector<uint8_t> &packed, size_t ex
     std::vector<uint8_t> out(expect + 64);
     zng_stream z;
     memset(&z, 0, sizeof(z));
-    EXPECT_EQ(Z_OK, zng_inflateInit2(&z, 15 + 16));
+    EXPECT_EQ(Z_OK, zng_inflateInit2(&z, MAX_WBITS + 16));
     z.next_in = packed.data();
     z.avail_in = static_cast<uint32_t>(packed.size());
     z.next_out = out.data();
@@ -153,7 +153,7 @@ TEST(block_reader, plain_gzip_streams_through) {
     std::vector<uint8_t> packed(zng_compressBound(data.size()) + 32);
     zng_stream z;
     memset(&z, 0, sizeof(z));
-    ASSERT_EQ(Z_OK, zng_deflateInit2(&z, 6, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY));
+    ASSERT_EQ(Z_OK, zng_deflateInit2(&z, 6, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY));
     z.next_in = data.data();
     z.avail_in = static_cast<uint32_t>(data.size());
     z.next_out = packed.data();

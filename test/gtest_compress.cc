@@ -45,7 +45,7 @@ TEST(compress, stream_roundtrips_through_inflate) {
     std::vector<uint8_t> restored(data.size() + 64);
     zng_stream z;
     memset(&z, 0, sizeof(z));
-    ASSERT_EQ(Z_OK, zng_inflateInit2(&z, 15 + 16));
+    ASSERT_EQ(Z_OK, zng_inflateInit2(&z, MAX_WBITS + 16));
     z.next_in = packed.data();
     z.avail_in = static_cast<uint32_t>(packed.size());
     z.next_out = restored.data();
