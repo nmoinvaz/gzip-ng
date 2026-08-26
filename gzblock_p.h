@@ -17,8 +17,8 @@
 #define MSG_LEN       128
 
 
-void gzblk_msgv(char *msg, const char *fmt, va_list ap);
-void gzblk_msg(char *msg, const char *fmt, ...);
+void msg_setv(char *msg, const char *fmt, va_list ap);
+void msg_set(char *msg, const char *fmt, ...);
 
 #include "buf.h"
 #include "blockdec.h"

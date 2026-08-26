@@ -32,14 +32,14 @@
  * Helpers
  */
 
-void gzblk_msgv(char *msg, const char *fmt, va_list ap) {
+void msg_setv(char *msg, const char *fmt, va_list ap) {
     vsnprintf(msg, MSG_LEN, fmt, ap);
 }
 
-void gzblk_msg(char *msg, const char *fmt, ...) {
+void msg_set(char *msg, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    gzblk_msgv(msg, fmt, ap);
+    msg_setv(msg, fmt, ap);
     va_end(ap);
 }
 

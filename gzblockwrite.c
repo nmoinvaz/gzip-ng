@@ -35,7 +35,7 @@ struct gzblock_writer_s {
 };
 
 static int w_fail(gzblock_writer *w, int err, const char *msg) {
-    gzblk_msg(w->msg, "%s", msg);
+    msg_set(w->msg, "%s", msg);
     w->err = err;
     w->failed = 1;
     return -1;

@@ -56,7 +56,7 @@ struct gzblock_reader_s {
 static int r_fail(gzblock_reader *r, int err, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    gzblk_msgv(r->msg, fmt, ap);
+    msg_setv(r->msg, fmt, ap);
     va_end(ap);
     r->err = err;
     r->state = R_ERROR;
