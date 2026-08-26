@@ -19,14 +19,13 @@ int main(int argc, char **argv) {
     if (ret < 0)
         return 1;
     if (nfiles == 0)
-        return gzng_process_stdio(&opt) != 0 ? 1 : 0;
+        return gzng_process_stdio(&opt);
     for (int i = 1; i <= nfiles; i++) {
-        if (strcmp(argv[i], "-") == 0) {
-            if (gzng_process_stdio(&opt) != 0)
-                rc = 1;
-        } else if (gzng_process_file(argv[i], &opt) != 0) {
-            rc = 1;
-        }
+        int r = strcmp(argv[i], "-") == 0 ? gzng_process_stdio(&opt)
+                                          : gzng_process_file(argv[i], &opt);
+        /* gzip's convention, 1 for errors beats 2 for warnings beats 0 */
+        if (r == 1 || (r == 2 && rc == 0))
+            rc = r;
     }
     return rc;
 }

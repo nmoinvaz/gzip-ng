@@ -23,6 +23,7 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -c --stdout      write to standard output, keep the files\n");
     fprintf(out, "  -d --decompress  decompress\n");
     fprintf(out, "  -k --keep        keep input files\n");
+    fprintf(out, "  -f --force       overwrite outputs, compress to a terminal\n");
     fprintf(out, "  -H --huffman     huffman only strategy, -U --rle run length\n");
     fprintf(out, "     --filtered --fixed   the remaining deflate strategies\n");
     fprintf(out, "  -T : store without compressing\n");
@@ -101,6 +102,8 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg,
         opt->decompress = 1;
     } else if (strcmp(arg, "--keep") == 0) {
         opt->keep = 1;
+    } else if (strcmp(arg, "--force") == 0) {
+        opt->force = 1;
     } else if (strcmp(arg, "--filtered") == 0) {
         opt->strategy = Z_FILTERED;
     } else if (strcmp(arg, "--huffman") == 0) {
@@ -157,6 +160,7 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
             case 'c': opt->stdout_mode = 1; break;
             case 'd': opt->decompress = 1; break;
             case 'k': opt->keep = 1; break;
+            case 'f': opt->force = 1; break;
             case 'T': opt->transparent = 1; break;
             case 'A': opt->text_mode = 1; break;
             case 'h':

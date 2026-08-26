@@ -16,6 +16,7 @@ typedef struct {
     int decompress;      /* -d */
     int stdout_mode;     /* -c */
     int keep;            /* -k */
+    int force;           /* -f, overwrite outputs, write compressed data to a terminal */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */

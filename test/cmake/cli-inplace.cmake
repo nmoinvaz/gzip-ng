@@ -50,3 +50,19 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/p1.gz ${WOR
 if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
     message(FATAL_ERROR "thread count changed the compressed bytes")
 endif()
+
+# Without -f an existing output is refused with a warning, -f overwrites it.
+file(WRITE ${WORKDIR}/o.txt "${DATA}")
+file(WRITE ${WORKDIR}/o.txt.gz "junk")
+execute_process(COMMAND ${EXE} -k ${WORKDIR}/o.txt RESULT_VARIABLE rc)
+file(READ ${WORKDIR}/o.txt.gz EXISTING)
+if(rc EQUAL 0 OR NOT EXISTING STREQUAL "junk")
+    message(FATAL_ERROR "existing output was overwritten without -f")
+endif()
+execute_process(COMMAND ${EXE} -f -k ${WORKDIR}/o.txt RESULT_VARIABLE rc)
+execute_process(COMMAND ${EXE} -d -c ${WORKDIR}/o.txt.gz OUTPUT_FILE ${WORKDIR}/o.out RESULT_VARIABLE rc2)
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/o.txt ${WORKDIR}/o.out
+                RESULT_VARIABLE rc3)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
+    message(FATAL_ERROR "-f overwrite roundtrip failed")
+endif()

@@ -11,10 +11,10 @@
 extern "C" {
 #endif
 
-/* Filter stdin to stdout. Returns 0, or -1 with the error reported. */
+/* Filter stdin to stdout. Returns 0, 1 on error, with the error reported. */
 int gzng_process_stdio(const gzng_options *opt);
 
-/* Process one named file in place. Returns 0, or -1 with the error reported. */
+/* Process one named file in place. Returns 0, 1 on error, 2 on a warning, reported either way. */
 int gzng_process_file(const char *path, const gzng_options *opt);
 
 #ifdef __cplusplus
