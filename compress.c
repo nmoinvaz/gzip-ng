@@ -67,50 +67,43 @@ done:
     return rc;
 }
 
-/* Serial rsyncable, a sync flush at every rolling hash hit, the plain gzip flavor. */
-static int rsync_spans(zng_stream *z, FILE *in, FILE *out, uint8_t *ibuf, uint8_t *obuf) {
-    uint32_t rh = 0;
-    size_t have = 0, pos = 0;
-    int final = 0, err = Z_OK;
+/* Mean span of 4096 bytes between the sync points --rsyncable puts in. */
+#define RSYNC_MASK 0xfffu
 
-    while (err != Z_STREAM_END) {
-        int flush;
-        size_t k, span;
-        if (pos == have && !final) {
-            have = fread(ibuf, 1, CHUNK, in);
-            pos = 0;
-            if (ferror(in))
-                return -1;
-            if (have < CHUNK)
-                final = 1;
-        }
-        span = have - pos;
-        flush = final ? Z_FINISH : Z_NO_FLUSH;
-        for (k = 0; k < span; k++) {
-            rh = ((rh << 1) ^ ibuf[pos + k]) & 0xfffu;
-            if (rh == 0xfffu) {
-                span = k + 1;
-                if (!final || pos + span < have)
-                    flush = Z_SYNC_FLUSH;
-                break;
-            }
-        }
-        z->next_in = ibuf + pos;
-        z->avail_in = (uint32_t)span;
-        pos += span;
-        do {
-            z->next_out = obuf;
-            z->avail_out = CHUNK;
-            err = zng_deflate(z, z->avail_in != 0 || pos == have ? flush : Z_NO_FLUSH);
-            if (err != Z_OK && err != Z_STREAM_END && err != Z_BUF_ERROR)
-                return -1;
-            if (fwrite(obuf, 1, CHUNK - z->avail_out, out) != CHUNK - z->avail_out)
-                return -1;
-        } while (z->avail_in != 0 || z->avail_out == 0);
-        if (flush != Z_FINISH && err == Z_STREAM_END)
+/* Push one span of input through deflate and write everything it produces. */
+static int deflate_span(zng_stream *z, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int flush) {
+    int err;
+
+    z->next_in = (z_const uint8_t *)in;
+    z->avail_in = (uint32_t)len;
+    do {
+        z->next_out = obuf;
+        z->avail_out = CHUNK;
+        err = zng_deflate(z, flush);
+        if (err != Z_OK && err != Z_STREAM_END && err != Z_BUF_ERROR)
             return -1;
-    }
+        if (fwrite(obuf, 1, CHUNK - z->avail_out, out) != CHUNK - z->avail_out)
+            return -1;
+    } while (z->avail_in != 0 || z->avail_out == 0);
     return 0;
+}
+
+/* How much of buf to hand over next. Without --rsyncable that is all of it, with it the span
+   ends at the next rolling hash hit, where *sync asks for a flush so an edit stays local. */
+static size_t next_span(int rsyncable, uint32_t *hash, const uint8_t *buf, size_t len, int *sync) {
+    size_t k;
+
+    *sync = 0;
+    if (!rsyncable)
+        return len;
+    for (k = 0; k < len; k++) {
+        *hash = ((*hash << 1) ^ buf[k]) & RSYNC_MASK;
+        if (*hash == RSYNC_MASK) {
+            *sync = 1;
+            return k + 1;
+        }
+    }
+    return len;
 }
 
 int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
@@ -123,7 +116,8 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     zng_stream z;
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
     uint8_t *ibuf = bufs, *obuf = bufs ? bufs + CHUNK : NULL;
-    int err = Z_OK, flush = Z_NO_FLUSH, rc = -1;
+    uint32_t hash = 0;
+    int rc = -1;
 
     if (bufs == NULL)
         return -1;
@@ -141,26 +135,29 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
 #endif
         zng_deflateSetHeader(&z, &head);
     }
-    if (opt->rsyncable) {
-        rc = rsync_spans(&z, in, out, ibuf, obuf) == 0 ? 0 : -1;
-        goto done;
-    }
-    while (err != Z_STREAM_END) {
-        if (z.avail_in == 0 && flush == Z_NO_FLUSH) {
-            z.avail_in = (uint32_t)fread(ibuf, 1, CHUNK, in);
-            z.next_in = ibuf;
-            if (ferror(in))
-                goto done;
-            if (z.avail_in < CHUNK)
+    for (;;) {
+        size_t have = fread(ibuf, 1, CHUNK, in), pos = 0;
+        int final;
+
+        if (ferror(in))
+            goto done;
+        final = have < CHUNK;
+        /* An empty read still runs once, which is what finishes the stream. */
+        do {
+            int sync;
+            size_t span = next_span(opt->rsyncable, &hash, ibuf + pos, have - pos, &sync);
+            int flush = Z_NO_FLUSH;
+
+            pos += span;
+            if (final && pos == have)
                 flush = Z_FINISH;
-        }
-        z.next_out = obuf;
-        z.avail_out = CHUNK;
-        err = zng_deflate(&z, flush);
-        if (err != Z_OK && err != Z_STREAM_END && err != Z_BUF_ERROR)
-            goto done;
-        if (fwrite(obuf, 1, CHUNK - z.avail_out, out) != CHUNK - z.avail_out)
-            goto done;
+            else if (sync)
+                flush = Z_SYNC_FLUSH;
+            if (deflate_span(&z, out, obuf, ibuf + pos - span, span, flush) != 0)
+                goto done;
+        } while (pos < have);
+        if (final)
+            break;
     }
     rc = 0;
 done:
