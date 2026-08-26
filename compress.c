@@ -69,8 +69,8 @@ done:
     return rc;
 }
 
-/* Mean bytes between the sync points --rsyncable emits. */
-#define RSYNC_MASK 0xfffu /* a sync point every 4096 bytes on average */
+/* Mean bytes between the sync points --rsyncable emits into a plain stream. */
+#define RSYNC_SPAN 4096 /* a sync point every 4096 bytes on average */
 
 /* Push one span of input through deflate and write everything it produces. */
 static int deflate_span(zng_stream *z, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int flush) {
@@ -100,7 +100,7 @@ static size_t next_span(int rsyncable, uint32_t *hash, const uint8_t *buf, size_
         return len;
     for (k = 0; k < len; k++) {
         ROLLING_ADD(*hash, buf[k]);
-        if (ROLLING_HIT(*hash, RSYNC_MASK)) {
+        if (ROLLING_HIT(*hash, rolling_mask(RSYNC_SPAN))) {
             *sync = 1;
             return k + 1;
         }

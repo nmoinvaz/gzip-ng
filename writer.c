@@ -276,8 +276,6 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
    of block_size, and a block is cut on size alone only at twice it. That headroom keeps 96% of
    boundaries content-defined. */
 int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
-    uint32_t bits = 12;
-
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
     if (!on) {
@@ -285,9 +283,7 @@ int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
         return 0;
     }
     w->rmin = w->block_size / 2;
-    while ((1u << bits) < (uint32_t)w->rmin && bits < 24)
-        bits++;
-    w->rmask = (1u << bits) - 1;
+    w->rmask = rolling_mask(w->rmin);
     w->rmax = (size_t)w->block_size * 2;
     if (writer_pool_size(w, w->rmax) != 0)
         return w->failed = 1, -1;
