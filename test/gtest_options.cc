@@ -1,6 +1,9 @@
+#include <cstdio>
+
 #include <gtest/gtest.h>
 
 #include "options.h"
+#include "zlib-ng.h"
 
 namespace {
 
@@ -78,6 +81,21 @@ TEST(options, levels) {
     argv[1][1] = '9';
     EXPECT_EQ(2, gzng_options_parse(&opt, 2, argv));
     EXPECT_EQ(9, opt.level);
+}
+
+TEST(options, strategies) {
+    struct { const char *arg; int strategy; } cases[] = {
+        {"-f", Z_FILTERED}, {"-h", Z_HUFFMAN_ONLY}, {"-R", Z_RLE}, {"-F", Z_FIXED}};
+    for (auto &c : cases) {
+        gzng_options opt;
+        gzng_options_init(&opt);
+        char a0[] = "gzip-ng";
+        char a1[8];
+        snprintf(a1, sizeof(a1), "%s", c.arg);
+        char *argv[] = {a0, a1, nullptr};
+        EXPECT_EQ(2, gzng_options_parse(&opt, 2, argv)) << c.arg;
+        EXPECT_EQ(c.strategy, opt.strategy) << c.arg;
+    }
 }
 
 }  // namespace
