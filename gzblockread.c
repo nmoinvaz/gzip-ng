@@ -2,6 +2,8 @@
  * For conditions of distribution and use, see LICENSE.md
  */
 
+#include <stdarg.h>
+
 #include "gzblock_p.h"
 #include "scanner.h"
 
@@ -60,7 +62,7 @@ struct gzblock_reader_s {
 static int reader_fail(gzblock_reader *r, int err, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    msg_setv(r->msg, fmt, ap);
+    vsnprintf(r->msg, sizeof(r->msg), fmt, ap);
     va_end(ap);
     r->err = err;
     r->state = READER_ERROR;

@@ -29,22 +29,6 @@
 #include "gzblock_p.h"
 
 /* ===========================================================================
- * Helpers
- */
-
-void msg_setv(char *msg, const char *fmt, va_list ap) {
-    vsnprintf(msg, MSG_LEN, fmt, ap);
-}
-
-void msg_set(char *msg, const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    msg_setv(msg, fmt, ap);
-    va_end(ap);
-}
-
-
-/* ===========================================================================
  * Pool, a ring of slots worked on by threads
  */
 

@@ -5,30 +5,21 @@
 #ifndef GZBLOCK_P_H_
 #define GZBLOCK_P_H_
 
-#include "zlib-ng.h"
-#include "gzblock.h"
-
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define IO_CHUNK      (256 * 1024)
-#define MSG_LEN       128
-
-
-void msg_setv(char *msg, const char *fmt, va_list ap);
-void msg_set(char *msg, const char *fmt, ...);
-
-#include "buf.h"
 #include "blockdec.h"
+#include "buf.h"
 #include "format.h"
-
-
-
+#include "gzblock.h"
 #include "pool.h"
+#include "zlib-ng.h"
 
-/* The deflate and inflate codec behind the pool, gzblock_codec() hands it over. */
+#define IO_CHUNK   (256 * 1024)   /* read and write in this much at a time */
+#define MSG_LEN    128            /* room for one error message */
+
+/* The deflate and inflate codec, which the reader and writer hand to their pool. */
 int gzblock_codec_init(pool_t *p, zng_stream *z);
 void gzblock_codec_end(pool_t *p, zng_stream *z);
 void gzblock_codec_run(pool_t *p, zng_stream *z, slot_t *slot);

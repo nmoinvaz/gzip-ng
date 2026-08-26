@@ -39,7 +39,7 @@ struct gzblock_writer_s {
  * =========================================================================== */
 
 static int writer_fail(gzblock_writer *w, int err, const char *msg) {
-    msg_set(w->msg, "%s", msg);
+    snprintf(w->msg, sizeof(w->msg), "%s", msg);
     w->err = err;
     w->failed = 1;
     return -1;
