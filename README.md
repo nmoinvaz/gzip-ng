@@ -24,20 +24,24 @@ zlib-ng and Google Test are fetched automatically when not found.
 ## Usage
 
 ```
-gzip-ng [-c] [-d] [-k] [-f|-h|-R|-F|-T] [-A] [-b size] [-p threads] [-0 to -9] [files...]
+gzip-ng [options] [files...]
 ```
 
-Compresses files in place, file to file.gz, removing the input unless -k. With no files it filters stdin to stdout. Installed as gunzip, zcat, or gzcat it presets -d and -c the way gzip's aliases do.
+Compresses files in place, file to file.gz, removing the input unless kept. With no files, or -, it filters stdin to stdout. Options and files mix in any order, short options cluster, and installed as gunzip, zcat, or gzcat it presets -d and -c the way gzip's aliases do.
 
-- -c : write to standard output, keep the files
-- -d : decompress, parallel automatically for block or pigz -i style input
-- -k : keep input files
-- -f, -h, -R, -F : deflate strategies, filtered, huffman only, run length, fixed
+- -c --stdout : write to standard output, keep the files
+- -d --decompress : decompress, parallel automatically for block or pigz -i style input
+- -f --force : overwrite outputs, compress to a terminal
+- -k --keep : keep input files
+- -h --help, --version
+- -H --huffman, -U --rle, --filtered, --fixed : deflate strategies
 - -T : store without compressing
 - -A : text mode, accepted for compatibility
-- -b size : compress in independent blocks of size, K, M, and G suffixes
-- -p threads : threads to use, 0 picks the number of CPUs
-- -0 to -9 : compression level, 6 by default
+- -b --blocksize size : compress in independent blocks, K, M, and G suffixes
+- -p --processes n : threads to use, 0 picks the number of CPUs
+- -1 --fast .. -9 --best : compression level, 6 by default
+
+Exit status is 0, 1 on errors, 2 on warnings, as gzip behaves.
 
 ## Benchmarks
 
