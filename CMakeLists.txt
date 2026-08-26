@@ -28,27 +28,27 @@ endif()
 find_package(Threads REQUIRED)
 
 add_library(gzng STATIC
-    src/gzblock.c
-    src/gzblockpool.c
-    src/gzblockread.c
-    src/gzblockwrite.c
-    src/gzblock.h
-    src/gzblock_p.h
-    src/compress.c
-    src/compress.h
-    src/decompress.c
-    src/decompress.h
-    src/gzng.c
-    src/process.c
-    src/process.h
-    src/options.c
-    src/options.h
-    src/gzng.h)
-target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    gzblock.c
+    gzblockpool.c
+    gzblockread.c
+    gzblockwrite.c
+    gzblock.h
+    gzblock_p.h
+    compress.c
+    compress.h
+    decompress.c
+    decompress.h
+    gzng.c
+    process.c
+    process.h
+    options.c
+    options.h
+    gzng.h)
+target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(gzng PRIVATE GZBLOCK_THREADS)
 target_link_libraries(gzng PUBLIC zlib-ng::zlib Threads::Threads)
 
-add_executable(gzip-ng src/main.c)
+add_executable(gzip-ng main.c)
 target_link_libraries(gzip-ng PRIVATE gzng)
 
 if(GZNG_ENABLE_TESTS)
