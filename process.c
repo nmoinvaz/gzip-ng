@@ -315,14 +315,16 @@ int gzng_process_path(const char *path, const gzng_options *opt) {
     FILE *in, *out;
     int have_ist, rc;
 
-    if (opt->test_mode)
-        return test_file(path, opt);
+    /* A directory is recognised before anything else, so that -t honours -r and reports a
+       directory the way the other modes do. */
     if (is_directory(path)) {
         if (opt->recursive)
             return process_dir(path, opt);
         warn(opt, "gzip-ng: %s is a directory, ignored\n", path);
         return 2;
     }
+    if (opt->test_mode)
+        return test_file(path, opt);
     if (derive_paths(path, opt, in_path, out_path, sizeof(in_path)) != 0) {
         fail(path);
         return 1;

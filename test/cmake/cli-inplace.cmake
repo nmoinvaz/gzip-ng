@@ -185,3 +185,18 @@ foreach(variant "-n" "-n;-b;64K" "-n;-p;2")
         message(FATAL_ERROR "${variant} wrote OS byte ${OS_BYTE}, expected 03")
     endif()
 endforeach()
+
+# -t reaches a directory the same way the other modes do, walking it under -r and reporting it
+# as a warning without.
+file(MAKE_DIRECTORY ${WORKDIR}/ttree/sub)
+file(WRITE ${WORKDIR}/ttree/one.txt "${DATA}")
+file(WRITE ${WORKDIR}/ttree/sub/two.txt "${DATA}")
+execute_process(COMMAND ${EXE} -r ${WORKDIR}/ttree RESULT_VARIABLE rc)
+execute_process(COMMAND ${EXE} -t -r ${WORKDIR}/ttree RESULT_VARIABLE rc2)
+execute_process(COMMAND ${EXE} -t ${WORKDIR}/ttree RESULT_VARIABLE rc3 ERROR_QUIET)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0)
+    message(FATAL_ERROR "-t -r did not walk the directory")
+endif()
+if(NOT rc3 EQUAL 2)
+    message(FATAL_ERROR "-t on a directory without -r should warn, got ${rc3}")
+endif()
