@@ -15,3 +15,7 @@ jobs:
         run: cmake --build build -j 3
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Build benchmarks
+        run: |
+          cmake -B build-bench -DCMAKE_BUILD_TYPE=Release -DGZNG_ENABLE_BENCHMARKS=ON -DGZNG_ENABLE_TESTS=OFF
+          cmake --build build-bench -j 3

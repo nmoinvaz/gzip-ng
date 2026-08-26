@@ -43,10 +43,10 @@ const std::vector<uint8_t> &haystack() {
             data[i] = static_cast<uint8_t>(0x20 + ((s >> 24) & 0x3f));
         }
         std::vector<uint8_t> out;
-        gzblock_writer *w = gzblock_wopen(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 128 * 1024, 0);
-        gzblock_write(w, data.data(), data.size());
-        gzblock_wfinish(w);
-        gzblock_wclose(w);
+        gzblock_writer *w = gzblock_writer_open(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 128 * 1024, 0);
+        gzblock_writer_write(w, data.data(), data.size());
+        gzblock_writer_finish(w);
+        gzblock_writer_close(w);
         return out;
     }();
     return packed;

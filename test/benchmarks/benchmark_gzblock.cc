@@ -51,10 +51,10 @@ size_t mem_read(void *ctx, uint8_t *buf, size_t len) {
 const std::vector<uint8_t> &block_packed() {
     static const std::vector<uint8_t> packed = [] {
         std::vector<uint8_t> out;
-        gzblock_writer *w = gzblock_wopen(vec_write, &out, 6, Z_DEFAULT_STRATEGY, kBlock, 0);
-        gzblock_write(w, sample_data().data(), sample_data().size());
-        gzblock_wfinish(w);
-        gzblock_wclose(w);
+        gzblock_writer *w = gzblock_writer_open(vec_write, &out, 6, Z_DEFAULT_STRATEGY, kBlock, 0);
+        gzblock_writer_write(w, sample_data().data(), sample_data().size());
+        gzblock_writer_finish(w);
+        gzblock_writer_close(w);
         return out;
     }();
     return packed;
@@ -81,25 +81,25 @@ const std::vector<uint8_t> &plain_packed() {
 
 void read_all(const std::vector<uint8_t> &packed, int nthreads) {
     MemIn in{packed.data(), packed.size(), 0};
-    gzblock_reader *r = gzblock_ropen(mem_read, &in, nullptr, 0, 0, nthreads);
+    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, 0, nthreads);
     for (;;) {
         const uint8_t *p;
         size_t n;
-        if (gzblock_rnext(r, &p, &n) != 0 || n == 0)
+        if (gzblock_reader_next(r, &p, &n) != 0 || n == 0)
             break;
         benchmark::DoNotOptimize(p);
     }
-    gzblock_rclose(r);
+    gzblock_reader_close(r);
 }
 
 void BM_block_compress(benchmark::State &state) {
     const auto &data = sample_data();
     for (auto _ : state) {
-        gzblock_writer *w = gzblock_wopen(null_write, nullptr, 6, Z_DEFAULT_STRATEGY, kBlock,
+        gzblock_writer *w = gzblock_writer_open(null_write, nullptr, 6, Z_DEFAULT_STRATEGY, kBlock,
                                           static_cast<int>(state.range(0)));
-        gzblock_write(w, data.data(), data.size());
-        gzblock_wfinish(w);
-        gzblock_wclose(w);
+        gzblock_writer_write(w, data.data(), data.size());
+        gzblock_writer_finish(w);
+        gzblock_writer_close(w);
     }
     state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(data.size()));
 }
