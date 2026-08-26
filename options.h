@@ -21,6 +21,7 @@ typedef struct {
     int verbose;         /* -v, report each file processed */
     int quiet;           /* -q, suppress warnings */
     int name_mode;       /* -1 default, 0 with -n, 1 with -N */
+    int list;            /* -l, list instead of decompressing */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */

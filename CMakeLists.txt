@@ -39,6 +39,8 @@ add_library(gzng STATIC
     decompress.c
     decompress.h
     gzng.c
+    list.c
+    list.h
     process.c
     process.h
     options.c

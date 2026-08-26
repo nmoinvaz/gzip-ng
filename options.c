@@ -29,6 +29,7 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -q --quiet       suppress warnings\n");
     fprintf(out, "  -n --no-name     do not save or restore name and time\n");
     fprintf(out, "  -N --name        save and restore name and time\n");
+    fprintf(out, "  -l --list        list compressed file contents\n");
     fprintf(out, "  -f --force       overwrite outputs, compress to a terminal\n");
     fprintf(out, "  -H --huffman     huffman only strategy, -U --rle run length\n");
     fprintf(out, "     --filtered --fixed   the remaining deflate strategies\n");
@@ -132,6 +133,8 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg,
         opt->name_mode = 0;
     } else if (strcmp(arg, "--name") == 0) {
         opt->name_mode = 1;
+    } else if (strcmp(arg, "--list") == 0) {
+        opt->list = 1;
     } else if (strcmp(arg, "--filtered") == 0) {
         opt->strategy = Z_FILTERED;
     } else if (strcmp(arg, "--huffman") == 0) {
@@ -197,6 +200,7 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
             case 'q': opt->quiet = 1; opt->verbose = 0; break;
             case 'n': opt->name_mode = 0; break;
             case 'N': opt->name_mode = 1; break;
+            case 'l': opt->list = 1; break;
             case 'T': opt->transparent = 1; break;
             case 'A': opt->text_mode = 1; break;
             case 'h':
