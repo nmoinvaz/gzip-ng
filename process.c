@@ -9,9 +9,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "compress.h"
+#include "gzblock.h"
 #include "decompress.h"
 
 #define SUFFIX ".gz"
@@ -37,6 +40,7 @@ static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
 }
 
 static int run_stream(FILE *in, FILE *out, const gzng_options *opt,
+                      uint32_t mtime, const char *name,
                       uint64_t *in_len, uint64_t *out_len) {
     if (opt->decompress)
         return gzng_decompress_stream(in, out, opt, in_len, out_len);
@@ -49,7 +53,7 @@ static int run_stream(FILE *in, FILE *out, const gzng_options *opt,
             *out_len = n;
         return rc;
     }
-    return gzng_compress_stream(in, out, opt, in_len, out_len);
+    return gzng_compress_stream(in, out, opt, mtime, name, in_len, out_len);
 }
 
 /* The gzip -v report, the reduction for compression, the expansion basis for decompression. */
@@ -86,7 +90,7 @@ int gzng_process_stdio(const gzng_options *opt) {
         return 1;
     uint64_t in_len = 0, out_len = 0;
     errno = 0;
-    if (run_stream(stdin, stdout, opt, &in_len, &out_len) != 0) {
+    if (run_stream(stdin, stdout, opt, 0, NULL, &in_len, &out_len) != 0) {
         fail("stdin");
         return 1;
     }
@@ -96,6 +100,33 @@ int gzng_process_stdio(const gzng_options *opt) {
 
 /* Compression turns file into file.gz, decompression file.gz into file, or file into file
    by reading file.gz, each removing its input. */
+/* gzip carries the input file's mode and times onto the output, and -N on decompression
+   prefers the time stored in the header. */
+static void copy_attrs(const char *outpath, const struct stat *ist, uint32_t hdr_mtime) {
+    struct timeval tv[2];
+
+    chmod(outpath, ist->st_mode & 07777);
+    tv[0].tv_sec = ist->st_atime;
+    tv[0].tv_usec = 0;
+    tv[1].tv_sec = hdr_mtime != 0 ? (time_t)hdr_mtime : ist->st_mtime;
+    tv[1].tv_usec = 0;
+    utimes(outpath, tv);
+}
+
+/* The output name for -N, the stored name placed in the input's directory. */
+static void stored_outpath(char *outpath, size_t cap, const char *inpath, const char *stored) {
+    const char *slash = strrchr(inpath, '/');
+    const char *base = strrchr(stored, '/');
+
+    base = base ? base + 1 : stored;
+    if (base[0] == 0)
+        return;
+    if (slash != NULL)
+        snprintf(outpath, cap, "%.*s%s", (int)(slash - inpath + 1), inpath, base);
+    else
+        snprintf(outpath, cap, "%s", base);
+}
+
 /* Walk a directory. Compression skips entries already suffixed, decompression takes only
    suffixed entries, the way gzip -r chooses files. */
 static int process_dir(const char *path, const gzng_options *opt) {
@@ -135,7 +166,10 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     char inpath[MAX_PATH_LEN], outpath[MAX_PATH_LEN];
     FILE *in, *out;
     uint64_t in_len = 0, out_len = 0;
-    int rc;
+    uint32_t store_mtime = 0, hdr_mtime = 0;
+    const char *store_name = NULL;
+    struct stat ist;
+    int have_ist = 0, rc;
 
     {
         struct stat st;
@@ -168,12 +202,26 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         fail(inpath);
         return -1;
     }
+    have_ist = fstat(fileno(in), &ist) == 0;
+    if (!opt->decompress && opt->name_mode != 0 && have_ist) {
+        const char *base = strrchr(inpath, '/');
+        store_name = base ? base + 1 : inpath;
+        store_mtime = (uint32_t)ist.st_mtime;
+    }
+    if (opt->decompress && !opt->stdout_mode) {
+        char stored[GZBLOCK_NAME_MAX];
+        if (gzng_read_meta(in, &hdr_mtime, stored, sizeof(stored)) == 0 &&
+            opt->name_mode == 1 && stored[0] != 0)
+            stored_outpath(outpath, sizeof(outpath), inpath, stored);
+        if (opt->name_mode != 1)
+            hdr_mtime = 0;
+    }
     if (opt->stdout_mode) {
         if (tty_guard(opt) != 0) {
             fclose(in);
             return 1;
         }
-        rc = run_stream(in, stdout, opt, &in_len, &out_len);
+        rc = run_stream(in, stdout, opt, 0, NULL, &in_len, &out_len);
         fclose(in);
         if (rc != 0 || fflush(stdout) != 0) {
             fail(inpath);
@@ -194,13 +242,15 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         fclose(in);
         return 1;
     }
-    rc = run_stream(in, out, opt, &in_len, &out_len);
+    rc = run_stream(in, out, opt, store_mtime, store_name, &in_len, &out_len);
     fclose(in);
     if (fclose(out) != 0 || rc != 0) {
         fail(rc != 0 ? inpath : outpath);
         unlink(outpath);
         return 1;
     }
+    if (have_ist)
+        copy_attrs(outpath, &ist, opt->decompress ? hdr_mtime : 0);
     if (!opt->keep)
         unlink(inpath);
     report(opt, inpath, outpath, in_len, out_len);

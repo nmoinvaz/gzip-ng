@@ -174,4 +174,20 @@ TEST(block_reader, concatenated_members) {
     EXPECT_EQ(expect, block_read(two, 3));
 }
 
+TEST(block_writer, meta_lands_in_the_header) {
+    auto data = sample_data(1000);
+    std::vector<uint8_t> out;
+    gzblock_writer *w = gzblock_wopen(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 64 * 1024, 1);
+    ASSERT_NE(nullptr, w);
+    ASSERT_EQ(0, gzblock_wmeta(w, 12345u, "hello.txt"));
+    ASSERT_EQ(0, gzblock_write(w, data.data(), data.size()));
+    ASSERT_EQ(0, gzblock_wfinish(w));
+    gzblock_wclose(w);
+    ASSERT_GT(out.size(), 31u);
+    EXPECT_EQ(4 | 8, out[3]);
+    EXPECT_EQ(12345u, (uint32_t)out[4] | ((uint32_t)out[5] << 8));
+    EXPECT_EQ(0, memcmp(out.data() + 21, "hello.txt", 10));
+    EXPECT_EQ(data, block_read(out, 1));
+}
+
 }  // namespace

@@ -20,6 +20,7 @@ typedef struct {
     int recursive;       /* -r, descend into directories */
     int verbose;         /* -v, report each file processed */
     int quiet;           /* -q, suppress warnings */
+    int name_mode;       /* -1 default, 0 with -n, 1 with -N */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */

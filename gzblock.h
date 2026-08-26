@@ -19,6 +19,9 @@ extern "C" {
    the reader allocate, two slots of input and output at this size stay within the ring budget. */
 #define GZBLOCK_MAX_BLOCK (256u << 20)
 
+/* Longest file name stored in or read from a header, including the terminator. */
+#define GZBLOCK_NAME_MAX 256
+
 /* I/O callbacks. read returns the bytes read, 0 at end of input, (size_t)-1 on error. write returns
    the bytes written, anything short of len is an error. */
 typedef size_t (*gzblock_read_fn)(void *ctx, uint8_t *buf, size_t len);
@@ -37,6 +40,8 @@ typedef struct gzblock_writer_s gzblock_writer;
 
 gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int strategy,
                               uint32_t block_size, int nthreads);
+/* Record a modification time and file name for the header, before the first write. */
+int gzblock_wmeta(gzblock_writer *w, uint32_t mtime, const char *name);
 int gzblock_write(gzblock_writer *w, const uint8_t *buf, size_t len);   /* 0, or -1 on error */
 int gzblock_wsetparams(gzblock_writer *w, int level, int strategy);  /* for the blocks to come */
 int gzblock_wflush(gzblock_writer *w);    /* end the current block early and write everything out */

@@ -17,6 +17,8 @@ struct gzblock_writer_s {
     uint32_t crc;
     size_t total;
     int hdr_written, finished, failed;
+    uint32_t meta_mtime;
+    char meta_name[GZBLOCK_NAME_MAX];
     int err;                /* zlib error code once failed */
     char msg[MSG_LEN];
 
@@ -45,14 +47,19 @@ static int w_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
 /* gzip header with FEXTRA carrying the "ZB" subfield. Fixed 21-byte layout, the block size at
    offsets 16..19 and the flags byte at 20, which tests and tools rely on. */
 static int w_header(gzblock_writer *w) {
-    uint8_t hdr[10 + 2 + 9];
+    uint8_t hdr[10 + 2 + 9 + GZBLOCK_NAME_MAX + 1];
+    size_t n = 10 + 2 + 9;
     if (w->hdr_written)
         return 0;
     memset(hdr, 0, sizeof(hdr));
     hdr[0] = 0x1f;
     hdr[1] = 0x8b;
     hdr[2] = 8;
-    hdr[3] = 4;
+    hdr[3] = (uint8_t)(4 | (w->meta_name[0] != 0 ? 8 : 0));
+    hdr[4] = (uint8_t)w->meta_mtime;
+    hdr[5] = (uint8_t)(w->meta_mtime >> 8);
+    hdr[6] = (uint8_t)(w->meta_mtime >> 16);
+    hdr[7] = (uint8_t)(w->meta_mtime >> 24);
     hdr[8] = (uint8_t)(w->level == 9 ? 2 :
                        (w->strategy >= Z_HUFFMAN_ONLY || (w->level >= 0 && w->level < 2) ? 4 : 0));
 #ifdef _WIN32
@@ -69,8 +76,22 @@ static int w_header(gzblock_writer *w) {
     hdr[18] = (uint8_t)(w->block_size >> 16);
     hdr[19] = (uint8_t)(w->block_size >> 24);
     hdr[20] = ZB_PAIRED;
+    if (w->meta_name[0] != 0) {
+        size_t nl = strlen(w->meta_name) + 1;
+        memcpy(hdr + n, w->meta_name, nl);
+        n += nl;
+    }
     w->hdr_written = 1;
-    return w_out(w, hdr, sizeof(hdr));
+    return w_out(w, hdr, n);
+}
+
+int gzblock_wmeta(gzblock_writer *w, uint32_t mtime, const char *name) {
+    if (w == NULL || w->hdr_written || w->failed)
+        return -1;
+    w->meta_mtime = mtime;
+    if (name != NULL && strlen(name) < GZBLOCK_NAME_MAX)
+        memcpy(w->meta_name, name, strlen(name) + 1);
+    return 0;
 }
 
 /* Write out the next compressed block in order. */

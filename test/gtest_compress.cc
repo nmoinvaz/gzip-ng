@@ -29,7 +29,7 @@ TEST(compress, stream_roundtrips_through_inflate) {
     gzng_options opt;
     gzng_options_init(&opt);
     uint64_t clen = 0, plen = 0;
-    ASSERT_EQ(0, gzng_compress_stream(in, out, &opt, &clen, &plen));
+    ASSERT_EQ(0, gzng_compress_stream(in, out, &opt, 0, nullptr, &clen, &plen));
     EXPECT_EQ(data.size(), clen);
     EXPECT_GT(plen, 0u);
 

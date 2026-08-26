@@ -122,6 +122,17 @@ TEST(options, help_short) {
     EXPECT_EQ(1, parse(&opt, a, &nfiles));
 }
 
+TEST(options, name_modes) {
+    gzng_options opt;
+    Args a({"-n"});
+    int nfiles = 0;
+    EXPECT_EQ(0, parse(&opt, a, &nfiles));
+    EXPECT_EQ(0, opt.name_mode);
+    Args b({"--name"});
+    EXPECT_EQ(0, parse(&opt, b, &nfiles));
+    EXPECT_EQ(1, opt.name_mode);
+}
+
 TEST(options, quiet_flag) {
     gzng_options opt;
     Args a({"-v", "-q"});

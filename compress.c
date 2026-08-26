@@ -4,6 +4,7 @@
 
 #include "compress.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -25,6 +26,7 @@ static size_t file_write(void *ctx, const uint8_t *buf, size_t len) {
 
 /* Compress through the block engine, independent blocks sealed with marker pairs. */
 static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
+                                 uint32_t mtime, const char *name,
                                  uint64_t *in_len, uint64_t *out_len) {
     wsink sink = {out, 0};
     uint64_t total_in = 0;
@@ -35,6 +37,8 @@ static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
 
     if (w == NULL || buf == NULL)
         goto done;
+    if (mtime != 0 || name != NULL)
+        gzblock_wmeta(w, mtime, name);
     for (;;) {
         size_t n = fread(buf, 1, CHUNK, in);
         if (n == 0)
@@ -63,9 +67,12 @@ done:
 }
 
 int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
+                         uint32_t mtime, const char *name,
                          uint64_t *in_len, uint64_t *out_len) {
+    zng_gz_header head;
+
     if (opt->block_size != 0)
-        return block_compress_stream(in, out, opt, in_len, out_len);
+        return block_compress_stream(in, out, opt, mtime, name, in_len, out_len);
 
     zng_stream z;
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
@@ -78,6 +85,15 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
     if (zng_deflateInit2(&z, opt->level, Z_DEFLATED, 15 + 16, 8, opt->strategy) != Z_OK) {
         free(bufs);
         return -1;
+    }
+    if (mtime != 0 || name != NULL) {
+        memset(&head, 0, sizeof(head));
+        head.time = mtime;
+        head.name = (uint8_t *)(uintptr_t)name;
+#ifndef _WIN32
+        head.os = 3;
+#endif
+        zng_deflateSetHeader(&z, &head);
     }
     while (err != Z_STREAM_END) {
         if (z.avail_in == 0 && flush == Z_NO_FLUSH) {
