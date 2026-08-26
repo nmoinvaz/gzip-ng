@@ -8,14 +8,14 @@
 #include <string.h>
 
 /* Move the live bytes back to the front of the allocation. */
-static void buf_compact(membuf *m) {
+static void buf_compact(buf_t *m) {
     if (m->off != 0) {
         memmove(m->p, m->p + m->off, m->len);
         m->off = 0;
     }
 }
 
-int buf_reserve(membuf *m, size_t need) {
+int buf_reserve(buf_t *m, size_t need) {
     if (m->off + need > m->cap)
         buf_compact(m);
     if (need > m->cap) {
@@ -32,7 +32,7 @@ int buf_reserve(membuf *m, size_t need) {
     return 0;
 }
 
-int buf_append(membuf *m, const uint8_t *data, size_t n) {
+int buf_append(buf_t *m, const uint8_t *data, size_t n) {
     if (buf_reserve(m, m->len + n) != 0)
         return -1;
     memcpy(buf_data(m) + m->len, data, n);
@@ -40,7 +40,7 @@ int buf_append(membuf *m, const uint8_t *data, size_t n) {
     return 0;
 }
 
-void buf_drop(membuf *m, size_t n) {
+void buf_drop(buf_t *m, size_t n) {
     m->off += n;
     m->len -= n;
     if (m->len == 0)
@@ -49,7 +49,7 @@ void buf_drop(membuf *m, size_t n) {
 
 /* Read through the callback until the buffer holds at least want bytes or the input ends, which
    sets *eof. Returns -1 on a read error. */
-int buf_fill(membuf *m, buf_read_fn read, void *ctx, size_t want, int *eof) {
+int buf_fill(buf_t *m, buf_read_fn read, void *ctx, size_t want, int *eof) {
     while (m->len < want && !*eof) {
         size_t got;
         if (m->off + m->len == m->cap) {

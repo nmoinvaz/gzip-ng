@@ -22,7 +22,7 @@ struct gzblock_reader_s {
     int err;                  /* zlib error code once failed */
     char msg[MSG_LEN];
 
-    membuf buf;               /* input in hand, not yet consumed by the current stage */
+    buf_t buf;               /* input in hand, not yet consumed by the current stage */
     int eof;                  /* the read callback returned 0 */
 
     const uint8_t *out_p;     /* output being handed out */
@@ -37,11 +37,11 @@ struct gzblock_reader_s {
     int paired;               /* boundaries are marker pairs, lone markers are not candidates */
     int pair_seen;            /* a pair turned up in this member, so treat it as pair-delimited */
     size_t max_seg;           /* longest a compressed block can be */
-    membuf hdr;               /* this member's header, kept for the fallback */
+    buf_t hdr;               /* this member's header, kept for the fallback */
     size_t scanned;           /* bytes of buf already scanned for markers */
     size_t coal;              /* rightmost pair end while coalescing small chunks, 0 when not */
     int cut_all;              /* the scanner handed out the member's last segment */
-    membuf seg;               /* segment most recently cut out of buf */
+    buf_t seg;               /* segment most recently cut out of buf */
     int seg_last;
     int seg_pair;             /* the segment ends with a marker pair */
     size_t next_produce, next_emit;
@@ -179,7 +179,7 @@ static int reader_cut(gzblock_reader *r, size_t n, int last, int pair) {
    input is used up, -1 on an error already recorded, -2 when the data in hand is longer than any
    block could be. */
 static int reader_next_segment(gzblock_reader *r) {
-    membuf *b = &r->buf;
+    buf_t *b = &r->buf;
 
     for (;;) {
         size_t limit = b->len >= 3 ? b->len - 3 : 0;
@@ -297,7 +297,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
 /* Put the header, the segments cut so far, and the input in hand back together and stream the member
    through plain inflate instead. Only valid before any of its output was handed out. */
 static int reader_fallback(gzblock_reader *r) {
-    membuf all = { NULL, 0, 0, 0 };
+    buf_t all = { NULL, 0, 0, 0 };
     size_t i;
 
     if (buf_append(&all, r->hdr.p, r->hdr.len) != 0)
@@ -324,7 +324,7 @@ static int reader_fallback(gzblock_reader *r) {
 static int reader_produce(gzblock_reader *r) {
     while (!r->cut_all) {
         slot_t *slot = pool_slot(&r->pool, r->next_produce);
-        membuf swap;
+        buf_t swap;
         int rc;
 
         if (slot->state != SLOT_FREE)
@@ -362,7 +362,7 @@ static int reader_produce(gzblock_reader *r) {
    possibly more members, which together with any segments cut after it and the input in hand goes
    back to the front of the input. slot, if not NULL, held rest and is released afterwards. */
 static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest_n, slot_t *slot) {
-    membuf all = { NULL, 0, 0, 0 };
+    buf_t all = { NULL, 0, 0, 0 };
     size_t i;
 
     if (buf_append(&all, rest, rest_n) != 0)

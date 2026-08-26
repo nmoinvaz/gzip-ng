@@ -20,14 +20,14 @@ typedef struct {
     uint8_t *p;
     size_t len, cap;
     size_t off;
-} membuf;
+} buf_t;
 
 #define buf_data(m) ((m)->p + (m)->off)
 
-int buf_reserve(membuf *m, size_t need);
-int buf_append(membuf *m, const uint8_t *data, size_t n);
-void buf_drop(membuf *m, size_t n);
-int buf_fill(membuf *m, buf_read_fn read, void *ctx, size_t want, int *eof);
+int buf_reserve(buf_t *m, size_t need);
+int buf_append(buf_t *m, const uint8_t *data, size_t n);
+void buf_drop(buf_t *m, size_t n);
+int buf_fill(buf_t *m, buf_read_fn read, void *ctx, size_t want, int *eof);
 
 #ifdef __cplusplus
 }
