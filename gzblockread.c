@@ -343,14 +343,14 @@ static int reader_produce(gzblock_reader *r) {
         }
         /* Swap buffers rather than copy, the slot keeps the segment and seg reuses the old one. */
         swap.p = slot->in;
-        swap.cap = slot->in_cap;
+        swap.capacity = slot->in_cap;
         slot->in = r->seg.p;
-        slot->in_cap = r->seg.cap;
+        slot->in_cap = r->seg.capacity;
         slot->in_len = r->seg.len;
         slot->last = r->seg_last;
         slot->pair = r->seg_pair;
         r->seg.p = swap.p;
-        r->seg.cap = swap.cap;
+        r->seg.capacity = swap.capacity;
         r->seg.len = 0;
         pool_submit(&r->pool, slot);
         r->next_produce++;

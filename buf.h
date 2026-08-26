@@ -14,15 +14,15 @@ extern "C" {
 
 typedef size_t (*buf_read_fn)(void *ctx, uint8_t *buf, size_t len);
 
-/* The live data is buf_data(buf), len bytes at p + off, dropping data moves the offset and the
+/* The live data is buf_data(buf), len bytes at p + offset, dropping data moves the offset and the
    bytes move only when the space behind the offset is needed for a refill or an append. */
 typedef struct {
     uint8_t *p;
-    size_t len, cap;
-    size_t off;
+    size_t len, capacity;
+    size_t offset;
 } buf_t;
 
-#define buf_data(buf) ((buf)->p + (buf)->off)
+#define buf_data(buf) ((buf)->p + (buf)->offset)
 
 int buf_reserve(buf_t *buf, size_t need);
 int buf_append(buf_t *buf, const uint8_t *data, size_t n);
