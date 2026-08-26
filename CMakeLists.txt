@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(gzip-ng VERSION 0.1.0 LANGUAGES C)
 
 option(GZNG_ENABLE_TESTS "Build gzip-ng tests" ON)
+option(GZNG_ENABLE_BENCHMARKS "Build gzip-ng benchmarks" OFF)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -53,4 +54,8 @@ target_link_libraries(gzip-ng PRIVATE gzng)
 if(GZNG_ENABLE_TESTS)
     enable_testing()
     add_subdirectory(test)
+endif()
+
+if(GZNG_ENABLE_BENCHMARKS)
+    add_subdirectory(test/benchmarks)
 endif()
