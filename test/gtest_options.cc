@@ -59,4 +59,13 @@ TEST(options, personas) {
     EXPECT_EQ(1, opt.stdout_mode);
 }
 
+TEST(options, keep_flag) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    char a0[] = "gzip-ng", a1[] = "-k";
+    char *argv[] = {a0, a1, nullptr};
+    EXPECT_EQ(2, gzng_options_parse(&opt, 2, argv));
+    EXPECT_EQ(1, opt.keep);
+}
+
 }  // namespace

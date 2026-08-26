@@ -42,3 +42,20 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/c.txt ${WOR
 if(NOT rc EQUAL 0)
     message(FATAL_ERROR "-c roundtrip changed the data")
 endif()
+
+# -k keeps the input on both directions.
+file(WRITE ${WORKDIR}/k.txt "${DATA}")
+execute_process(COMMAND ${EXE} -k ${WORKDIR}/k.txt RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0 OR NOT EXISTS ${WORKDIR}/k.txt OR NOT EXISTS ${WORKDIR}/k.txt.gz)
+    message(FATAL_ERROR "-k compress failed to keep")
+endif()
+file(REMOVE ${WORKDIR}/k.txt)
+execute_process(COMMAND ${EXE} -d -k ${WORKDIR}/k.txt.gz RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0 OR NOT EXISTS ${WORKDIR}/k.txt.gz)
+    message(FATAL_ERROR "-d -k failed to keep")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/k.txt ${WORKDIR}/data.orig
+                RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "-k roundtrip changed the data")
+endif()
