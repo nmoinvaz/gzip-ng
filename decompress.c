@@ -5,6 +5,7 @@
 #include "decompress.h"
 
 #include "gzblock.h"
+#include "util.h"
 
 #include <string.h>
 
@@ -19,11 +20,11 @@ int gzng_read_meta(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
         return -1;
     if (got < 10 || buf[0] != 0x1f || buf[1] != 0x8b || buf[2] != 8)
         return -1;
-    *mtime = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) | ((uint32_t)buf[7] << 24);
+    *mtime = load_le32(buf + 4);
     if (buf[3] & 4) { /* FEXTRA */
         if (got < pos + 2)
             return 0;
-        pos += 2 + (buf[pos] | ((size_t)buf[pos + 1] << 8));
+        pos += 2 + load_le16(buf + pos);
     }
     if ((buf[3] & 8) && pos < got) { /* FNAME */
         size_t i = 0;

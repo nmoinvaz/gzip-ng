@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include "util.h"
 #include "zlib-ng.h"
 
 size_t format_header_build(uint8_t *buf, const format_header *hdr) {
@@ -21,10 +22,7 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     buf[1] = 0x8b;
     buf[2] = 8;                                /* deflate */
     buf[3] = (uint8_t)(name_len != 0 ? 8 : 0); /* FNAME */
-    buf[4] = (uint8_t)hdr->mtime;
-    buf[5] = (uint8_t)(hdr->mtime >> 8);
-    buf[6] = (uint8_t)(hdr->mtime >> 16);
-    buf[7] = (uint8_t)(hdr->mtime >> 24);
+    store_le32(buf + 4, hdr->mtime);
     /* Extra flags, 2 for the slowest deflate settings, 4 for the fastest. */
     buf[8] =
         (uint8_t)(hdr->level == 9 ? 2
@@ -57,7 +55,7 @@ size_t format_header_parse(const uint8_t *buf, size_t len) {
         size_t xlen, end;
         if (len < pos + 2)
             return 0;
-        xlen = buf[pos] | ((size_t)buf[pos + 1] << 8);
+        xlen = load_le16(buf + pos);
         pos += 2;
         end = pos + xlen;
         if (len < end)
@@ -87,17 +85,11 @@ size_t format_header_parse(const uint8_t *buf, size_t len) {
 }
 
 void format_trailer_build(uint8_t *buf, uint32_t crc, uint64_t total) {
-    buf[0] = (uint8_t)crc;
-    buf[1] = (uint8_t)(crc >> 8);
-    buf[2] = (uint8_t)(crc >> 16);
-    buf[3] = (uint8_t)(crc >> 24);
-    buf[4] = (uint8_t)total;
-    buf[5] = (uint8_t)(total >> 8);
-    buf[6] = (uint8_t)(total >> 16);
-    buf[7] = (uint8_t)(total >> 24);
+    store_le32(buf, crc);
+    store_le32(buf + 4, (uint32_t)total);
 }
 
 void format_trailer_parse(const uint8_t *buf, uint32_t *crc, uint32_t *total) {
-    *crc = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) | ((uint32_t)buf[3] << 24);
-    *total = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) | ((uint32_t)buf[7] << 24);
+    *crc = load_le32(buf);
+    *total = load_le32(buf + 4);
 }

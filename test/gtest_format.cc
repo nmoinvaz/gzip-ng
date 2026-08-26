@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "format.h"
+#include "util.h"
 
 namespace {
 
@@ -71,6 +72,23 @@ TEST(format, an_extra_field_is_walked_over) {
 TEST(format, other_data_is_rejected) {
     const uint8_t junk[16] = {'n', 'o', 't', ' ', 'g', 'z', 'i', 'p', 0, 0, 0, 0, 0, 0, 0, 0};
     EXPECT_EQ((size_t)-1, format_header_parse(junk, sizeof(junk)));
+}
+
+TEST(format, values_are_stored_little_endian) {
+    /* The order is the format's, not the machine's, so it is spelled out here. */
+    uint8_t buf[4] = {0, 0, 0, 0};
+
+    store_le32(buf, 0x11223344u);
+    EXPECT_EQ(0x44, buf[0]);
+    EXPECT_EQ(0x33, buf[1]);
+    EXPECT_EQ(0x22, buf[2]);
+    EXPECT_EQ(0x11, buf[3]);
+    EXPECT_EQ(0x11223344u, load_le32(buf));
+
+    store_le16(buf, 0xabcdu);
+    EXPECT_EQ(0xcd, buf[0]);
+    EXPECT_EQ(0xab, buf[1]);
+    EXPECT_EQ(0xabcdu, load_le16(buf));
 }
 
 TEST(format, trailer_round_trips) {
