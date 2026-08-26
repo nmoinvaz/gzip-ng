@@ -40,6 +40,14 @@ Compresses files in place, file to file.gz, removing the input unless kept. With
 - -b --blocksize size : compress in independent blocks, K, M, and G suffixes
 - -p --processes n : threads to use, 0 picks the number of CPUs
 - -1 --fast .. -9 --best : compression level, 6 by default
+- -l --list : list compressed file contents, -v adds method, crc, and date
+- -t --test : check integrity without writing
+- -n --no-name / -N --name : stored name and time, saved by default, restored only with -N
+- -r --recursive : descend into directories
+- -v --verbose / -q --quiet : per-file reports, or no warnings
+- -L --license
+- --rsyncable : content-defined block ends, edits stay local for rsync
+- --synchronous : fsync outputs before removing inputs
 
 Exit status is 0, 1 on errors, 2 on warnings, as gzip behaves.
 
