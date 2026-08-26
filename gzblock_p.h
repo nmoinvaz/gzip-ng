@@ -22,20 +22,7 @@
 void gzblk_msgv(char *msg, const char *fmt, va_list ap);
 void gzblk_msg(char *msg, const char *fmt, ...);
 
-/* Growable byte buffer, consumed from the front by moving an offset rather than the bytes. The
-   live data is GZBLK_BUF(m), len bytes at p + off, and compaction happens when space is needed. */
-typedef struct {
-    uint8_t *p;
-    size_t len, cap;
-    size_t off;
-} membuf;
-
-#define GZBLK_BUF(m) ((m)->p + (m)->off)
-
-int gzblk_buf_reserve(membuf *m, size_t need);
-int gzblk_buf_append(membuf *m, const uint8_t *data, size_t n);
-void gzblk_buf_drop(membuf *m, size_t n);
-int gzblk_buf_fill(membuf *m, gzblock_read_fn read, void *ctx, size_t want, int *eof);
+#include "buf.h"
 
 /* Returns the header length, 0 if more bytes are needed, (size_t)-1 if this is not a gzip
    header. */
