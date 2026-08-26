@@ -6,7 +6,7 @@
 
 static void run_segment(zng_stream *z, slot_t *slot, uint32_t block_size) {
     block_dec d;
-    size_t off = 0, used;
+    size_t offset = 0, used;
     int status;
 
     /* Strict blocks must fill exactly block_size, so a reused larger buffer is capped for them. */
@@ -14,8 +14,8 @@ static void run_segment(zng_stream *z, slot_t *slot, uint32_t block_size) {
                    slot->pair || slot->last ? (uint32_t)slot->out_cap : block_size);
     d.accept_partial = slot->pair;
     for (;;) {
-        status = blockdec_feed(&d, slot->in + off, slot->in_len - off, &used);
-        off += used;
+        status = blockdec_feed(&d, slot->in + offset, slot->in_len - offset, &used);
+        offset += used;
         /* Pair-terminated and final segments may hold several coalesced chunks, so their output
            grows on demand. Their validity never rested on the size, growing stays safe. */
         if (status == SEG_OVERFLOW && (slot->pair || slot->last) && slot->out_cap < GZBLOCK_MAX_BLOCK) {
@@ -38,7 +38,7 @@ static void run_segment(zng_stream *z, slot_t *slot, uint32_t block_size) {
         break;
     }
     slot->status = status;
-    slot->in_used = off;
+    slot->in_used = offset;
     slot->out_len = (size_t)z->total_out;
     slot->crc = (uint32_t)zng_crc32_z(0, slot->out, slot->out_len);
 }
