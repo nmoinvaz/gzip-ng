@@ -158,3 +158,18 @@ endif()
 if(NOT MTIME_FIELD STREQUAL "00000000" OR mname_at EQUAL -1)
     message(FATAL_ERROR "-m should zero the time and keep the name: ${MHEAD}")
 endif()
+
+# Threads ask for blocks, and what comes out reads back with no flags at all.
+file(WRITE ${WORKDIR}/threads.txt "${DATA}")
+execute_process(COMMAND ${EXE} -p 4 -c ${WORKDIR}/threads.txt OUTPUT_FILE ${WORKDIR}/threads.gz RESULT_VARIABLE rc)
+execute_process(COMMAND ${EXE} -d -c ${WORKDIR}/threads.gz OUTPUT_FILE ${WORKDIR}/threads.out RESULT_VARIABLE rc2)
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/threads.txt ${WORKDIR}/threads.out
+                RESULT_VARIABLE rc3)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
+    message(FATAL_ERROR "-p did not roundtrip")
+endif()
+file(READ ${WORKDIR}/threads.gz TBYTES HEX)
+string(FIND "${TBYTES}" "0000ffff000000ffff" tpair_at)
+if(tpair_at EQUAL -1)
+    message(FATAL_ERROR "-p produced no block boundaries")
+endif()

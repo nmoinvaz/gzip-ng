@@ -8,7 +8,7 @@ The block engine is ported and the CLI covers the minigzip switch surface, the g
 
 - Drop-in for GNU and BSD gzip, flag for flag, distro-safe defaults.
 - Decompression parallel by default, output byte-identical at any thread count.
-- Compression serial by default, parallel independent blocks opt-in.
+- Compression serial by default, parallel independent blocks whenever threads or a block size are asked for.
 - zlib license.
 
 ## Build
@@ -64,15 +64,15 @@ Compresses files in place, file to file.gz, removing the input unless kept. With
 | `-q` `--quiet` | Suppress warnings |
 | `-1` .. `-9` | Compression level, 6 by default |
 | `--fast` `--best` | Level 1 and level 9 |
-| `-b` `--blocksize` *size* | Compress in independent blocks, K, M, and G suffixes |
-| `-p` `--processes` *n* | Threads to use, 0 picks the number of CPUs |
+| `-b` `--blocksize` *size* | Average bytes per block, K, M, and G suffixes |
+| `-p` `--processes` *n* | Threads to use, which asks for blocks, 0 picks the number of CPUs |
 | `-H` `--huffman` | Huffman only strategy |
 | `-U` `--rle` | Run length strategy |
 | `--filtered` | Filtered strategy |
 | `--fixed` | Fixed codes strategy |
 | `-T` | Store without compressing |
 | `-A` | Text mode, accepted for compatibility |
-| `--rsyncable` | Content-defined block ends, so edits stay local for rsync |
+| `--rsyncable` | Make a plain stream rsync friendly, block output always is |
 | `--synchronous` | Write outputs to permanent storage before removing inputs |
 | `-h` `--help` | Show the usage summary |
 | `-V` `--version` | Show the version |

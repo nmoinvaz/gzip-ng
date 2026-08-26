@@ -32,6 +32,7 @@ typedef struct {
     int text_mode;       /* -A, no effect where text and binary io agree */
     uint32_t block_size; /* -b, 0 writes one plain deflate stream */
     int threads;         /* -p, 0 picks the number of CPUs */
+    int threads_given;   /* -p was asked for, so threads of 0 means every CPU and not the default */
 } gzng_options;
 
 void gzng_options_init(gzng_options *opt);

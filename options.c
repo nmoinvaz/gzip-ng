@@ -105,34 +105,34 @@ typedef struct {
 } option_desc;
 
 static const option_desc option_table[] = {
-    {     OPT_STDOUT, 'c',      "stdout",  "to-stdout",   NULL,              "write to standard output, keep the files"},
-    { OPT_DECOMPRESS, 'd',  "decompress", "uncompress",   NULL,                                            "decompress"},
-    {      OPT_FORCE, 'f',       "force",         NULL,   NULL,             "overwrite outputs, compress to a terminal"},
-    {       OPT_KEEP, 'k',        "keep",         NULL,   NULL,                                      "keep input files"},
-    {  OPT_RECURSIVE, 'r',   "recursive",         NULL,   NULL,                              "descend into directories"},
-    {    OPT_VERBOSE, 'v',     "verbose",         NULL,   NULL,                            "report each file processed"},
-    {      OPT_QUIET, 'q',       "quiet",         NULL,   NULL,                                     "suppress warnings"},
-    {    OPT_NO_NAME, 'n',     "no-name",         NULL,   NULL,                  "do not save or restore name and time"},
-    {       OPT_NAME, 'N',        "name",         NULL,   NULL,                        "save and restore name and time"},
-    {    OPT_NO_TIME, 'm',     "no-time",         NULL,   NULL,                       "do not save or restore the time"},
-    {       OPT_TIME, 'M',        "time",         NULL,   NULL,                             "save and restore the time"},
-    {       OPT_LIST, 'l',        "list",         NULL,   NULL,                         "list compressed file contents"},
-    {       OPT_TEST, 't',        "test",         NULL,   NULL,                       "check integrity without writing"},
-    {  OPT_RSYNCABLE,   0,   "rsyncable",         NULL,   NULL,                        "make the output rsync friendly"},
-    {OPT_SYNCHRONOUS,   0, "synchronous",         NULL,   NULL, "write the output to storage before removing the input"},
-    {    OPT_HUFFMAN, 'H',     "huffman",         NULL,   NULL,                                 "huffman only strategy"},
-    {        OPT_RLE, 'U',         "rle",         NULL,   NULL,                                   "run length strategy"},
-    {   OPT_FILTERED,   0,    "filtered",         NULL,   NULL,                                     "filtered strategy"},
-    {      OPT_FIXED,   0,       "fixed",         NULL,   NULL,                                  "fixed codes strategy"},
-    {OPT_TRANSPARENT, 'T',          NULL,         NULL,   NULL,                             "store without compressing"},
-    {      OPT_ASCII, 'A',          NULL,         NULL,   NULL,                 "text mode, accepted for compatibility"},
-    {  OPT_BLOCKSIZE, 'b',   "blocksize",         NULL, "size",  "compress in independent blocks, K, M, and G suffixes"},
-    {  OPT_PROCESSES, 'p',   "processes",         NULL,    "n",            "threads to use, 0 picks the number of CPUs"},
-    {       OPT_FAST,   0,        "fast",         NULL,   NULL,                              "compress faster, level 1"},
-    {       OPT_BEST,   0,        "best",         NULL,   NULL,                              "compress better, level 9"},
-    {       OPT_HELP, 'h',        "help",         NULL,   NULL,                                        "show this help"},
-    {    OPT_VERSION, 'V',     "version",         NULL,   NULL,                                      "show the version"},
-    {    OPT_LICENSE, 'L',     "license",         NULL,   NULL,                                      "show the license"},
+    {     OPT_STDOUT, 'c',      "stdout",  "to-stdout",   NULL,                          "write to standard output, keep the files"},
+    { OPT_DECOMPRESS, 'd',  "decompress", "uncompress",   NULL,                                                        "decompress"},
+    {      OPT_FORCE, 'f',       "force",         NULL,   NULL,                         "overwrite outputs, compress to a terminal"},
+    {       OPT_KEEP, 'k',        "keep",         NULL,   NULL,                                                  "keep input files"},
+    {  OPT_RECURSIVE, 'r',   "recursive",         NULL,   NULL,                                          "descend into directories"},
+    {    OPT_VERBOSE, 'v',     "verbose",         NULL,   NULL,                                        "report each file processed"},
+    {      OPT_QUIET, 'q',       "quiet",         NULL,   NULL,                                                 "suppress warnings"},
+    {    OPT_NO_NAME, 'n',     "no-name",         NULL,   NULL,                              "do not save or restore name and time"},
+    {       OPT_NAME, 'N',        "name",         NULL,   NULL,                                    "save and restore name and time"},
+    {    OPT_NO_TIME, 'm',     "no-time",         NULL,   NULL,                                   "do not save or restore the time"},
+    {       OPT_TIME, 'M',        "time",         NULL,   NULL,                                         "save and restore the time"},
+    {       OPT_LIST, 'l',        "list",         NULL,   NULL,                                     "list compressed file contents"},
+    {       OPT_TEST, 't',        "test",         NULL,   NULL,                                   "check integrity without writing"},
+    {  OPT_RSYNCABLE,   0,   "rsyncable",         NULL,   NULL,             "make a plain stream rsync friendly, blocks always are"},
+    {OPT_SYNCHRONOUS,   0, "synchronous",         NULL,   NULL,             "write the output to storage before removing the input"},
+    {    OPT_HUFFMAN, 'H',     "huffman",         NULL,   NULL,                                             "huffman only strategy"},
+    {        OPT_RLE, 'U',         "rle",         NULL,   NULL,                                               "run length strategy"},
+    {   OPT_FILTERED,   0,    "filtered",         NULL,   NULL,                                                 "filtered strategy"},
+    {      OPT_FIXED,   0,       "fixed",         NULL,   NULL,                                              "fixed codes strategy"},
+    {OPT_TRANSPARENT, 'T',          NULL,         NULL,   NULL,                                         "store without compressing"},
+    {      OPT_ASCII, 'A',          NULL,         NULL,   NULL,                             "text mode, accepted for compatibility"},
+    {  OPT_BLOCKSIZE, 'b',   "blocksize",         NULL, "size",                     "average bytes per block, K, M, and G suffixes"},
+    {  OPT_PROCESSES, 'p',   "processes",         NULL,    "n", "threads to use, which asks for blocks, 0 picks the number of CPUs"},
+    {       OPT_FAST,   0,        "fast",         NULL,   NULL,                                          "compress faster, level 1"},
+    {       OPT_BEST,   0,        "best",         NULL,   NULL,                                          "compress better, level 9"},
+    {       OPT_HELP, 'h',        "help",         NULL,   NULL,                                                    "show this help"},
+    {    OPT_VERSION, 'V',     "version",         NULL,   NULL,                                                  "show the version"},
+    {    OPT_LICENSE, 'L',     "license",         NULL,   NULL,                                                  "show the license"},
 };
 
 #define OPTION_COUNT (sizeof(option_table) / sizeof(option_table[0]))
@@ -297,6 +297,7 @@ static int apply(gzng_options *opt, const option_desc *desc, const char *value, 
         if (value == NULL || end == value || *end != 0 || n < 0 || n > 1024)
             return bad(prog, "bad thread count", value ? value : "(missing)");
         opt->threads = (int)n;
+        opt->threads_given = 1;
         break;
     }
     case OPT_HELP:

@@ -10,6 +10,9 @@
 
 #include "options.h"
 
+/* What a block holds on average when nothing says otherwise. */
+#define GZNG_DEFAULT_BLOCK (128u << 10)
+
 #ifdef __cplusplus
 extern "C" {
 #endif

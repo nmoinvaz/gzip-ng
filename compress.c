@@ -39,8 +39,9 @@ static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt, u
         goto done;
     if (mtime != 0 || name != NULL)
         gzblock_writer_meta(w, mtime, name);
-    if (opt->rsyncable)
-        gzblock_writer_rsyncable(w, 1);
+    /* Blocks always end on the content rather than on a count. It costs a fiftieth of a percent
+       of the output and makes an edit re-align, so there is no reason to ask for it. */
+    gzblock_writer_rsyncable(w, 1);
     for (;;) {
         size_t n = fread(buf, 1, CHUNK, in);
         if (n == 0)
@@ -111,8 +112,14 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
                          uint64_t *in_len, uint64_t *out_len) {
     zng_gz_header head;
 
-    if (opt->block_size != 0)
-        return block_compress_stream(in, out, opt, mtime, name, in_len, out_len);
+    /* Threads have nothing to do without blocks to hand them, so asking for them asks for
+       blocks. Compressing without either stays a single deflate stream. */
+    if (opt->block_size != 0 || (opt->threads_given && opt->threads != 1)) {
+        gzng_options blocked = *opt;
+        if (blocked.block_size == 0)
+            blocked.block_size = GZNG_DEFAULT_BLOCK;
+        return block_compress_stream(in, out, &blocked, mtime, name, in_len, out_len);
+    }
 
     zng_stream z;
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
