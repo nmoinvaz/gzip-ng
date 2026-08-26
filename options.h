@@ -24,6 +24,7 @@ typedef struct {
     int list;            /* -l, list instead of decompressing */
     int test_mode;       /* -t, check integrity without writing */
     int rsyncable;       /* --rsyncable, rsync friendly output */
+    int synchronous;     /* --synchronous, fsync outputs before removing inputs */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */

@@ -122,6 +122,14 @@ TEST(options, help_short) {
     EXPECT_EQ(1, parse(&opt, a, &nfiles));
 }
 
+TEST(options, synchronous_flag) {
+    gzng_options opt;
+    Args a({"--synchronous"});
+    int nfiles = 0;
+    EXPECT_EQ(0, parse(&opt, a, &nfiles));
+    EXPECT_EQ(1, opt.synchronous);
+}
+
 TEST(options, rsyncable_flag) {
     gzng_options opt;
     Args a({"--rsyncable"});

@@ -5,6 +5,7 @@
 #include "process.h"
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -272,6 +273,9 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     }
     rc = run_stream(in, out, opt, store_mtime, store_name, &in_len, &out_len);
     fclose(in);
+    /* The output and its directory reach permanent storage before the input goes away. */
+    if (rc == 0 && opt->synchronous && (fflush(out) != 0 || fsync(fileno(out)) != 0))
+        rc = -1;
     if (fclose(out) != 0 || rc != 0) {
         fail(rc != 0 ? inpath : outpath);
         unlink(outpath);
@@ -279,6 +283,20 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     }
     if (have_ist)
         copy_attrs(outpath, &ist, opt->decompress ? hdr_mtime : 0);
+    if (opt->synchronous) {
+        const char *slash = strrchr(outpath, '/');
+        char dirpath[MAX_PATH_LEN];
+        int dfd;
+        if (slash != NULL)
+            snprintf(dirpath, sizeof(dirpath), "%.*s", (int)(slash - outpath), outpath);
+        else
+            snprintf(dirpath, sizeof(dirpath), ".");
+        dfd = open(dirpath, O_RDONLY);
+        if (dfd >= 0) {
+            fsync(dfd);
+            close(dfd);
+        }
+    }
     if (!opt->keep)
         unlink(inpath);
     report(opt, inpath, outpath, in_len, out_len);

@@ -122,3 +122,13 @@ execute_process(COMMAND ${EXE} -t ${WORKDIR}/junk.gz RESULT_VARIABLE rc2 ERROR_Q
 if(NOT rc EQUAL 0 OR rc2 EQUAL 0 OR NOT EXISTS ${WORKDIR}/listed.txt.gz)
     message(FATAL_ERROR "-t verdicts were wrong")
 endif()
+
+# --synchronous roundtrips with the data intact.
+file(WRITE ${WORKDIR}/sync.txt "${DATA}")
+execute_process(COMMAND ${EXE} --synchronous ${WORKDIR}/sync.txt RESULT_VARIABLE rc)
+execute_process(COMMAND ${EXE} --synchronous -d ${WORKDIR}/sync.txt.gz RESULT_VARIABLE rc2)
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/sync.txt ${WORKDIR}/data.orig
+                RESULT_VARIABLE rc3)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
+    message(FATAL_ERROR "--synchronous roundtrip failed")
+endif()
