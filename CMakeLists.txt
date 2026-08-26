@@ -28,6 +28,7 @@ find_package(Threads REQUIRED)
 
 add_library(gzng STATIC
     src/gzblock.c
+    src/gzblockwrite.c
     src/gzblock.h
     src/gzblock_p.h
     src/gzng.c

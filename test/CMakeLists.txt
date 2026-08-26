@@ -25,6 +25,8 @@ if(NOT TARGET GTest::GTest)
     add_library(GTest::Main ALIAS gtest_main)
 endif()
 
-add_executable(gtest_gzng gtest_gzng.cc)
+add_executable(gtest_gzng
+    gtest_block.cc
+    gtest_gzng.cc)
 target_link_libraries(gtest_gzng PRIVATE gzng GTest::Main)
 add_test(NAME gtest_gzng COMMAND gtest_gzng)
