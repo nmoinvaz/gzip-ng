@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include "format.h"
 #include "gzblock.h"
 #include "zlib-ng.h"
 
@@ -56,10 +57,10 @@ std::vector<uint8_t> whole_inflate(const std::vector<uint8_t> &packed, size_t ex
 TEST(block_writer, header_records_block_size) {
     auto data = sample_data(200000);
     auto packed = block_compress(data, 64 * 1024, 1);
-    size_t hdr_len = 0;
-    uint32_t block_size = 0;
-    ASSERT_EQ(1, gzblock_parse_header(packed.data(), packed.size(), &hdr_len, &block_size));
+    uint32_t block_size = 0, zb_flags = 0;
+    size_t hdr_len = format_header_parse(packed.data(), packed.size(), &block_size, &zb_flags);
     EXPECT_EQ(64u * 1024, block_size);
+    EXPECT_EQ(static_cast<uint32_t>(ZB_PAIRED), zb_flags);
     EXPECT_GT(hdr_len, 10u);
 }
 

@@ -112,17 +112,6 @@ size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size,
     return pos;
 }
 
-int gzblock_parse_header(const uint8_t *buf, size_t len, size_t *hdr_len, uint32_t *block_size) {
-    uint32_t zb_flags;
-    size_t n = format_header_parse(buf, len, block_size, &zb_flags);
-    if (n == (size_t)-1)
-        return -1;
-    if (n == 0)
-        return 0;
-    *hdr_len = n;
-    return 1;
-}
-
 void format_trailer_build(uint8_t *buf, uint32_t crc, uint64_t total) {
     buf[0] = (uint8_t)crc;
     buf[1] = (uint8_t)(crc >> 8);
