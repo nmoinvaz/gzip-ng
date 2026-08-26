@@ -8,6 +8,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef size_t (*buf_read_fn)(void *ctx, uint8_t *buf, size_t len);
 
 /* The live data is buf_data(m), len bytes at p + off, dropping data moves the offset and the
@@ -24,5 +28,9 @@ int buf_reserve(membuf *m, size_t need);
 int buf_append(membuf *m, const uint8_t *data, size_t n);
 void buf_drop(membuf *m, size_t n);
 int buf_fill(membuf *m, buf_read_fn read, void *ctx, size_t want, int *eof);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GZNG_BUF_H_ */

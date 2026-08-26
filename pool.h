@@ -10,6 +10,10 @@
 
 #include "zlib-ng.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef GZBLOCK_THREADS
 #  include <pthread.h>
 #endif
@@ -77,5 +81,9 @@ void pool_stop(pool_t *p);
 void pool_submit(pool_t *p, slot_t *slot);
 void pool_wait(pool_t *p, slot_t *slot);
 void pool_release(pool_t *p, slot_t *slot);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GZNG_POOL_H_ */
