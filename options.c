@@ -23,7 +23,8 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -c --stdout      write to standard output, keep the files\n");
     fprintf(out, "  -d --decompress  decompress\n");
     fprintf(out, "  -k --keep        keep input files\n");
-    fprintf(out, "  -f : filtered strategy, -h : huffman only, -R : run length, -F : fixed codes\n");
+    fprintf(out, "  -H --huffman     huffman only strategy, -U --rle run length\n");
+    fprintf(out, "     --filtered --fixed   the remaining deflate strategies\n");
     fprintf(out, "  -T : store without compressing\n");
     fprintf(out, "  -A : text mode, accepted for compatibility\n");
     fprintf(out, "  -b --blocksize size   compress in independent blocks, K, M, and G suffixes\n");
@@ -99,6 +100,14 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg,
         opt->decompress = 1;
     } else if (strcmp(arg, "--keep") == 0) {
         opt->keep = 1;
+    } else if (strcmp(arg, "--filtered") == 0) {
+        opt->strategy = Z_FILTERED;
+    } else if (strcmp(arg, "--huffman") == 0) {
+        opt->strategy = Z_HUFFMAN_ONLY;
+    } else if (strcmp(arg, "--rle") == 0) {
+        opt->strategy = Z_RLE;
+    } else if (strcmp(arg, "--fixed") == 0) {
+        opt->strategy = Z_FIXED;
     } else if (strcmp(arg, "--fast") == 0) {
         opt->level = 1;
     } else if (strcmp(arg, "--best") == 0) {
@@ -149,10 +158,8 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
             case 'k': opt->keep = 1; break;
             case 'T': opt->transparent = 1; break;
             case 'A': opt->text_mode = 1; break;
-            case 'f': opt->strategy = Z_FILTERED; break;
-            case 'h': opt->strategy = Z_HUFFMAN_ONLY; break;
-            case 'R': opt->strategy = Z_RLE; break;
-            case 'F': opt->strategy = Z_FIXED; break;
+            case 'H': opt->strategy = Z_HUFFMAN_ONLY; break;
+            case 'U': opt->strategy = Z_RLE; break;
             case 'b':
                 if (set_blocksize(opt, prog, shortval(arg + j + 1, argc, argv, &i)) != 0)
                     return -1;

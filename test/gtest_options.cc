@@ -115,7 +115,7 @@ TEST(options, unknown_option_fails) {
 
 TEST(options, strategies) {
     struct { const char *arg; int strategy; } cases[] = {
-        {"-f", Z_FILTERED}, {"-h", Z_HUFFMAN_ONLY}, {"-R", Z_RLE}, {"-F", Z_FIXED}};
+        {"--filtered", Z_FILTERED}, {"-H", Z_HUFFMAN_ONLY}, {"-U", Z_RLE}, {"--fixed", Z_FIXED}};
     for (auto &c : cases) {
         gzng_options opt;
         Args a({c.arg});
