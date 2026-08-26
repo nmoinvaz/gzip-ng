@@ -17,6 +17,7 @@ void gzng_options_init(gzng_options *opt) {
     opt->level = 6;
     opt->strategy = Z_DEFAULT_STRATEGY;
     opt->name_mode = -1;
+    opt->time_mode = -1;
 }
 
 uint32_t gzng_parse_size(const char *arg) {
@@ -51,7 +52,7 @@ void gzng_options_personas(gzng_options *opt, const char *argv0) {
 
 enum {
     OPT_STDOUT = 1, OPT_DECOMPRESS, OPT_FORCE, OPT_KEEP, OPT_RECURSIVE, OPT_VERBOSE, OPT_QUIET,
-    OPT_NO_NAME, OPT_NAME, OPT_LIST, OPT_TEST, OPT_RSYNCABLE, OPT_SYNCHRONOUS, OPT_HUFFMAN,
+    OPT_NO_NAME, OPT_NAME, OPT_NO_TIME, OPT_TIME, OPT_LIST, OPT_TEST, OPT_RSYNCABLE, OPT_SYNCHRONOUS, OPT_HUFFMAN,
     OPT_RLE, OPT_FILTERED, OPT_FIXED, OPT_TRANSPARENT, OPT_ASCII, OPT_BLOCKSIZE, OPT_PROCESSES,
     OPT_FAST, OPT_BEST, OPT_HELP, OPT_VERSION, OPT_LICENSE
 };
@@ -77,6 +78,8 @@ static const option_desc option_table[] = {
     { OPT_QUIET,       'q', "quiet",       NULL,         NULL,   "suppress warnings" },
     { OPT_NO_NAME,     'n', "no-name",     NULL,         NULL,   "do not save or restore name and time" },
     { OPT_NAME,        'N', "name",        NULL,         NULL,   "save and restore name and time" },
+    { OPT_NO_TIME,     'm', "no-time",     NULL,         NULL,   "do not save or restore the time" },
+    { OPT_TIME,        'M', "time",        NULL,         NULL,   "save and restore the time" },
     { OPT_LIST,        'l', "list",        NULL,         NULL,   "list compressed file contents" },
     { OPT_TEST,        't', "test",        NULL,         NULL,   "check integrity without writing" },
     { OPT_RSYNCABLE,   0,   "rsyncable",   NULL,         NULL,   "make the output rsync friendly" },
@@ -181,8 +184,10 @@ static int apply(gzng_options *opt, const option_desc *desc, const char *value, 
     case OPT_RECURSIVE:   opt->recursive = 1; break;
     case OPT_VERBOSE:     opt->verbose = 1; break;
     case OPT_QUIET:       opt->quiet = 1; opt->verbose = 0; break;
-    case OPT_NO_NAME:     opt->name_mode = 0; break;
-    case OPT_NAME:        opt->name_mode = 1; break;
+    case OPT_NO_NAME:     opt->name_mode = 0; opt->time_mode = 0; break;
+    case OPT_NAME:        opt->name_mode = 1; opt->time_mode = 1; break;
+    case OPT_NO_TIME:     opt->time_mode = 0; break;
+    case OPT_TIME:        opt->time_mode = 1; break;
     case OPT_LIST:        opt->list = 1; break;
     case OPT_TEST:        opt->test_mode = 1; opt->decompress = 1; break;
     case OPT_RSYNCABLE:   opt->rsyncable = 1; break;

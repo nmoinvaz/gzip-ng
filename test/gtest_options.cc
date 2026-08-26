@@ -166,6 +166,22 @@ TEST(options, name_modes) {
     EXPECT_EQ(1, opt.name_mode);
 }
 
+TEST(options, time_modes) {
+    gzng_options opt;
+    Args a({"-m"});
+    int nfiles = 0;
+    EXPECT_EQ(0, parse(&opt, a, &nfiles));
+    EXPECT_EQ(0, opt.time_mode);
+    EXPECT_EQ(-1, opt.name_mode) << "-m leaves the stored name alone";
+    Args b({"--time"});
+    EXPECT_EQ(0, parse(&opt, b, &nfiles));
+    EXPECT_EQ(1, opt.time_mode);
+    Args c({"-n"});
+    EXPECT_EQ(0, parse(&opt, c, &nfiles));
+    EXPECT_EQ(0, opt.name_mode);
+    EXPECT_EQ(0, opt.time_mode) << "-n drops the time with the name";
+}
+
 TEST(options, quiet_flag) {
     gzng_options opt;
     Args a({"-v", "-q"});

@@ -21,6 +21,7 @@ typedef struct {
     int verbose;         /* -v, report each file processed */
     int quiet;           /* -q, suppress warnings */
     int name_mode;       /* -1 default, 0 with -n, 1 with -N */
+    int time_mode;       /* -1 default, 0 with -n or -m, 1 with -N or -M */
     int list;            /* -l, list instead of decompressing */
     int test_mode;       /* -t, check integrity without writing */
     int rsyncable;       /* --rsyncable, rsync friendly output */

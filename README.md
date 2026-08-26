@@ -58,6 +58,8 @@ Compresses files in place, file to file.gz, removing the input unless kept. With
 | `-l` `--list` | List compressed file contents, `-v` adds method, crc, and date |
 | `-n` `--no-name` | Do not save or restore the name and time |
 | `-N` `--name` | Save and restore the name and time |
+| `-m` `--no-time` | Do not save or restore the time, keeping the name |
+| `-M` `--time` | Save and restore the time |
 | `-v` `--verbose` | Report each file processed |
 | `-q` `--quiet` | Suppress warnings |
 | `-1` .. `-9` | Compression level, 6 by default |

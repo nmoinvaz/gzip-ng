@@ -227,10 +227,13 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         return 1;
     }
     have_ist = fstat(fileno(in), &ist) == 0;
-    if (!opt->decompress && opt->name_mode != 0 && have_ist) {
-        const char *base = strrchr(in_path, '/');
-        store_name = base ? base + 1 : in_path;
-        store_mtime = (uint32_t)ist.st_mtime;
+    if (!opt->decompress && have_ist) {
+        if (opt->name_mode != 0) {
+            const char *base = strrchr(in_path, '/');
+            store_name = base ? base + 1 : in_path;
+        }
+        if (opt->time_mode != 0)
+            store_mtime = (uint32_t)ist.st_mtime;
     }
     if (opt->decompress && !opt->stdout_mode) {
         char stored[GZBLOCK_NAME_MAX];
@@ -242,7 +245,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         }
         if (opt->name_mode == 1 && stored[0] != 0)
             stored_out_path(out_path, sizeof(out_path), in_path, stored);
-        if (opt->name_mode != 1)
+        if (opt->time_mode != 1)
             hdr_mtime = 0;
     }
     if (opt->stdout_mode) {
