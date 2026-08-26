@@ -312,6 +312,9 @@ static int r_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size
     r->block_size = block_size;
     r->max_seg = (size_t)block_size + (block_size >> 8) + 1024;   /* stored blocks plus the markers */
     if (!r->pool_up) {
+        r->pool.codec.init = gzblock_codec_init;
+        r->pool.codec.end = gzblock_codec_end;
+        r->pool.codec.run = gzblock_codec_run;
         r->pool.mode = POOL_INFLATE;
         r->pool.block_size = block_size;
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */

@@ -35,7 +35,18 @@ typedef struct {
     int state;
 } slot_t;
 
+struct pool_s;
+
+/* The codec the pool drives, handed in before pool_start(), one persistent stream per worker
+   running one slot at a time. */
 typedef struct {
+    int (*init)(struct pool_s *p, zng_stream *z);
+    void (*end)(struct pool_s *p, zng_stream *z);
+    void (*run)(struct pool_s *p, zng_stream *z, slot_t *slot);
+} pool_codec;
+
+typedef struct pool_s {
+    pool_codec codec;
     int mode;            /* POOL_INFLATE or POOL_DEFLATE */
     uint32_t block_size;
     int level, strategy; /* deflate settings */
@@ -55,12 +66,6 @@ typedef struct {
     int started;
 #endif
 } pool_t;
-
-/* Codec hooks the pool drives, implemented by the codec, one persistent stream per worker
-   running one slot at a time. */
-int pool_codec_init(pool_t *p, zng_stream *z);
-void pool_codec_end(pool_t *p, zng_stream *z);
-void pool_codec_run(pool_t *p, zng_stream *z, slot_t *slot);
 
 int pool_default_threads(void);
 

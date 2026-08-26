@@ -347,21 +347,21 @@ static void run_block(zng_stream *z, slot_t *slot, size_t out_cap) {
     slot->crc = (uint32_t)zng_crc32_z(0, slot->in, slot->in_len);
 }
 
-int pool_codec_init(pool_t *p, zng_stream *z) {
+int gzblock_codec_init(pool_t *p, zng_stream *z) {
     memset(z, 0, sizeof(*z));
     if (p->mode == POOL_DEFLATE)
         return zng_deflateInit2(z, p->level, Z_DEFLATED, -MAX_WBITS, 8, p->strategy);
     return zng_inflateInit2(z, -MAX_WBITS);
 }
 
-void pool_codec_end(pool_t *p, zng_stream *z) {
+void gzblock_codec_end(pool_t *p, zng_stream *z) {
     if (p->mode == POOL_DEFLATE)
         zng_deflateEnd(z);
     else
         zng_inflateEnd(z);
 }
 
-void pool_codec_run(pool_t *p, zng_stream *z, slot_t *slot) {
+void gzblock_codec_run(pool_t *p, zng_stream *z, slot_t *slot) {
     if (p->mode == POOL_DEFLATE)
         run_block(z, slot, p->out_cap);
     else

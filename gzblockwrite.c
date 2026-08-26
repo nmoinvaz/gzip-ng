@@ -248,7 +248,10 @@ gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int 
     out_cap = zng_deflateBound(&bound, block_size) + 32;
     zng_deflateEnd(&bound);
 
-    w->pool.mode = POOL_DEFLATE;
+
+    w->pool.codec.init = gzblock_codec_init;
+    w->pool.codec.end = gzblock_codec_end;
+    w->pool.codec.run = gzblock_codec_run;    w->pool.mode = POOL_DEFLATE;
     w->pool.block_size = block_size;
     w->pool.level = level;
     w->pool.strategy = strategy;

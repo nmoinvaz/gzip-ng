@@ -72,16 +72,16 @@ void pool_free(pool_t *p) {
 /* Without worker threads the slots are worked on demand by the calling thread. */
 static int pool_start_inline(pool_t *p) {
     p->inline_run = 1;
-    return pool_codec_init(p, &p->z) == Z_OK ? 0 : -1;
+    return p->codec.init(p, &p->z) == Z_OK ? 0 : -1;
 }
 
 static void pool_stop_inline(pool_t *p) {
-    pool_codec_end(p, &p->z);
+    p->codec.end(p, &p->z);
 }
 
 static void slot_wait_inline(pool_t *p, slot_t *slot) {
     if (slot->state == SLOT_FILLED)
-        pool_codec_run(p, &p->z, slot);
+        p->codec.run(p, &p->z, slot);
     slot->state = SLOT_DONE;
 }
 
@@ -91,7 +91,7 @@ static void *worker(void *arg) {
     pool_t *p = (pool_t *)arg;
     zng_stream z;
 
-    if (pool_codec_init(p, &z) != Z_OK)
+    if (p->codec.init(p, &z) != Z_OK)
         return NULL;
     for (;;) {
         slot_t *slot;
@@ -107,14 +107,14 @@ static void *worker(void *arg) {
         slot->state = SLOT_CLAIMED;
         pthread_mutex_unlock(&p->mu);
 
-        pool_codec_run(p, &z, slot);
+        p->codec.run(p, &z, slot);
 
         pthread_mutex_lock(&p->mu);
         slot->state = SLOT_DONE;
         pthread_cond_broadcast(&p->done_cv);
         pthread_mutex_unlock(&p->mu);
     }
-    pool_codec_end(p, &z);
+    p->codec.end(p, &z);
     return NULL;
 }
 

@@ -57,4 +57,9 @@ const char *gzblk_seg_name(int status);
 
 #include "pool.h"
 
+/* The deflate and inflate codec behind the pool, gzblock_codec() hands it over. */
+int gzblock_codec_init(pool_t *p, zng_stream *z);
+void gzblock_codec_end(pool_t *p, zng_stream *z);
+void gzblock_codec_run(pool_t *p, zng_stream *z, slot_t *slot);
+
 #endif /* GZBLOCK_P_H_ */
