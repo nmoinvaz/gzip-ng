@@ -92,7 +92,7 @@ static int deflate_span(zng_stream *z, FILE *out, uint8_t *obuf, const uint8_t *
 
 /* How much of buf to feed next. Without --rsyncable that is all of it. With it the span ends
    at the next rolling hash hit, where *sync asks for a flush. */
-static size_t next_span(int rsyncable, uint32_t *hash, const uint8_t *buf, size_t len, int *sync) {
+static size_t next_span(int rsyncable, uint32_t *hash, uint32_t mask, const uint8_t *buf, size_t len, int *sync) {
     size_t k;
 
     *sync = 0;
@@ -100,7 +100,7 @@ static size_t next_span(int rsyncable, uint32_t *hash, const uint8_t *buf, size_
         return len;
     for (k = 0; k < len; k++) {
         ROLLING_ADD(*hash, buf[k]);
-        if (ROLLING_HIT(*hash, rolling_mask(RSYNC_SPAN))) {
+        if (ROLLING_HIT(*hash, mask)) {
             *sync = 1;
             return k + 1;
         }
@@ -124,7 +124,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     zng_stream z;
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
     uint8_t *ibuf = bufs, *obuf = bufs ? bufs + CHUNK : NULL;
-    uint32_t hash = 0;
+    uint32_t hash = 0, mask = rolling_mask(RSYNC_SPAN);
     int rc = -1;
 
     if (bufs == NULL)
@@ -153,7 +153,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
         /* An empty read still runs once, which is what emits Z_FINISH. */
         do {
             int sync;
-            size_t span = next_span(opt->rsyncable, &hash, ibuf + pos, have - pos, &sync);
+            size_t span = next_span(opt->rsyncable, &hash, mask, ibuf + pos, have - pos, &sync);
             int flush = Z_NO_FLUSH;
 
             pos += span;
