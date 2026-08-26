@@ -55,24 +55,6 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     return n;
 }
 
-void format_trailer_build(uint8_t *buf, uint32_t crc, uint64_t total) {
-    buf[0] = (uint8_t)crc;
-    buf[1] = (uint8_t)(crc >> 8);
-    buf[2] = (uint8_t)(crc >> 16);
-    buf[3] = (uint8_t)(crc >> 24);
-    buf[4] = (uint8_t)total;
-    buf[5] = (uint8_t)(total >> 8);
-    buf[6] = (uint8_t)(total >> 16);
-    buf[7] = (uint8_t)(total >> 24);
-}
-
-void format_trailer_parse(const uint8_t *buf, uint32_t *crc, uint32_t *total) {
-    *crc = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) |
-           ((uint32_t)buf[3] << 24);
-    *total = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) |
-             ((uint32_t)buf[7] << 24);
-}
-
 size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size, uint32_t *zb_flags) {
     size_t pos = 10;
     uint8_t flags;
@@ -139,4 +121,22 @@ int gzblock_parse_header(const uint8_t *buf, size_t len, size_t *hdr_len, uint32
         return 0;
     *hdr_len = n;
     return 1;
+}
+
+void format_trailer_build(uint8_t *buf, uint32_t crc, uint64_t total) {
+    buf[0] = (uint8_t)crc;
+    buf[1] = (uint8_t)(crc >> 8);
+    buf[2] = (uint8_t)(crc >> 16);
+    buf[3] = (uint8_t)(crc >> 24);
+    buf[4] = (uint8_t)total;
+    buf[5] = (uint8_t)(total >> 8);
+    buf[6] = (uint8_t)(total >> 16);
+    buf[7] = (uint8_t)(total >> 24);
+}
+
+void format_trailer_parse(const uint8_t *buf, uint32_t *crc, uint32_t *total) {
+    *crc = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) |
+           ((uint32_t)buf[3] << 24);
+    *total = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) |
+             ((uint32_t)buf[7] << 24);
 }

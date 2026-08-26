@@ -33,14 +33,14 @@ typedef struct {
 /* Lay a member header into buf, at most FORMAT_HEADER_MAX bytes. Returns its length. */
 size_t format_header_build(uint8_t *buf, const format_header *hdr);
 
+/* Returns the header length, 0 if more bytes are needed, (size_t)-1 if this is not a gzip
+   header. */
+size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size, uint32_t *zb_flags);
+
 /* The member trailer, crc32 of the uncompressed data and its length modulo 2^32, which is all
    gzip records however large the member was. */
 void format_trailer_build(uint8_t *buf, uint32_t crc, uint64_t total);
 void format_trailer_parse(const uint8_t *buf, uint32_t *crc, uint32_t *total);
-
-/* Returns the header length, 0 if more bytes are needed, (size_t)-1 if this is not a gzip
-   header. */
-size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size, uint32_t *zb_flags);
 
 #ifdef __cplusplus
 }
