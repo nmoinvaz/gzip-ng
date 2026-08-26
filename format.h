@@ -14,8 +14,8 @@
 extern "C" {
 #endif
 
-#define GZ_TRAILER 8    /* crc32 and size, the member ending */
-#define ZB_PAIRED 1     /* "ZB" flags bit, block boundaries are marker pairs */
+#define GZ_TRAILER 8 /* crc32 and size, the member ending */
+#define ZB_PAIRED  1 /* "ZB" flags bit, block boundaries are marker pairs */
 
 /* Longest header format_header_build() can produce, the fixed ten bytes, the ZB subfield with
    its own two byte length, and the stored name. */
@@ -23,11 +23,11 @@ extern "C" {
 
 /* What a member header records. */
 typedef struct {
-    uint32_t block_size;   /* 0 leaves the ZB subfield out */
+    uint32_t block_size; /* 0 leaves the ZB subfield out */
     uint32_t zb_flags;
-    uint32_t mtime;        /* 0 stores no time */
-    const char *name;      /* NULL or empty stores no name */
-    int level, strategy;   /* the extra flags byte reports how hard deflate worked */
+    uint32_t mtime;      /* 0 stores no time */
+    const char *name;    /* NULL or empty stores no name */
+    int level, strategy; /* the extra flags byte reports how hard deflate worked */
 } format_header;
 
 /* Lay a member header into buf, at most FORMAT_HEADER_MAX bytes. Returns its length. */

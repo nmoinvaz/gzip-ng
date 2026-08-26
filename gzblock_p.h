@@ -17,8 +17,8 @@
 #include "util.h"
 #include "zlib-ng.h"
 
-#define IO_CHUNK   (256 * 1024)   /* read and write in this much at a time */
-#define MSG_LEN    128            /* room for one error message */
+#define IO_CHUNK (256 * 1024) /* read and write in this much at a time */
+#define MSG_LEN  128          /* room for one error message */
 
 /* The deflate and inflate codec, which the reader and writer hand to their pool. */
 int gzblock_codec_init(pool_t *p, zng_stream *z);

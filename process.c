@@ -18,8 +18,8 @@
 #include "gzblock.h"
 #include "decompress.h"
 
-#define SUFFIX ".gz"
-#define SUFFIX_LEN 3
+#define SUFFIX       ".gz"
+#define SUFFIX_LEN   3
 #define MAX_PATH_LEN 4096
 
 static void fail(const char *path) {
@@ -40,9 +40,8 @@ static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
     return ferror(in) ? -1 : 0;
 }
 
-static int run_stream(FILE *in, FILE *out, const gzng_options *opt,
-                      uint32_t mtime, const char *name,
-                      uint64_t *in_len, uint64_t *out_len) {
+static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name, uint64_t *in_len,
+                      uint64_t *out_len) {
     if (opt->decompress)
         return gzng_decompress_stream(in, out, opt, in_len, out_len);
     if (opt->transparent) {
@@ -58,8 +57,7 @@ static int run_stream(FILE *in, FILE *out, const gzng_options *opt,
 }
 
 /* The gzip -v report, the reduction for compression, the expansion basis for decompression. */
-static void report(const gzng_options *opt, const char *name, const char *outname,
-                   uint64_t in_len, uint64_t out_len) {
+static void report(const gzng_options *opt, const char *name, const char *outname, uint64_t in_len, uint64_t out_len) {
     uint64_t basis = opt->decompress ? out_len : in_len;
     uint64_t other = opt->decompress ? in_len : out_len;
     double pct = basis != 0 ? 100.0 * (1.0 - (double)other / (double)basis) : 0.0;

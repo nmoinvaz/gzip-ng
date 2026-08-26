@@ -15,8 +15,7 @@ extern "C" {
 #endif
 
 /* Compress in to out as one plain gzip stream. Returns 0, or -1 with errno telling io errors. */
-int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
-                         uint32_t mtime, const char *name,
+int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
                          uint64_t *in_len, uint64_t *out_len);
 
 #ifdef __cplusplus

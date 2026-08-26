@@ -25,9 +25,21 @@ uint32_t gzng_parse_size(const char *arg) {
     unsigned long long v = strtoull(arg, &end, 10);
 
     switch (*end) {
-    case 'k': case 'K': v <<= 10; end++; break;
-    case 'm': case 'M': v <<= 20; end++; break;
-    case 'g': case 'G': v <<= 30; end++; break;
+    case 'k':
+    case 'K':
+        v <<= 10;
+        end++;
+        break;
+    case 'm':
+    case 'M':
+        v <<= 20;
+        end++;
+        break;
+    case 'g':
+    case 'G':
+        v <<= 30;
+        end++;
+        break;
     }
     if (end == arg || *end != 0 || v == 0 || v > GZBLOCK_MAX_BLOCK)
         return 0;
@@ -51,52 +63,76 @@ void gzng_options_personas(gzng_options *opt, const char *argv0) {
  * =========================================================================== */
 
 enum {
-    OPT_STDOUT = 1, OPT_DECOMPRESS, OPT_FORCE, OPT_KEEP, OPT_RECURSIVE, OPT_VERBOSE, OPT_QUIET,
-    OPT_NO_NAME, OPT_NAME, OPT_NO_TIME, OPT_TIME, OPT_LIST, OPT_TEST, OPT_RSYNCABLE, OPT_SYNCHRONOUS, OPT_HUFFMAN,
-    OPT_RLE, OPT_FILTERED, OPT_FIXED, OPT_TRANSPARENT, OPT_ASCII, OPT_BLOCKSIZE, OPT_PROCESSES,
-    OPT_FAST, OPT_BEST, OPT_HELP, OPT_VERSION, OPT_LICENSE
+    OPT_STDOUT = 1,
+    OPT_DECOMPRESS,
+    OPT_FORCE,
+    OPT_KEEP,
+    OPT_RECURSIVE,
+    OPT_VERBOSE,
+    OPT_QUIET,
+    OPT_NO_NAME,
+    OPT_NAME,
+    OPT_NO_TIME,
+    OPT_TIME,
+    OPT_LIST,
+    OPT_TEST,
+    OPT_RSYNCABLE,
+    OPT_SYNCHRONOUS,
+    OPT_HUFFMAN,
+    OPT_RLE,
+    OPT_FILTERED,
+    OPT_FIXED,
+    OPT_TRANSPARENT,
+    OPT_ASCII,
+    OPT_BLOCKSIZE,
+    OPT_PROCESSES,
+    OPT_FAST,
+    OPT_BEST,
+    OPT_HELP,
+    OPT_VERSION,
+    OPT_LICENSE
 };
 
 /* One row per option, in the order the help lists them. A row carries every spelling the option
    answers to, so a spelling cannot exist in the parser without appearing in the help. */
 typedef struct {
     int id;
-    char letter;            /* 0 when there is no short form */
-    const char *name;       /* long form without the dashes, NULL when there is none */
-    const char *alias;      /* second long spelling, or NULL */
-    const char *value;      /* what the value is called, NULL when the option takes none */
+    char letter;       /* 0 when there is no short form */
+    const char *name;  /* long form without the dashes, NULL when there is none */
+    const char *alias; /* second long spelling, or NULL */
+    const char *value; /* what the value is called, NULL when the option takes none */
     const char *help;
 } option_desc;
 
 static const option_desc option_table[] = {
-    { OPT_STDOUT,      'c', "stdout",      "to-stdout",  NULL,   "write to standard output, keep the files" },
-    { OPT_DECOMPRESS,  'd', "decompress",  "uncompress", NULL,   "decompress" },
-    { OPT_FORCE,       'f', "force",       NULL,         NULL,   "overwrite outputs, compress to a terminal" },
-    { OPT_KEEP,        'k', "keep",        NULL,         NULL,   "keep input files" },
-    { OPT_RECURSIVE,   'r', "recursive",   NULL,         NULL,   "descend into directories" },
-    { OPT_VERBOSE,     'v', "verbose",     NULL,         NULL,   "report each file processed" },
-    { OPT_QUIET,       'q', "quiet",       NULL,         NULL,   "suppress warnings" },
-    { OPT_NO_NAME,     'n', "no-name",     NULL,         NULL,   "do not save or restore name and time" },
-    { OPT_NAME,        'N', "name",        NULL,         NULL,   "save and restore name and time" },
-    { OPT_NO_TIME,     'm', "no-time",     NULL,         NULL,   "do not save or restore the time" },
-    { OPT_TIME,        'M', "time",        NULL,         NULL,   "save and restore the time" },
-    { OPT_LIST,        'l', "list",        NULL,         NULL,   "list compressed file contents" },
-    { OPT_TEST,        't', "test",        NULL,         NULL,   "check integrity without writing" },
-    { OPT_RSYNCABLE,   0,   "rsyncable",   NULL,         NULL,   "make the output rsync friendly" },
-    { OPT_SYNCHRONOUS, 0,   "synchronous", NULL,         NULL,   "write the output to storage before removing the input" },
-    { OPT_HUFFMAN,     'H', "huffman",     NULL,         NULL,   "huffman only strategy" },
-    { OPT_RLE,         'U', "rle",         NULL,         NULL,   "run length strategy" },
-    { OPT_FILTERED,    0,   "filtered",    NULL,         NULL,   "filtered strategy" },
-    { OPT_FIXED,       0,   "fixed",       NULL,         NULL,   "fixed codes strategy" },
-    { OPT_TRANSPARENT, 'T', NULL,          NULL,         NULL,   "store without compressing" },
-    { OPT_ASCII,       'A', NULL,          NULL,         NULL,   "text mode, accepted for compatibility" },
-    { OPT_BLOCKSIZE,   'b', "blocksize",   NULL,         "size", "compress in independent blocks, K, M, and G suffixes" },
-    { OPT_PROCESSES,   'p', "processes",   NULL,         "n",    "threads to use, 0 picks the number of CPUs" },
-    { OPT_FAST,        0,   "fast",        NULL,         NULL,   "compress faster, level 1" },
-    { OPT_BEST,        0,   "best",        NULL,         NULL,   "compress better, level 9" },
-    { OPT_HELP,        'h', "help",        NULL,         NULL,   "show this help" },
-    { OPT_VERSION,     'V', "version",     NULL,         NULL,   "show the version" },
-    { OPT_LICENSE,     'L', "license",     NULL,         NULL,   "show the license" },
+    {     OPT_STDOUT, 'c',      "stdout",  "to-stdout",   NULL,              "write to standard output, keep the files"},
+    { OPT_DECOMPRESS, 'd',  "decompress", "uncompress",   NULL,                                            "decompress"},
+    {      OPT_FORCE, 'f',       "force",         NULL,   NULL,             "overwrite outputs, compress to a terminal"},
+    {       OPT_KEEP, 'k',        "keep",         NULL,   NULL,                                      "keep input files"},
+    {  OPT_RECURSIVE, 'r',   "recursive",         NULL,   NULL,                              "descend into directories"},
+    {    OPT_VERBOSE, 'v',     "verbose",         NULL,   NULL,                            "report each file processed"},
+    {      OPT_QUIET, 'q',       "quiet",         NULL,   NULL,                                     "suppress warnings"},
+    {    OPT_NO_NAME, 'n',     "no-name",         NULL,   NULL,                  "do not save or restore name and time"},
+    {       OPT_NAME, 'N',        "name",         NULL,   NULL,                        "save and restore name and time"},
+    {    OPT_NO_TIME, 'm',     "no-time",         NULL,   NULL,                       "do not save or restore the time"},
+    {       OPT_TIME, 'M',        "time",         NULL,   NULL,                             "save and restore the time"},
+    {       OPT_LIST, 'l',        "list",         NULL,   NULL,                         "list compressed file contents"},
+    {       OPT_TEST, 't',        "test",         NULL,   NULL,                       "check integrity without writing"},
+    {  OPT_RSYNCABLE,   0,   "rsyncable",         NULL,   NULL,                        "make the output rsync friendly"},
+    {OPT_SYNCHRONOUS,   0, "synchronous",         NULL,   NULL, "write the output to storage before removing the input"},
+    {    OPT_HUFFMAN, 'H',     "huffman",         NULL,   NULL,                                 "huffman only strategy"},
+    {        OPT_RLE, 'U',         "rle",         NULL,   NULL,                                   "run length strategy"},
+    {   OPT_FILTERED,   0,    "filtered",         NULL,   NULL,                                     "filtered strategy"},
+    {      OPT_FIXED,   0,       "fixed",         NULL,   NULL,                                  "fixed codes strategy"},
+    {OPT_TRANSPARENT, 'T',          NULL,         NULL,   NULL,                             "store without compressing"},
+    {      OPT_ASCII, 'A',          NULL,         NULL,   NULL,                 "text mode, accepted for compatibility"},
+    {  OPT_BLOCKSIZE, 'b',   "blocksize",         NULL, "size",  "compress in independent blocks, K, M, and G suffixes"},
+    {  OPT_PROCESSES, 'p',   "processes",         NULL,    "n",            "threads to use, 0 picks the number of CPUs"},
+    {       OPT_FAST,   0,        "fast",         NULL,   NULL,                              "compress faster, level 1"},
+    {       OPT_BEST,   0,        "best",         NULL,   NULL,                              "compress better, level 9"},
+    {       OPT_HELP, 'h',        "help",         NULL,   NULL,                                        "show this help"},
+    {    OPT_VERSION, 'V',     "version",         NULL,   NULL,                                      "show the version"},
+    {    OPT_LICENSE, 'L',     "license",         NULL,   NULL,                                      "show the license"},
 };
 
 #define OPTION_COUNT (sizeof(option_table) / sizeof(option_table[0]))
@@ -159,12 +195,13 @@ static const option_desc *find_name(const char *name) {
 
 static void show_license(void) {
     printf("gzip-ng %s, zlib license\n\n", gzng_version());
-    printf("This software is provided 'as-is', without any express or implied\n"
-           "warranty. In no event will the authors be held liable for any damages\n"
-           "arising from the use of this software.\n\n"
-           "Permission is granted to anyone to use this software for any purpose,\n"
-           "including commercial applications, and to alter it and redistribute it\n"
-           "freely, subject to the restrictions in LICENSE.md.\n");
+    printf(
+        "This software is provided 'as-is', without any express or implied\n"
+        "warranty. In no event will the authors be held liable for any damages\n"
+        "arising from the use of this software.\n\n"
+        "Permission is granted to anyone to use this software for any purpose,\n"
+        "including commercial applications, and to alter it and redistribute it\n"
+        "freely, subject to the restrictions in LICENSE.md.\n");
 }
 
 static int bad(const char *prog, const char *what, const char *arg) {
@@ -177,29 +214,79 @@ static int bad(const char *prog, const char *what, const char *arg) {
    bad value with the message printed. */
 static int apply(gzng_options *opt, const option_desc *desc, const char *value, const char *prog) {
     switch (desc->id) {
-    case OPT_STDOUT:      opt->stdout_mode = 1; break;
-    case OPT_DECOMPRESS:  opt->decompress = 1; break;
-    case OPT_FORCE:       opt->force = 1; break;
-    case OPT_KEEP:        opt->keep = 1; break;
-    case OPT_RECURSIVE:   opt->recursive = 1; break;
-    case OPT_VERBOSE:     opt->verbose = 1; break;
-    case OPT_QUIET:       opt->quiet = 1; opt->verbose = 0; break;
-    case OPT_NO_NAME:     opt->name_mode = 0; opt->time_mode = 0; break;
-    case OPT_NAME:        opt->name_mode = 1; opt->time_mode = 1; break;
-    case OPT_NO_TIME:     opt->time_mode = 0; break;
-    case OPT_TIME:        opt->time_mode = 1; break;
-    case OPT_LIST:        opt->list = 1; break;
-    case OPT_TEST:        opt->test_mode = 1; opt->decompress = 1; break;
-    case OPT_RSYNCABLE:   opt->rsyncable = 1; break;
-    case OPT_SYNCHRONOUS: opt->synchronous = 1; break;
-    case OPT_HUFFMAN:     opt->strategy = Z_HUFFMAN_ONLY; break;
-    case OPT_RLE:         opt->strategy = Z_RLE; break;
-    case OPT_FILTERED:    opt->strategy = Z_FILTERED; break;
-    case OPT_FIXED:       opt->strategy = Z_FIXED; break;
-    case OPT_TRANSPARENT: opt->transparent = 1; break;
-    case OPT_ASCII:       opt->text_mode = 1; break;
-    case OPT_FAST:        opt->level = 1; break;
-    case OPT_BEST:        opt->level = 9; break;
+    case OPT_STDOUT:
+        opt->stdout_mode = 1;
+        break;
+    case OPT_DECOMPRESS:
+        opt->decompress = 1;
+        break;
+    case OPT_FORCE:
+        opt->force = 1;
+        break;
+    case OPT_KEEP:
+        opt->keep = 1;
+        break;
+    case OPT_RECURSIVE:
+        opt->recursive = 1;
+        break;
+    case OPT_VERBOSE:
+        opt->verbose = 1;
+        break;
+    case OPT_QUIET:
+        opt->quiet = 1;
+        opt->verbose = 0;
+        break;
+    case OPT_NO_NAME:
+        opt->name_mode = 0;
+        opt->time_mode = 0;
+        break;
+    case OPT_NAME:
+        opt->name_mode = 1;
+        opt->time_mode = 1;
+        break;
+    case OPT_NO_TIME:
+        opt->time_mode = 0;
+        break;
+    case OPT_TIME:
+        opt->time_mode = 1;
+        break;
+    case OPT_LIST:
+        opt->list = 1;
+        break;
+    case OPT_TEST:
+        opt->test_mode = 1;
+        opt->decompress = 1;
+        break;
+    case OPT_RSYNCABLE:
+        opt->rsyncable = 1;
+        break;
+    case OPT_SYNCHRONOUS:
+        opt->synchronous = 1;
+        break;
+    case OPT_HUFFMAN:
+        opt->strategy = Z_HUFFMAN_ONLY;
+        break;
+    case OPT_RLE:
+        opt->strategy = Z_RLE;
+        break;
+    case OPT_FILTERED:
+        opt->strategy = Z_FILTERED;
+        break;
+    case OPT_FIXED:
+        opt->strategy = Z_FIXED;
+        break;
+    case OPT_TRANSPARENT:
+        opt->transparent = 1;
+        break;
+    case OPT_ASCII:
+        opt->text_mode = 1;
+        break;
+    case OPT_FAST:
+        opt->level = 1;
+        break;
+    case OPT_BEST:
+        opt->level = 9;
+        break;
     case OPT_BLOCKSIZE:
         if (value == NULL || (opt->block_size = gzng_parse_size(value)) == 0)
             return bad(prog, "bad block size", value ? value : "(missing)");
@@ -212,8 +299,12 @@ static int apply(gzng_options *opt, const option_desc *desc, const char *value, 
         opt->threads = (int)n;
         break;
     }
-    case OPT_HELP:        gzng_usage(stdout); return 1;
-    case OPT_LICENSE:     show_license(); return 1;
+    case OPT_HELP:
+        gzng_usage(stdout);
+        return 1;
+    case OPT_LICENSE:
+        show_license();
+        return 1;
     case OPT_VERSION:
         printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
         return 1;
@@ -222,8 +313,7 @@ static int apply(gzng_options *opt, const option_desc *desc, const char *value, 
 }
 
 /* A long option, its value taken from the next argument when it wants one. */
-static int parse_long(gzng_options *opt, const char *prog, const char *arg,
-                      int argc, char **argv, int *i) {
+static int parse_long(gzng_options *opt, const char *prog, const char *arg, int argc, char **argv, int *i) {
     const option_desc *desc = find_name(arg + 2);
     const char *value = NULL;
 
@@ -236,8 +326,7 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg,
 
 /* A run of short options, any one of which may take the rest of the argument or the next one as
    its value, which ends the run. */
-static int parse_shorts(gzng_options *opt, const char *prog, const char *arg,
-                        int argc, char **argv, int *i) {
+static int parse_shorts(gzng_options *opt, const char *prog, const char *arg, int argc, char **argv, int *i) {
     int j, rc;
 
     for (j = 1; arg[j] != 0; j++) {
@@ -250,7 +339,7 @@ static int parse_shorts(gzng_options *opt, const char *prog, const char *arg,
         }
         desc = find_letter(arg[j]);
         if (desc == NULL) {
-            char unknown[3] = { '-', arg[j], 0 };
+            char unknown[3] = {'-', arg[j], 0};
             return bad(prog, "unknown option", unknown);
         }
         if (desc->value != NULL) {

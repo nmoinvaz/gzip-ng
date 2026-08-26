@@ -4,7 +4,6 @@
 
 #include "gzblock_p.h"
 
-
 struct gzblock_writer_s {
     gzblock_write_fn write;
     void *ctx;
@@ -13,16 +12,16 @@ struct gzblock_writer_s {
     pool_t pool;
     int pool_up;
     size_t next_produce, next_emit;
-    slot_t *cur;            /* slot being filled */
+    slot_t *cur; /* slot being filled */
     uint32_t crc;
     size_t total;
     int hdr_written, finished, failed;
     uint32_t meta_mtime;
     char meta_name[GZBLOCK_NAME_MAX];
-    int rsyncable;          /* end blocks at rolling hash hits so edits stay local */
+    int rsyncable; /* end blocks at rolling hash hits so edits stay local */
     uint32_t rhash, rmask;
-    size_t rmin;            /* no early end before this much of the block is filled */
-    int err;                /* zlib error code once failed */
+    size_t rmin; /* no early end before this much of the block is filled */
+    int err;     /* zlib error code once failed */
     char msg[MSG_LEN];
 
     /* A block that has to be flushed part way continues on the calling thread as one deflate
@@ -30,9 +29,9 @@ struct gzblock_writer_s {
        when the writer is rsyncable. */
     zng_stream iz;
     int iz_init, inline_active;
-    size_t inline_fill;     /* input bytes of the inline block so far */
+    size_t inline_fill; /* input bytes of the inline block so far */
     uint32_t inline_crc;
-    uint8_t *obuf;          /* IO_CHUNK of output space for the inline stream */
+    uint8_t *obuf; /* IO_CHUNK of output space for the inline stream */
 };
 
 /* ===========================================================================
@@ -205,8 +204,8 @@ static int writer_drain(gzblock_writer *w) {
  * The writer object
  * =========================================================================== */
 
-gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy,
-                                         uint32_t block_size, int nthreads) {
+gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy, uint32_t block_size,
+                                    int nthreads) {
     gzblock_writer *w;
     zng_stream bound;
     size_t out_cap;
@@ -232,10 +231,10 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     out_cap = zng_deflateBound(&bound, block_size) + 32;
     zng_deflateEnd(&bound);
 
-
     w->pool.codec.init = gzblock_codec_init;
     w->pool.codec.end = gzblock_codec_end;
-    w->pool.codec.run = gzblock_codec_run;    w->pool.mode = POOL_DEFLATE;
+    w->pool.codec.run = gzblock_codec_run;
+    w->pool.mode = POOL_DEFLATE;
     w->pool.block_size = block_size;
     w->pool.level = level;
     w->pool.strategy = strategy;
@@ -404,4 +403,3 @@ void gzblock_writer_close(gzblock_writer *w) {
     free(w->obuf);
     free(w);
 }
-

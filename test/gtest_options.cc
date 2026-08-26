@@ -231,8 +231,15 @@ TEST(options, unknown_option_fails) {
 }
 
 TEST(options, strategies) {
-    struct { const char *arg; int strategy; } cases[] = {
-        {"--filtered", Z_FILTERED}, {"-H", Z_HUFFMAN_ONLY}, {"-U", Z_RLE}, {"--fixed", Z_FIXED}};
+    struct {
+        const char *arg;
+        int strategy;
+    } cases[] = {
+        {"--filtered",     Z_FILTERED},
+        {        "-H", Z_HUFFMAN_ONLY},
+        {        "-U",          Z_RLE},
+        {   "--fixed",        Z_FIXED}
+    };
     for (auto &c : cases) {
         gzng_options opt;
         Args a({c.arg});
@@ -254,7 +261,7 @@ TEST(options, transparent_and_text) {
 TEST(options, parse_size) {
     EXPECT_EQ(131072u, gzng_parse_size("128K"));
     EXPECT_EQ(1u << 20, gzng_parse_size("1M"));
-    EXPECT_EQ(0u, gzng_parse_size("1G"));      /* over the engine cap */
+    EXPECT_EQ(0u, gzng_parse_size("1G")); /* over the engine cap */
     EXPECT_EQ(256u << 20, gzng_parse_size("256M"));
     EXPECT_EQ(4096u, gzng_parse_size("4096"));
     EXPECT_EQ(0u, gzng_parse_size("0"));

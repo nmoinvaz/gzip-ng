@@ -20,10 +20,9 @@ void gzng_list_begin(const gzng_options *opt) {
     fprintf(stdout, "  compressed uncompressed  ratio uncompressed_name\n");
 }
 
-static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime,
-                uint64_t compressed, uint64_t uncompressed, const char *name) {
-    double pct = uncompressed != 0 ? 100.0 * (1.0 - (double)compressed / (double)uncompressed)
-                                   : 0.0;
+static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime, uint64_t compressed, uint64_t uncompressed,
+                const char *name) {
+    double pct = uncompressed != 0 ? 100.0 * (1.0 - (double)compressed / (double)uncompressed) : 0.0;
 
     if (opt->verbose) {
         char when[24] = "";
@@ -32,8 +31,8 @@ static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime,
             strftime(when, sizeof(when), "%b %e %H:%M", localtime(&t));
         fprintf(stdout, "defla %08x %-12s  ", crc, when);
     }
-    fprintf(stdout, "%12llu %12llu %5.1f%% %s\n",
-            (unsigned long long)compressed, (unsigned long long)uncompressed, pct, name);
+    fprintf(stdout, "%12llu %12llu %5.1f%% %s\n", (unsigned long long)compressed, (unsigned long long)uncompressed, pct,
+            name);
 }
 
 int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *totals) {
@@ -49,8 +48,7 @@ int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *total
     errno = 0;
     in = fopen(path, "rb");
     if (in == NULL || fstat(fileno(in), &st) != 0 || st.st_size < 18) {
-        fprintf(stderr, "gzip-ng: %s: %s\n", path,
-                errno ? strerror(errno) : "too short to be gzip");
+        fprintf(stderr, "gzip-ng: %s: %s\n", path, errno ? strerror(errno) : "too short to be gzip");
         if (in != NULL)
             fclose(in);
         return 1;

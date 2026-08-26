@@ -48,8 +48,8 @@ int gzblock_parse_header(const uint8_t *buf, size_t len, size_t *hdr_len, uint32
    thread. */
 typedef struct gzblock_writer_s gzblock_writer;
 
-gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy,
-                                    uint32_t block_size, int nthreads);
+gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy, uint32_t block_size,
+                                    int nthreads);
 /* End blocks at rolling hash hits after half fill, content-defined boundaries for rsync,
    before the first write. The reader needs nothing special, pairs already carry any size. */
 int gzblock_writer_rsyncable(gzblock_writer *w, int on);
@@ -78,8 +78,8 @@ void gzblock_writer_close(gzblock_writer *w);
    head holds bytes already taken from the input that come before what read() returns, or NULL. */
 typedef struct gzblock_reader_s gzblock_reader;
 
-gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head,
-                                    size_t head_len, uint32_t block_size, int nthreads);
+gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
+                                    uint32_t block_size, int nthreads);
 /* 0, or -1 on error. */
 int gzblock_reader_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got);
 /* Hand out the next piece of output without copying. *p and *n describe bytes owned by the reader,

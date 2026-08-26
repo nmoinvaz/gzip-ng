@@ -19,28 +19,28 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     memset(buf, 0, 10);
     buf[0] = 0x1f;
     buf[1] = 0x8b;
-    buf[2] = 8;                                            /* deflate */
-    buf[3] = (uint8_t)((hdr->block_size != 0 ? 4 : 0) |    /* FEXTRA */
-                       (name_len != 0 ? 8 : 0));           /* FNAME */
+    buf[2] = 8;                                         /* deflate */
+    buf[3] = (uint8_t)((hdr->block_size != 0 ? 4 : 0) | /* FEXTRA */
+                       (name_len != 0 ? 8 : 0));        /* FNAME */
     buf[4] = (uint8_t)hdr->mtime;
     buf[5] = (uint8_t)(hdr->mtime >> 8);
     buf[6] = (uint8_t)(hdr->mtime >> 16);
     buf[7] = (uint8_t)(hdr->mtime >> 24);
     /* Extra flags, 2 for the slowest deflate settings, 4 for the fastest. */
-    buf[8] = (uint8_t)(hdr->level == 9 ? 2 :
-                       (hdr->strategy >= Z_HUFFMAN_ONLY ||
-                        (hdr->level >= 0 && hdr->level < 2) ? 4 : 0));
+    buf[8] =
+        (uint8_t)(hdr->level == 9 ? 2
+                                  : (hdr->strategy >= Z_HUFFMAN_ONLY || (hdr->level >= 0 && hdr->level < 2) ? 4 : 0));
 #ifdef _WIN32
     buf[9] = 0;
 #else
-    buf[9] = 3;                                            /* Unix */
+    buf[9] = 3; /* Unix */
 #endif
     if (hdr->block_size != 0) {
-        buf[n++] = 9;      /* XLEN, one subfield of five bytes behind its four byte header */
+        buf[n++] = 9; /* XLEN, one subfield of five bytes behind its four byte header */
         buf[n++] = 0;
         buf[n++] = 'Z';
         buf[n++] = 'B';
-        buf[n++] = 5;      /* LEN */
+        buf[n++] = 5; /* LEN */
         buf[n++] = 0;
         buf[n++] = (uint8_t)hdr->block_size;
         buf[n++] = (uint8_t)(hdr->block_size >> 8);
@@ -69,7 +69,7 @@ size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size,
     if (flags & 0xe0)
         return (size_t)-1;
 
-    if (flags & 4) {   /* FEXTRA */
+    if (flags & 4) { /* FEXTRA */
         size_t xlen, end;
         if (len < pos + 2)
             return 0;
@@ -81,8 +81,8 @@ size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size,
         while (pos + 4 <= end) {
             size_t sublen = buf[pos + 2] | ((size_t)buf[pos + 3] << 8);
             if (buf[pos] == 'Z' && buf[pos + 1] == 'B' && sublen >= 4 && pos + 4 + sublen <= end) {
-                *block_size = (uint32_t)buf[pos + 4] | ((uint32_t)buf[pos + 5] << 8) |
-                              ((uint32_t)buf[pos + 6] << 16) | ((uint32_t)buf[pos + 7] << 24);
+                *block_size = (uint32_t)buf[pos + 4] | ((uint32_t)buf[pos + 5] << 8) | ((uint32_t)buf[pos + 6] << 16) |
+                    ((uint32_t)buf[pos + 7] << 24);
                 if (sublen >= 5)
                     *zb_flags = buf[pos + 8];
             }
@@ -90,21 +90,21 @@ size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size,
         }
         pos = end;
     }
-    if (flags & 8) {   /* FNAME */
+    if (flags & 8) { /* FNAME */
         while (pos < len && buf[pos] != 0)
             pos++;
         if (pos >= len)
             return 0;
         pos++;
     }
-    if (flags & 16) {  /* FCOMMENT */
+    if (flags & 16) { /* FCOMMENT */
         while (pos < len && buf[pos] != 0)
             pos++;
         if (pos >= len)
             return 0;
         pos++;
     }
-    if (flags & 2) {   /* FHCRC */
+    if (flags & 2) { /* FHCRC */
         if (len < pos + 2)
             return 0;
         pos += 2;
@@ -135,8 +135,6 @@ void format_trailer_build(uint8_t *buf, uint32_t crc, uint64_t total) {
 }
 
 void format_trailer_parse(const uint8_t *buf, uint32_t *crc, uint32_t *total) {
-    *crc = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) |
-           ((uint32_t)buf[3] << 24);
-    *total = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) |
-             ((uint32_t)buf[7] << 24);
+    *crc = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) | ((uint32_t)buf[3] << 24);
+    *total = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) | ((uint32_t)buf[7] << 24);
 }

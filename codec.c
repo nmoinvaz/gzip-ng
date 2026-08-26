@@ -10,8 +10,7 @@ static void run_segment(zng_stream *z, slot_t *slot, uint32_t block_size) {
     int status;
 
     /* Strict blocks must fill exactly block_size, so a reused larger buffer is capped for them. */
-    blockdec_begin(&d, z, slot->out,
-                   slot->pair || slot->last ? (uint32_t)slot->out_cap : block_size);
+    blockdec_begin(&d, z, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_cap : block_size);
     d.accept_partial = slot->pair;
     for (;;) {
         status = blockdec_feed(&d, slot->in + offset, slot->in_len - offset, &used);
@@ -32,7 +31,7 @@ static void run_segment(zng_stream *z, slot_t *slot, uint32_t block_size) {
             z->avail_out += (uint32_t)(ncap - slot->out_cap);
             slot->out = grown;
             slot->out_cap = ncap;
-            d.want_marker = 0;    /* output is no longer full, back to normal decoding */
+            d.want_marker = 0; /* output is no longer full, back to normal decoding */
             continue;
         }
         break;
@@ -55,11 +54,11 @@ static void run_block(zng_stream *z, slot_t *slot, size_t out_cap) {
     z->avail_out = (uint32_t)out_cap;
     err = zng_deflate(z, slot->last ? Z_FINISH : Z_SYNC_FLUSH);
     if (!slot->last && err == Z_OK)
-        err = zng_deflate(z, Z_FULL_FLUSH);   /* the second marker makes it a boundary */
+        err = zng_deflate(z, Z_FULL_FLUSH); /* the second marker makes it a boundary */
     slot->out_len = out_cap - z->avail_out;
     slot->in_used = slot->in_len - z->avail_in;
-    slot->status = slot->last ? (err == Z_STREAM_END ? 0 : -1)
-                              : (err == Z_OK && z->avail_in == 0 && z->avail_out != 0 ? 0 : -1);
+    slot->status =
+        slot->last ? (err == Z_STREAM_END ? 0 : -1) : (err == Z_OK && z->avail_in == 0 && z->avail_out != 0 ? 0 : -1);
     slot->crc = (uint32_t)zng_crc32_z(0, slot->in, slot->in_len);
 }
 

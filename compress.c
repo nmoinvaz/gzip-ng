@@ -25,13 +25,12 @@ static size_t file_write(void *ctx, const uint8_t *buf, size_t len) {
 }
 
 /* Compress through the block engine, independent blocks sealed with marker pairs. */
-static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
-                                 uint32_t mtime, const char *name,
+static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
                                  uint64_t *in_len, uint64_t *out_len) {
     wsink sink = {out, 0};
     uint64_t total_in = 0;
-    gzblock_writer *w = gzblock_writer_open(file_write, &sink, opt->level, opt->strategy,
-                                      opt->block_size, opt->threads);
+    gzblock_writer *w =
+        gzblock_writer_open(file_write, &sink, opt->level, opt->strategy, opt->block_size, opt->threads);
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
     int rc = -1;
 
@@ -114,8 +113,7 @@ static int rsync_spans(zng_stream *z, FILE *in, FILE *out, uint8_t *ibuf, uint8_
     return 0;
 }
 
-int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
-                         uint32_t mtime, const char *name,
+int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
                          uint64_t *in_len, uint64_t *out_len) {
     zng_gz_header head;
 

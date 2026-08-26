@@ -31,8 +31,8 @@ TEST(format, build_parses_back) {
     EXPECT_EQ(n, format_header_parse(buf, n, &block_size, &zb_flags));
     EXPECT_EQ(128u * 1024, block_size);
     EXPECT_EQ(static_cast<uint32_t>(ZB_PAIRED), zb_flags);
-    EXPECT_EQ(0x5f6a7b8cu, (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) |
-                            ((uint32_t)buf[6] << 16) | ((uint32_t)buf[7] << 24));
+    EXPECT_EQ(0x5f6a7b8cu,
+              (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) | ((uint32_t)buf[7] << 24));
     EXPECT_STREQ("some/file.txt", reinterpret_cast<const char *>(buf + n - 14));
 }
 

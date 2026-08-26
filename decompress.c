@@ -19,14 +19,13 @@ int gzng_read_meta(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
         return -1;
     if (got < 10 || buf[0] != 0x1f || buf[1] != 0x8b || buf[2] != 8)
         return -1;
-    *mtime = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) |
-             ((uint32_t)buf[7] << 24);
-    if (buf[3] & 4) {   /* FEXTRA */
+    *mtime = (uint32_t)buf[4] | ((uint32_t)buf[5] << 8) | ((uint32_t)buf[6] << 16) | ((uint32_t)buf[7] << 24);
+    if (buf[3] & 4) { /* FEXTRA */
         if (got < pos + 2)
             return 0;
         pos += 2 + (buf[pos] | ((size_t)buf[pos + 1] << 8));
     }
-    if ((buf[3] & 8) && pos < got) {   /* FNAME */
+    if ((buf[3] & 8) && pos < got) { /* FNAME */
         size_t i = 0;
         while (pos + i < got && buf[pos + i] != 0 && i + 1 < name_len)
             i++;
@@ -37,7 +36,6 @@ int gzng_read_meta(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
     }
     return 0;
 }
-
 
 typedef struct {
     FILE *f;
@@ -53,8 +51,7 @@ static size_t file_read(void *ctx, uint8_t *buf, size_t len) {
     return n;
 }
 
-int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt,
-                           uint64_t *in_len, uint64_t *out_len) {
+int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt, uint64_t *in_len, uint64_t *out_len) {
     rsource src = {in, 0};
     uint64_t total_out = 0;
     gzblock_reader *r = gzblock_reader_open(file_read, &src, NULL, 0, opt->block_size, opt->threads);

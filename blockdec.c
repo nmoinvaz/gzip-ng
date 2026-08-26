@@ -38,7 +38,7 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
         /* Z_BLOCK returns at every block boundary, where data_type reports the position. */
         err = zng_inflate(z, Z_BLOCK);
         if (err == Z_OK && (z->data_type & (64 | 128)) == (64 | 128))
-            err = zng_inflate(z, Z_BLOCK);   /* past the final block, conclude the stream */
+            err = zng_inflate(z, Z_BLOCK); /* past the final block, conclude the stream */
         if (err == Z_STREAM_END) {
             status = SEG_END;
             break;
@@ -47,8 +47,8 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
             status = SEG_ERROR;
             break;
         }
-        boundary = (z->data_type & 128) != 0;   /* just finished a deflate block */
-        aligned = (z->data_type & 7) == 0;      /* and landed on a byte boundary */
+        boundary = (z->data_type & 128) != 0; /* just finished a deflate block */
+        aligned = (z->data_type & 7) == 0;    /* and landed on a byte boundary */
         exhausted = (z->avail_in == 0 && left == 0);
 
         if (d->want_marker) {
@@ -56,7 +56,7 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
                wrote it. */
             if (!boundary && z->avail_in == 0) {
                 if (exhausted) {
-                    status = SEG_SHORT;     /* the marker continues in the next piece */
+                    status = SEG_SHORT; /* the marker continues in the next piece */
                     break;
                 }
                 continue;
@@ -69,7 +69,7 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
                 status = SEG_FULL;
                 break;
             }
-            continue;                       /* another empty stored block */
+            continue; /* another empty stored block */
         }
         if (z->avail_out != 0) {
             if (exhausted) {
@@ -78,7 +78,7 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
                 status = (d->accept_partial && boundary && aligned) ? SEG_FULL : SEG_SHORT;
                 break;
             }
-            continue;       /* more deflate blocks to go */
+            continue; /* more deflate blocks to go */
         }
         /* The output is full. */
         if (!boundary) {
@@ -97,10 +97,15 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
 
 const char *blockdec_status_name(int status) {
     switch (status) {
-    case SEG_FULL:     return "complete";
-    case SEG_END:      return "end of stream";
-    case SEG_SHORT:    return "truncated";
-    case SEG_OVERFLOW: return "larger than the block size";
-    default:           return "corrupt";
+    case SEG_FULL:
+        return "complete";
+    case SEG_END:
+        return "end of stream";
+    case SEG_SHORT:
+        return "truncated";
+    case SEG_OVERFLOW:
+        return "larger than the block size";
+    default:
+        return "corrupt";
     }
 }

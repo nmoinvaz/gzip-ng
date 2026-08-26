@@ -23,11 +23,11 @@ size_t vec_write(void *ctx, const uint8_t *buf, size_t len) {
     return len;
 }
 
-std::vector<uint8_t> block_compress(const std::vector<uint8_t> &data, uint32_t block_size,
-                                    int nthreads, size_t chunk = 65521) {
+std::vector<uint8_t> block_compress(const std::vector<uint8_t> &data, uint32_t block_size, int nthreads,
+                                    size_t chunk = 65521) {
     std::vector<uint8_t> out;
-    gzblock_writer *w = gzblock_writer_open(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY,
-                                      block_size, nthreads);
+    gzblock_writer *w =
+        gzblock_writer_open(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY, block_size, nthreads);
     EXPECT_NE(nullptr, w);
     for (size_t pos = 0; pos < data.size(); pos += chunk) {
         size_t n = std::min(chunk, data.size() - pos);
@@ -79,8 +79,7 @@ TEST(block_writer, threads_do_not_change_the_bytes) {
 TEST(block_writer, flush_and_params_inside_a_block) {
     auto data = sample_data(300000);
     std::vector<uint8_t> out;
-    gzblock_writer *w = gzblock_writer_open(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY,
-                                      64 * 1024, 2);
+    gzblock_writer *w = gzblock_writer_open(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY, 64 * 1024, 2);
     ASSERT_NE(nullptr, w);
     ASSERT_EQ(0, gzblock_writer_write(w, data.data(), 100000)) << gzblock_writer_error(w);
     ASSERT_EQ(0, gzblock_writer_flush(w)) << gzblock_writer_error(w);
@@ -104,8 +103,8 @@ size_t mem_read(void *ctx, uint8_t *buf, size_t len) {
     return n;
 }
 
-std::vector<uint8_t> block_read(const std::vector<uint8_t> &packed, int nthreads,
-                                uint32_t block_size = 0, size_t io_chunk = 65521) {
+std::vector<uint8_t> block_read(const std::vector<uint8_t> &packed, int nthreads, uint32_t block_size = 0,
+                                size_t io_chunk = 65521) {
     MemIn in{packed.data(), packed.size(), 0, io_chunk};
     gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, block_size, nthreads);
     EXPECT_NE(nullptr, r);

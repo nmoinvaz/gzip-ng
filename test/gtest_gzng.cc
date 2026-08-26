@@ -16,8 +16,8 @@ TEST(zlibng, roundtrip) {
     const std::string text(100000, 'a');
     std::vector<uint8_t> packed(zng_compressBound(text.size()));
     size_t packed_len = packed.size();
-    ASSERT_EQ(Z_OK, zng_compress(packed.data(), &packed_len,
-                                 reinterpret_cast<const uint8_t *>(text.data()), text.size()));
+    ASSERT_EQ(Z_OK,
+              zng_compress(packed.data(), &packed_len, reinterpret_cast<const uint8_t *>(text.data()), text.size()));
     ASSERT_LT(packed_len, text.size());
 
     std::vector<uint8_t> restored(text.size());

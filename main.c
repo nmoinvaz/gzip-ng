@@ -36,8 +36,7 @@ int main(int argc, char **argv) {
     if (nfiles == 0)
         return gzng_process_stdio(&opt);
     for (int i = 1; i <= nfiles; i++) {
-        int r = strcmp(argv[i], "-") == 0 ? gzng_process_stdio(&opt)
-                                          : gzng_process_file(argv[i], &opt);
+        int r = strcmp(argv[i], "-") == 0 ? gzng_process_stdio(&opt) : gzng_process_file(argv[i], &opt);
         /* gzip's convention, 1 for errors beats 2 for warnings beats 0 */
         if (r == 1 || (r == 2 && rc == 0))
             rc = r;

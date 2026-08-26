@@ -7,51 +7,48 @@
 #include "gzblock_p.h"
 #include "scanner.h"
 
-
-
-
 enum { READER_HEADER, READER_PASSTHRU, READER_STREAM, READER_BLOCKS, READER_MEMBER_END, READER_END, READER_ERROR };
 
 struct gzblock_reader_s {
     gzblock_read_fn read;
     void *ctx;
     int nthreads;
-    uint32_t block_hint;      /* block size to assume when a header records none */
+    uint32_t block_hint; /* block size to assume when a header records none */
     int state;
-    int members;              /* gzip members finished so far */
-    int err;                  /* zlib error code once failed */
+    int members; /* gzip members finished so far */
+    int err;     /* zlib error code once failed */
     char msg[MSG_LEN];
 
-    buf_t buf;               /* input in hand, not yet consumed by the current stage */
-    int eof;                  /* the read callback returned 0 */
+    buf_t buf; /* input in hand, not yet consumed by the current stage */
+    int eof;   /* the read callback returned 0 */
 
-    const uint8_t *out_p;     /* output being handed out */
+    const uint8_t *out_p; /* output being handed out */
     size_t out_n;
-    slot_t *out_slot;         /* slot to release once out_p is consumed, or NULL */
+    slot_t *out_slot; /* slot to release once out_p is consumed, or NULL */
 
-    zng_stream z;        /* plain inflate */
+    zng_stream z; /* plain inflate */
     int z_init;
-    uint8_t *obuf;            /* IO_CHUNK, output of z, or bytes passed through */
+    uint8_t *obuf; /* IO_CHUNK, output of z, or bytes passed through */
 
-    uint32_t block_size;      /* block mode */
-    int paired;               /* boundaries are marker pairs, lone markers are not candidates */
-    int pair_seen;            /* a pair turned up in this member, so treat it as pair-delimited */
-    size_t max_seg;           /* longest a compressed block can be */
-    buf_t hdr;               /* this member's header, kept for the fallback */
-    size_t scanned;           /* bytes of buf already scanned for markers */
-    size_t coal;              /* rightmost pair end while coalescing small chunks, 0 when not */
-    int cut_all;              /* the scanner handed out the member's last segment */
-    buf_t seg;               /* segment most recently cut out of buf */
+    uint32_t block_size; /* block mode */
+    int paired;          /* boundaries are marker pairs, lone markers are not candidates */
+    int pair_seen;       /* a pair turned up in this member, so treat it as pair-delimited */
+    size_t max_seg;      /* longest a compressed block can be */
+    buf_t hdr;           /* this member's header, kept for the fallback */
+    size_t scanned;      /* bytes of buf already scanned for markers */
+    size_t coal;         /* rightmost pair end while coalescing small chunks, 0 when not */
+    int cut_all;         /* the scanner handed out the member's last segment */
+    buf_t seg;           /* segment most recently cut out of buf */
     int seg_last;
-    int seg_pair;             /* the segment ends with a marker pair */
+    int seg_pair; /* the segment ends with a marker pair */
     size_t next_produce, next_emit;
     pool_t pool;
     int pool_up;
-    zng_stream mz;       /* for repairing false splits on this thread */
+    zng_stream mz; /* for repairing false splits on this thread */
     size_t tmp_cap;
     int mz_init;
-    uint8_t *tmp;             /* repaired and final blocks, block_size until one needs more */
-    uint32_t crc;             /* running crc and length of the member's output */
+    uint8_t *tmp; /* repaired and final blocks, block_size until one needs more */
+    uint32_t crc; /* running crc and length of the member's output */
     size_t total;
 };
 
@@ -156,8 +153,6 @@ static int reader_passthru(gzblock_reader *r) {
     return 0;
 }
 
-
-
 /* ===========================================================================
  * Cutting pair-terminated segments out of the input
  * =========================================================================== */
@@ -234,7 +229,7 @@ static int reader_next_segment(gzblock_reader *r) {
                 return 0;
             return reader_cut(r, b->len, 1, 0) != 0 ? -1 : 1;
         }
-read_more:
+    read_more:
         if (reader_fill(r, b->len + IO_CHUNK) != 0)
             return -1;
     }
@@ -260,7 +255,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         r->tmp = NULL;
     }
     r->block_size = block_size;
-    r->max_seg = (size_t)block_size + (block_size >> 8) + 1024;   /* stored blocks plus the markers */
+    r->max_seg = (size_t)block_size + (block_size >> 8) + 1024; /* stored blocks plus the markers */
     if (!r->pool_up) {
         r->pool.codec.init = gzblock_codec_init;
         r->pool.codec.end = gzblock_codec_end;
@@ -297,7 +292,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
 /* Put the header, the segments cut so far, and the input in hand back together and stream the member
    through plain inflate instead. Only valid before any of its output was handed out. */
 static int reader_fallback(gzblock_reader *r) {
-    buf_t all = { NULL, 0, 0, 0 };
+    buf_t all = {NULL, 0, 0, 0};
     size_t i;
 
     if (buf_append(&all, r->hdr.p, r->hdr.len) != 0)
@@ -338,7 +333,7 @@ static int reader_produce(gzblock_reader *r) {
             return -1;
         if (rc == -2) {
             if (r->next_produce == 0 && r->next_emit == 0)
-                return reader_fallback(r);     /* no block structure at this size */
+                return reader_fallback(r); /* no block structure at this size */
             return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->next_produce);
         }
         /* Swap buffers rather than copy, the slot keeps the segment and seg reuses the old one. */
@@ -362,7 +357,7 @@ static int reader_produce(gzblock_reader *r) {
    possibly more members, which together with any segments cut after it and the input in hand goes
    back to the front of the input. slot, if not NULL, held rest and is released afterwards. */
 static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest_n, slot_t *slot) {
-    buf_t all = { NULL, 0, 0, 0 };
+    buf_t all = {NULL, 0, 0, 0};
     size_t i;
 
     if (buf_append(&all, rest, rest_n) != 0)
@@ -431,7 +426,9 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
                 if (rc == -1)
                     return -1;
                 if (rc != 1)
-                    return reader_fail(r, rc == 0 ? Z_BUF_ERROR : Z_DATA_ERROR, rc == 0 ? "unexpected end of file" : "block %zu is larger than the block size", r->next_emit);
+                    return reader_fail(r, rc == 0 ? Z_BUF_ERROR : Z_DATA_ERROR,
+                                       rc == 0 ? "unexpected end of file" : "block %zu is larger than the block size",
+                                       r->next_emit);
                 ps = NULL;
                 piece = r->seg.p;
                 piece_len = r->seg.len;
@@ -442,11 +439,13 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
             continue;
         }
         if (status == SEG_END) {
-            reader_block_out(r, r->tmp, (size_t)r->mz.total_out, (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
+            reader_block_out(r, r->tmp, (size_t)r->mz.total_out,
+                             (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
             return reader_member_end(r, piece + used, piece_len - used, ps);
         }
         if (status == SEG_FULL && used == piece_len && !last) {
-            reader_block_out(r, r->tmp, (size_t)r->mz.total_out, (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
+            reader_block_out(r, r->tmp, (size_t)r->mz.total_out,
+                             (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
             if (ps != NULL)
                 pool_release(&r->pool, ps);
             return 0;
@@ -454,8 +453,10 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
         if (ps != NULL)
             pool_release(&r->pool, ps);
         if (status == SEG_FULL)
-            return reader_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR, last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit - 1);
-        return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit - 1, blockdec_status_name(status));
+            return reader_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR,
+                               last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit - 1);
+        return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit - 1,
+                           blockdec_status_name(status));
     }
 }
 
@@ -492,15 +493,17 @@ static int reader_drain(gzblock_reader *r) {
     if (slot->status == SEG_SHORT && !slot->last)
         return reader_repair(r, slot);
     if (slot->status == SEG_FULL)
-        return reader_fail(r, slot->last ? Z_BUF_ERROR : Z_DATA_ERROR, slot->last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit);
-    return reader_fail(r, slot->status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit, blockdec_status_name(slot->status));
+        return reader_fail(r, slot->last ? Z_BUF_ERROR : Z_DATA_ERROR,
+                           slot->last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit);
+    return reader_fail(r, slot->status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit,
+                       blockdec_status_name(slot->status));
 }
 
 static int reader_blocks(gzblock_reader *r) {
     if (reader_produce(r) != 0)
         return -1;
     if (r->state != READER_BLOCKS)
-        return 0;                    /* fell back to plain inflate */
+        return 0; /* fell back to plain inflate */
     if (r->next_emit < r->next_produce)
         return reader_drain(r);
     return reader_fail(r, Z_BUF_ERROR, "unexpected end of file");
@@ -532,7 +535,7 @@ static int reader_member_end_step(gzblock_reader *r) {
  * =========================================================================== */
 
 /* Probe defaults when nothing declares a block size, the coalescing target and how far to look. */
-#define PROBE_BLOCK (128u << 10)
+#define PROBE_BLOCK  (128u << 10)
 #define PROBE_WINDOW (1u << 20)
 
 /* Look for a marker pair in the first stretch of compressed data. Returns 1 when one is there,
@@ -568,9 +571,9 @@ static int reader_header(gzblock_reader *r) {
             if (r->buf.len == 0 && r->eof)
                 r->state = READER_END;
             else if (r->members == 0)
-                r->state = READER_PASSTHRU;   /* not gzip, hand it back unchanged */
+                r->state = READER_PASSTHRU; /* not gzip, hand it back unchanged */
             else
-                r->state = READER_END;        /* trailing garbage after a member, ignored */
+                r->state = READER_END; /* trailing garbage after a member, ignored */
             return 0;
         }
         hdr_len = format_header_parse(buf_data(&r->buf), r->buf.len, &hdr_block_size, &zb_flags);
@@ -588,7 +591,7 @@ static int reader_header(gzblock_reader *r) {
     }
     if (hdr_block_size == 0) {
         hdr_block_size = r->block_hint;
-        zb_flags = 0;                  /* a guessed size implies nothing about the markers */
+        zb_flags = 0; /* a guessed size implies nothing about the markers */
     }
     /* A block size that would cost more memory than is sensible. */
     if (hdr_block_size > GZBLOCK_MAX_BLOCK)
@@ -598,8 +601,10 @@ static int reader_header(gzblock_reader *r) {
            chunks, the full flush behind a pair resets the dictionary, so decode them in
            parallel. Anything else inflates serially as before. */
         switch (reader_probe(r, hdr_len)) {
-        case -1: return -1;
-        case 0:  return reader_start_stream(r);
+        case -1:
+            return -1;
+        case 0:
+            return reader_start_stream(r);
         }
         return reader_start_blocks(r, hdr_len, PROBE_BLOCK, ZB_PAIRED);
     }
@@ -611,7 +616,7 @@ static int reader_header(gzblock_reader *r) {
  * =========================================================================== */
 
 gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
-                                         uint32_t block_size, int nthreads) {
+                                    uint32_t block_size, int nthreads) {
     gzblock_reader *r;
 
     if (read == NULL)
@@ -646,13 +651,25 @@ static int reader_advance(gzblock_reader *r) {
     int rc;
     while (r->out_n == 0) {
         switch (r->state) {
-        case READER_HEADER:     rc = reader_header(r); break;
-        case READER_PASSTHRU:   rc = reader_passthru(r); break;
-        case READER_STREAM:     rc = reader_stream(r); break;
-        case READER_BLOCKS:     rc = reader_blocks(r); break;
-        case READER_MEMBER_END: rc = reader_member_end_step(r); break;
-        case READER_END:        return 0;
-        default:           return -1;
+        case READER_HEADER:
+            rc = reader_header(r);
+            break;
+        case READER_PASSTHRU:
+            rc = reader_passthru(r);
+            break;
+        case READER_STREAM:
+            rc = reader_stream(r);
+            break;
+        case READER_BLOCKS:
+            rc = reader_blocks(r);
+            break;
+        case READER_MEMBER_END:
+            rc = reader_member_end_step(r);
+            break;
+        case READER_END:
+            return 0;
+        default:
+            return -1;
         }
         if (rc != 0)
             return -1;
@@ -669,7 +686,7 @@ int gzblock_reader_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got
         if (reader_advance(r) != 0)
             return -1;
         if (r->out_n == 0)
-            break;                  /* end of the data */
+            break; /* end of the data */
         n = r->out_n < len - done ? r->out_n : len - done;
         memcpy(buf + done, r->out_p, n);
         done += n;
