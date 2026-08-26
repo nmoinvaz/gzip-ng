@@ -122,6 +122,15 @@ TEST(options, help_short) {
     EXPECT_EQ(1, parse(&opt, a, &nfiles));
 }
 
+TEST(options, test_flag) {
+    gzng_options opt;
+    Args a({"-t"});
+    int nfiles = 0;
+    EXPECT_EQ(0, parse(&opt, a, &nfiles));
+    EXPECT_EQ(1, opt.test_mode);
+    EXPECT_EQ(1, opt.decompress);
+}
+
 TEST(options, list_flag) {
     gzng_options opt;
     Args a({"-l"});

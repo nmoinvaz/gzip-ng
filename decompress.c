@@ -72,7 +72,7 @@ int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt,
         if (n == 0)
             break;
         total_out += n;
-        if (fwrite(p, 1, n, out) != n) {
+        if (out != NULL && fwrite(p, 1, n, out) != n) {
             gzblock_rclose(r);
             return -1;
         }

@@ -114,3 +114,11 @@ string(FIND "${listing}" "listed.txt" name_at)
 if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR size_at EQUAL -1 OR name_at EQUAL -1)
     message(FATAL_ERROR "-l listing was wrong: ${listing}")
 endif()
+
+# -t checks integrity without writing anything.
+execute_process(COMMAND ${EXE} -t ${WORKDIR}/listed.txt.gz RESULT_VARIABLE rc)
+file(WRITE ${WORKDIR}/junk.gz "this is not gzip data at all")
+execute_process(COMMAND ${EXE} -t ${WORKDIR}/junk.gz RESULT_VARIABLE rc2 ERROR_QUIET)
+if(NOT rc EQUAL 0 OR rc2 EQUAL 0 OR NOT EXISTS ${WORKDIR}/listed.txt.gz)
+    message(FATAL_ERROR "-t verdicts were wrong")
+endif()

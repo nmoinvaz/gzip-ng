@@ -90,7 +90,7 @@ int gzng_process_stdio(const gzng_options *opt) {
         return 1;
     uint64_t in_len = 0, out_len = 0;
     errno = 0;
-    if (run_stream(stdin, stdout, opt, 0, NULL, &in_len, &out_len) != 0) {
+    if (run_stream(stdin, opt->test_mode ? NULL : stdout, opt, 0, NULL, &in_len, &out_len) != 0) {
         fail("stdin");
         return 1;
     }
@@ -171,6 +171,29 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     struct stat ist;
     int have_ist = 0, rc;
 
+    if (opt->test_mode) {
+        uint64_t tin = 0, tout = 0;
+        FILE *tf = fopen(path, "rb");
+        if (tf == NULL) {
+            fail(path);
+            return 1;
+        }
+        {
+            uint32_t m;
+            char nm[GZBLOCK_NAME_MAX];
+            if (gzng_read_meta(tf, &m, nm, sizeof(nm)) != 0) {
+                if (!opt->quiet)
+                    fprintf(stderr, "gzip-ng: %s: not in gzip format\n", path);
+                fclose(tf);
+                return 1;
+            }
+        }
+        rc = gzng_decompress_stream(tf, NULL, opt, &tin, &tout) != 0 ? 1 : 0;
+        fclose(tf);
+        if (rc == 0 && opt->verbose && !opt->quiet)
+            fprintf(stderr, "%s:\t OK\n", path);
+        return rc;
+    }
     {
         struct stat st;
         if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
@@ -210,8 +233,13 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     }
     if (opt->decompress && !opt->stdout_mode) {
         char stored[GZBLOCK_NAME_MAX];
-        if (gzng_read_meta(in, &hdr_mtime, stored, sizeof(stored)) == 0 &&
-            opt->name_mode == 1 && stored[0] != 0)
+        if (gzng_read_meta(in, &hdr_mtime, stored, sizeof(stored)) != 0) {
+            if (!opt->quiet)
+                fprintf(stderr, "gzip-ng: %s: not in gzip format\n", inpath);
+            fclose(in);
+            return 1;
+        }
+        if (opt->name_mode == 1 && stored[0] != 0)
             stored_outpath(outpath, sizeof(outpath), inpath, stored);
         if (opt->name_mode != 1)
             hdr_mtime = 0;

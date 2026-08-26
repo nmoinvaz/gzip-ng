@@ -22,6 +22,7 @@ typedef struct {
     int quiet;           /* -q, suppress warnings */
     int name_mode;       /* -1 default, 0 with -n, 1 with -N */
     int list;            /* -l, list instead of decompressing */
+    int test_mode;       /* -t, check integrity without writing */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */
