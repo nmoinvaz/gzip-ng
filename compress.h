@@ -5,6 +5,7 @@
 #ifndef GZNG_COMPRESS_H_
 #define GZNG_COMPRESS_H_
 
+#include <stdint.h>
 #include <stdio.h>
 
 #include "options.h"
@@ -14,7 +15,8 @@ extern "C" {
 #endif
 
 /* Compress in to out as one plain gzip stream. Returns 0, or -1 with errno telling io errors. */
-int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt);
+int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
+                         uint64_t *in_len, uint64_t *out_len);
 
 #ifdef __cplusplus
 }

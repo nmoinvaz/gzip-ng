@@ -5,6 +5,8 @@
 #ifndef GZNG_PROCESS_H_
 #define GZNG_PROCESS_H_
 
+#include <stdint.h>
+
 #include "options.h"
 
 #ifdef __cplusplus

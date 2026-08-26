@@ -23,22 +23,48 @@ static void fail(const char *path) {
 }
 
 /* -T writes the bytes through untouched. */
-static int copy_stream(FILE *in, FILE *out) {
+static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
     char buf[1 << 16];
     size_t n;
 
-    while ((n = fread(buf, 1, sizeof(buf), in)) != 0)
+    while ((n = fread(buf, 1, sizeof(buf), in)) != 0) {
         if (fwrite(buf, 1, n, out) != n)
             return -1;
+        if (count != NULL)
+            *count += n;
+    }
     return ferror(in) ? -1 : 0;
 }
 
-static int run_stream(FILE *in, FILE *out, const gzng_options *opt) {
+static int run_stream(FILE *in, FILE *out, const gzng_options *opt,
+                      uint64_t *in_len, uint64_t *out_len) {
     if (opt->decompress)
-        return gzng_decompress_stream(in, out, opt);
-    if (opt->transparent)
-        return copy_stream(in, out);
-    return gzng_compress_stream(in, out, opt);
+        return gzng_decompress_stream(in, out, opt, in_len, out_len);
+    if (opt->transparent) {
+        uint64_t n = 0;
+        int rc = copy_stream(in, out, &n);
+        if (in_len != NULL)
+            *in_len = n;
+        if (out_len != NULL)
+            *out_len = n;
+        return rc;
+    }
+    return gzng_compress_stream(in, out, opt, in_len, out_len);
+}
+
+/* The gzip -v report, the reduction for compression, the expansion basis for decompression. */
+static void report(const gzng_options *opt, const char *name, const char *outname,
+                   uint64_t in_len, uint64_t out_len) {
+    uint64_t basis = opt->decompress ? out_len : in_len;
+    uint64_t other = opt->decompress ? in_len : out_len;
+    double pct = basis != 0 ? 100.0 * (1.0 - (double)other / (double)basis) : 0.0;
+
+    if (!opt->verbose)
+        return;
+    if (outname != NULL)
+        fprintf(stderr, "%s:\t%5.1f%% -- replaced with %s\n", name, pct, outname);
+    else
+        fprintf(stderr, "%s:\t%5.1f%%\n", name, pct);
 }
 
 static int has_suffix(const char *path) {
@@ -58,11 +84,13 @@ static int tty_guard(const gzng_options *opt) {
 int gzng_process_stdio(const gzng_options *opt) {
     if (tty_guard(opt) != 0)
         return 1;
+    uint64_t in_len = 0, out_len = 0;
     errno = 0;
-    if (run_stream(stdin, stdout, opt) != 0) {
+    if (run_stream(stdin, stdout, opt, &in_len, &out_len) != 0) {
         fail("stdin");
         return 1;
     }
+    report(opt, "stdin", NULL, in_len, out_len);
     return 0;
 }
 
@@ -106,6 +134,7 @@ static int process_dir(const char *path, const gzng_options *opt) {
 int gzng_process_file(const char *path, const gzng_options *opt) {
     char inpath[MAX_PATH_LEN], outpath[MAX_PATH_LEN];
     FILE *in, *out;
+    uint64_t in_len = 0, out_len = 0;
     int rc;
 
     {
@@ -143,12 +172,13 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
             fclose(in);
             return 1;
         }
-        rc = run_stream(in, stdout, opt);
+        rc = run_stream(in, stdout, opt, &in_len, &out_len);
         fclose(in);
         if (rc != 0 || fflush(stdout) != 0) {
             fail(inpath);
             return 1;
         }
+        report(opt, inpath, NULL, in_len, out_len);
         return 0;
     }
     out = fopen(outpath, opt->force ? "wb" : "wbx");
@@ -162,7 +192,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         fclose(in);
         return 1;
     }
-    rc = run_stream(in, out, opt);
+    rc = run_stream(in, out, opt, &in_len, &out_len);
     fclose(in);
     if (fclose(out) != 0 || rc != 0) {
         fail(rc != 0 ? inpath : outpath);
@@ -171,5 +201,6 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     }
     if (!opt->keep)
         unlink(inpath);
+    report(opt, inpath, outpath, in_len, out_len);
     return 0;
 }

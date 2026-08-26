@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdint>
 #include <cstring>
 #include <vector>
 
@@ -27,7 +28,10 @@ TEST(compress, stream_roundtrips_through_inflate) {
 
     gzng_options opt;
     gzng_options_init(&opt);
-    ASSERT_EQ(0, gzng_compress_stream(in, out, &opt));
+    uint64_t clen = 0, plen = 0;
+    ASSERT_EQ(0, gzng_compress_stream(in, out, &opt, &clen, &plen));
+    EXPECT_EQ(data.size(), clen);
+    EXPECT_GT(plen, 0u);
 
     long packed_len = ftell(out);
     ASSERT_GT(packed_len, 0);
