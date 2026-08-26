@@ -4,9 +4,11 @@
 
 #include "process.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "compress.h"
@@ -66,11 +68,55 @@ int gzng_process_stdio(const gzng_options *opt) {
 
 /* Compression turns file into file.gz, decompression file.gz into file, or file into file
    by reading file.gz, each removing its input. */
+/* Walk a directory. Compression skips entries already suffixed, decompression takes only
+   suffixed entries, the way gzip -r chooses files. */
+static int process_dir(const char *path, const gzng_options *opt) {
+    char sub[MAX_PATH_LEN];
+    DIR *dir = opendir(path);
+    struct dirent *e;
+    int rc = 0, r = 0;
+
+    if (dir == NULL) {
+        fail(path);
+        return 1;
+    }
+    while ((e = readdir(dir)) != NULL) {
+        struct stat st;
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+            continue;
+        if (snprintf(sub, sizeof(sub), "%s/%s", path, e->d_name) >= (int)sizeof(sub))
+            continue;
+        if (lstat(sub, &st) != 0)
+            continue;
+        if (S_ISDIR(st.st_mode))
+            r = process_dir(sub, opt);
+        else if (!S_ISREG(st.st_mode))
+            continue;
+        else if (opt->decompress ? !has_suffix(sub) : has_suffix(sub))
+            continue;
+        else
+            r = gzng_process_file(sub, opt);
+        if (r == 1 || (r == 2 && rc == 0))
+            rc = r;
+    }
+    closedir(dir);
+    return rc;
+}
+
 int gzng_process_file(const char *path, const gzng_options *opt) {
     char inpath[MAX_PATH_LEN], outpath[MAX_PATH_LEN];
     FILE *in, *out;
     int rc;
 
+    {
+        struct stat st;
+        if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+            if (opt->recursive)
+                return process_dir(path, opt);
+            fprintf(stderr, "gzip-ng: %s is a directory, ignored\n", path);
+            return 2;
+        }
+    }
     if (strlen(path) + SUFFIX_LEN >= sizeof(inpath)) {
         errno = ENAMETOOLONG;
         fail(path);

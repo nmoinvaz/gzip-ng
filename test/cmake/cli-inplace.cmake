@@ -66,3 +66,23 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/o.txt ${WOR
 if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
     message(FATAL_ERROR "-f overwrite roundtrip failed")
 endif()
+
+# -r walks directories, compressing then restoring, a bare directory is only a warning.
+file(MAKE_DIRECTORY ${WORKDIR}/tree/sub)
+file(WRITE ${WORKDIR}/tree/a.txt "${DATA}")
+file(WRITE ${WORKDIR}/tree/sub/b.txt "${DATA}")
+execute_process(COMMAND ${EXE} ${WORKDIR}/tree RESULT_VARIABLE rc)
+if(rc EQUAL 0)
+    message(FATAL_ERROR "directory without -r should warn")
+endif()
+execute_process(COMMAND ${EXE} -r ${WORKDIR}/tree RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0 OR NOT EXISTS ${WORKDIR}/tree/a.txt.gz OR NOT EXISTS ${WORKDIR}/tree/sub/b.txt.gz
+   OR EXISTS ${WORKDIR}/tree/a.txt)
+    message(FATAL_ERROR "-r compress walk failed")
+endif()
+execute_process(COMMAND ${EXE} -d -r ${WORKDIR}/tree RESULT_VARIABLE rc)
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/tree/sub/b.txt ${WORKDIR}/data.orig
+                RESULT_VARIABLE rc2)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR EXISTS ${WORKDIR}/tree/a.txt.gz)
+    message(FATAL_ERROR "-d -r walk failed")
+endif()
