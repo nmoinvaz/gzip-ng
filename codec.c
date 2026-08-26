@@ -1,4 +1,4 @@
-/* gzblock.c -- the deflate and inflate the pool runs over one slot at a time
+/* codec.c -- the deflate and inflate the pool runs over one slot at a time
  * For conditions of distribution and use, see LICENSE.md
  */
 

@@ -29,7 +29,7 @@ endif()
 
 
 add_library(gzng STATIC
-    gzblock.c
+    codec.c
     reader.c
     writer.c
     gzblock.h
