@@ -52,8 +52,8 @@ static int writer_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
     return 0;
 }
 
-/* gzip header with FEXTRA carrying the "ZB" subfield. Fixed 21-byte layout, the block size at
-   offsets 16..19 and the flags byte at 20, which tests and tools rely on. */
+/* An ordinary gzip header, carrying only the name and time -N and -M ask for. Nothing in it
+   marks the member as cut into blocks, a reader finds that out by scanning. */
 static int writer_header(gzblock_writer *w) {
     uint8_t buf[FORMAT_HEADER_MAX];
     format_header hdr;
