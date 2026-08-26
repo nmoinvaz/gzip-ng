@@ -1,4 +1,4 @@
-/* format.h -- the bytes of the gzip header and the ZB subfield
+/* format.h -- the bytes of the gzip header and trailer
  * For conditions of distribution and use, see LICENSE.md
  */
 
@@ -15,16 +15,12 @@ extern "C" {
 #endif
 
 #define GZ_TRAILER 8 /* crc32 and size, the member ending */
-#define ZB_PAIRED  1 /* "ZB" flags bit, block boundaries are marker pairs */
 
-/* Longest header format_header_build() can produce, the fixed ten bytes, the ZB subfield with
-   its own two byte length, and the stored name. */
-#define FORMAT_HEADER_MAX (10 + 2 + 9 + GZBLOCK_NAME_MAX)
+/* Longest header format_header_build() can produce, the fixed ten bytes and the stored name. */
+#define FORMAT_HEADER_MAX (10 + GZBLOCK_NAME_MAX)
 
 /* What a member header records. */
 typedef struct {
-    uint32_t block_size; /* 0 leaves the ZB subfield out */
-    uint32_t zb_flags;
     uint32_t mtime;      /* 0 stores no time */
     const char *name;    /* NULL or empty stores no name */
     int level, strategy; /* the extra flags byte reports how hard deflate worked */
@@ -33,9 +29,9 @@ typedef struct {
 /* Lay a member header into buf, at most FORMAT_HEADER_MAX bytes. Returns its length. */
 size_t format_header_build(uint8_t *buf, const format_header *hdr);
 
-/* Returns the header length, 0 if more bytes are needed, (size_t)-1 if this is not a gzip
-   header. */
-size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size, uint32_t *zb_flags);
+/* Walk a member header, over any extra field, name, comment, and header crc it carries.
+   Returns its length, 0 if more bytes are needed, (size_t)-1 if this is not a gzip header. */
+size_t format_header_parse(const uint8_t *buf, size_t len);
 
 /* The member trailer, crc32 of the uncompressed data and its length modulo 2^32, which is all
    gzip records however large the member was. */

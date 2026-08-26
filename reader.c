@@ -241,7 +241,7 @@ static int reader_next_segment(gzblock_reader *r) {
 
 /* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or -b
    supplies, a block size. */
-static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size, uint32_t zb_flags) {
+static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size, int paired) {
     r->hdr.len = 0;
     if (buf_append(&r->hdr, buf_data(&r->buf), hdr_len) != 0)
         return reader_oom(r);
@@ -279,7 +279,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
             return reader_oom(r);
         r->mz_init = 1;
     }
-    r->paired = (zb_flags & ZB_PAIRED) != 0;
+    r->paired = paired;
     r->scanned = 0;
     r->coal = 0;
     r->pair_seen = 0;
@@ -571,7 +571,7 @@ static int reader_probe(gzblock_reader *r, size_t hdr_len) {
 
 static int reader_header(gzblock_reader *r) {
     size_t want = 1024, hdr_len;
-    uint32_t hdr_block_size, zb_flags;
+    uint32_t hdr_block_size;
 
     for (;;) {
         if (reader_fill(r, want) != 0)
@@ -585,7 +585,7 @@ static int reader_header(gzblock_reader *r) {
                 r->state = READER_END; /* trailing garbage after a member, ignored */
             return 0;
         }
-        hdr_len = format_header_parse(buf_data(&r->buf), r->buf.len, &hdr_block_size, &zb_flags);
+        hdr_len = format_header_parse(buf_data(&r->buf), r->buf.len);
         if (hdr_len == (size_t)-1)
             return reader_fail(r, Z_DATA_ERROR, "not in gzip format");
         if (hdr_len != 0)
@@ -598,10 +598,8 @@ static int reader_header(gzblock_reader *r) {
             return reader_start_stream(r);
         want *= 2;
     }
-    if (hdr_block_size == 0) {
-        hdr_block_size = r->block_hint;
-        zb_flags = 0; /* a guessed size implies nothing about the markers */
-    }
+    /* Nothing in a header says how a member is cut, so a caller's hint decides, or the probe. */
+    hdr_block_size = r->block_hint;
     /* A block size that would cost more memory than is sensible. */
     if (hdr_block_size > GZBLOCK_MAX_BLOCK)
         return reader_start_stream(r);
@@ -615,9 +613,9 @@ static int reader_header(gzblock_reader *r) {
         case 0:
             return reader_start_stream(r);
         }
-        return reader_start_blocks(r, hdr_len, PROBE_BLOCK, ZB_PAIRED);
+        return reader_start_blocks(r, hdr_len, PROBE_BLOCK, 1);
     }
-    return reader_start_blocks(r, hdr_len, hdr_block_size, zb_flags);
+    return reader_start_blocks(r, hdr_len, hdr_block_size, 0);
 }
 
 /* ===========================================================================

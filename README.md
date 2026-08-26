@@ -2,6 +2,8 @@
 
 A gzip replacement built on [zlib-ng](https://github.com/zlib-ng/zlib-ng), with parallel compression into independent deflate blocks and parallel decompression of block-structured files, including pigz -i and pigz --rsyncable -i output.
 
+The files it writes are ordinary gzip files with nothing added to the header. A reader finds the block boundaries by looking for them, so `gzip-ng -p 8 file` produces something any gzip reads and this one reads back in parallel with no flags.
+
 The block engine is ported and the CLI covers the minigzip switch surface, the gzip drop-in surface comes next.
 
 ## Goals

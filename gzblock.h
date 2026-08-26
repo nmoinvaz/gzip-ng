@@ -12,14 +12,13 @@
 extern "C" {
 #endif
 
-/* One ordinary gzip member whose deflate stream is cut into independent blocks of block_size
-   input bytes. Each block ends with two empty stored blocks, the nine bytes
-   00 00 FF FF 00 00 00 FF FF, the same shape pigz --independent writes, so a block inflates on
-   its own and a boundary is hard to fake. The gzip header records the layout in an extra
-   subfield with the ID "ZB", see format.h, whose flags say the boundaries are marker pairs, which
-   lets the reader ignore the single markers a flush inside a block or a chance pattern in stored
-   data produce. Any deflate stream built the same way decodes here, pigz -i output included, and
-   streams with single full flush markers are read by scanning for those.
+/* One ordinary gzip member whose deflate stream is cut into independent blocks. Each block ends
+   with two empty stored blocks, the nine bytes 00 00 FF FF 00 00 00 FF FF, the same shape pigz
+   --independent writes, so a block inflates on its own and a boundary is hard to fake. Nothing in
+   the header says any of this, the reader finds the boundaries by looking for them, and a pair is
+   what tells it a boundary from a flush inside a block or a chance pattern in stored data. Any
+   deflate stream built the same way decodes here, pigz -i output included, and streams with
+   single full flush markers are read by scanning for those.
 
    A pool of workers runs deflate or inflate over a ring of slots, filled in order and drained in
    order, so output order is slot order and memory is bounded by the ring. Errors are reported
@@ -38,9 +37,8 @@ typedef size_t (*gzblock_read_fn)(void *ctx, uint8_t *buf, size_t len);
 typedef size_t (*gzblock_write_fn)(void *ctx, const uint8_t *buf, size_t len);
 
 /* Writer. Produces one gzip member whose deflate stream is cut into independent blocks of
-   block_size input bytes, deflated on nthreads threads, with the block size recorded in a "ZB"
-   header extra subfield. nthreads of 0 picks the number of CPUs, 1 does the work on the calling
-   thread. */
+   block_size input bytes, deflated on nthreads threads. nthreads of 0 picks the number of CPUs,
+   1 does the work on the calling thread. */
 typedef struct gzblock_writer_s gzblock_writer;
 
 gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy, uint32_t block_size,

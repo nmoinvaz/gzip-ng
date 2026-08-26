@@ -62,8 +62,6 @@ static int writer_header(gzblock_writer *w) {
     if (w->hdr_written)
         return 0;
     memset(&hdr, 0, sizeof(hdr));
-    hdr.block_size = w->block_size;
-    hdr.zb_flags = ZB_PAIRED;
     hdr.mtime = w->meta_mtime;
     hdr.name = w->meta_name[0] != 0 ? w->meta_name : NULL;
     hdr.level = w->level;

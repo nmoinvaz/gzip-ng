@@ -54,14 +54,12 @@ std::vector<uint8_t> whole_inflate(const std::vector<uint8_t> &packed, size_t ex
     return out;
 }
 
-TEST(block_writer, header_records_block_size) {
+TEST(block_writer, header_is_an_ordinary_gzip_header) {
     auto data = sample_data(200000);
     auto packed = block_compress(data, 64 * 1024, 1);
-    uint32_t block_size = 0, zb_flags = 0;
-    size_t hdr_len = format_header_parse(packed.data(), packed.size(), &block_size, &zb_flags);
-    EXPECT_EQ(64u * 1024, block_size);
-    EXPECT_EQ(static_cast<uint32_t>(ZB_PAIRED), zb_flags);
-    EXPECT_GT(hdr_len, 10u);
+    /* Nothing marks the member as cut into blocks, a reader finds that out by looking. */
+    EXPECT_EQ(10u, format_header_parse(packed.data(), packed.size()));
+    EXPECT_EQ(0, packed[3] & 4) << "no extra field";
 }
 
 TEST(block_writer, output_inflates_back) {
@@ -184,9 +182,9 @@ TEST(block_writer, meta_lands_in_the_header) {
     ASSERT_EQ(0, gzblock_writer_finish(w));
     gzblock_writer_close(w);
     ASSERT_GT(out.size(), 31u);
-    EXPECT_EQ(4 | 8, out[3]);
+    EXPECT_EQ(8, out[3]) << "the name flag, and nothing else";
     EXPECT_EQ(12345u, (uint32_t)out[4] | ((uint32_t)out[5] << 8));
-    EXPECT_EQ(0, memcmp(out.data() + 21, "hello.txt", 10));
+    EXPECT_EQ(0, memcmp(out.data() + 10, "hello.txt", 10)) << "the name follows the fixed bytes";
     EXPECT_EQ(data, block_read(out, 1));
 }
 
@@ -231,16 +229,6 @@ TEST(block_writer, rsyncable_realigns_after_an_edit) {
     EXPECT_GT(common, std::min(n1, n2) / 4) << "tails did not re-align";
 }
 
-/* Take the ZB subfield back out, leaving what a writer that never knew about it would produce. */
-std::vector<uint8_t> without_zb(const std::vector<uint8_t> &packed) {
-    std::vector<uint8_t> out(packed);
-    EXPECT_TRUE(out[3] & 4) << "expected an extra field to remove";
-    size_t xlen = (size_t)out[10] | ((size_t)out[11] << 8);
-    out[3] = (uint8_t)(out[3] & ~4);
-    out.erase(out.begin() + 10, out.begin() + 12 + (long)xlen);
-    return out;
-}
-
 TEST(block_reader, blocks_larger_than_the_probe_assumes_still_decode) {
     /* Nothing records the block size, so the reader assumes one and finds the blocks far bigger.
        They are pair-terminated, which makes them good at any size, so it has to make room rather
@@ -255,7 +243,7 @@ TEST(block_reader, blocks_larger_than_the_probe_assumes_still_decode) {
     ASSERT_EQ(0, gzblock_writer_write(w, data.data(), data.size()));
     ASSERT_EQ(0, gzblock_writer_finish(w));
     gzblock_writer_close(w);
-    auto packed = without_zb(out);
+    auto packed = out;
 
     for (int nthreads : {1, 3})
         EXPECT_EQ(data, block_read(packed, nthreads)) << "nthreads " << nthreads;

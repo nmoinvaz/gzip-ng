@@ -1,4 +1,4 @@
-/* format.c -- the bytes of the gzip header and the ZB subfield
+/* format.c -- the bytes of the gzip header and trailer
  * For conditions of distribution and use, see LICENSE.md
  */
 
@@ -19,9 +19,8 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     memset(buf, 0, 10);
     buf[0] = 0x1f;
     buf[1] = 0x8b;
-    buf[2] = 8;                                         /* deflate */
-    buf[3] = (uint8_t)((hdr->block_size != 0 ? 4 : 0) | /* FEXTRA */
-                       (name_len != 0 ? 8 : 0));        /* FNAME */
+    buf[2] = 8;                                /* deflate */
+    buf[3] = (uint8_t)(name_len != 0 ? 8 : 0); /* FNAME */
     buf[4] = (uint8_t)hdr->mtime;
     buf[5] = (uint8_t)(hdr->mtime >> 8);
     buf[6] = (uint8_t)(hdr->mtime >> 16);
@@ -35,19 +34,6 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
 #else
     buf[9] = 3; /* Unix */
 #endif
-    if (hdr->block_size != 0) {
-        buf[n++] = 9; /* XLEN, one subfield of five bytes behind its four byte header */
-        buf[n++] = 0;
-        buf[n++] = 'Z';
-        buf[n++] = 'B';
-        buf[n++] = 5; /* LEN */
-        buf[n++] = 0;
-        buf[n++] = (uint8_t)hdr->block_size;
-        buf[n++] = (uint8_t)(hdr->block_size >> 8);
-        buf[n++] = (uint8_t)(hdr->block_size >> 16);
-        buf[n++] = (uint8_t)(hdr->block_size >> 24);
-        buf[n++] = (uint8_t)hdr->zb_flags;
-    }
     if (name_len != 0) {
         memcpy(buf + n, hdr->name, name_len + 1);
         n += name_len + 1;
@@ -55,12 +41,10 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     return n;
 }
 
-size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size, uint32_t *zb_flags) {
+size_t format_header_parse(const uint8_t *buf, size_t len) {
     size_t pos = 10;
     uint8_t flags;
 
-    *block_size = 0;
-    *zb_flags = 0;
     if (len < 10)
         return 0;
     if (buf[0] != 0x1f || buf[1] != 0x8b || buf[2] != 8)
@@ -78,16 +62,6 @@ size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size,
         end = pos + xlen;
         if (len < end)
             return 0;
-        while (pos + 4 <= end) {
-            size_t sublen = buf[pos + 2] | ((size_t)buf[pos + 3] << 8);
-            if (buf[pos] == 'Z' && buf[pos + 1] == 'B' && sublen >= 4 && pos + 4 + sublen <= end) {
-                *block_size = (uint32_t)buf[pos + 4] | ((uint32_t)buf[pos + 5] << 8) | ((uint32_t)buf[pos + 6] << 16) |
-                    ((uint32_t)buf[pos + 7] << 24);
-                if (sublen >= 5)
-                    *zb_flags = buf[pos + 8];
-            }
-            pos += 4 + sublen;
-        }
         pos = end;
     }
     if (flags & 8) { /* FNAME */
