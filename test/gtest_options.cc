@@ -104,6 +104,13 @@ TEST(options, dash_is_a_file) {
     EXPECT_STREQ("-", a.argv[1]);
 }
 
+TEST(options, help_short) {
+    gzng_options opt;
+    Args a({"-h"});
+    int nfiles = 0;
+    EXPECT_EQ(1, parse(&opt, a, &nfiles));
+}
+
 TEST(options, unknown_option_fails) {
     gzng_options opt;
     Args a({"-x"});
