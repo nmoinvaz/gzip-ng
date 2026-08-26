@@ -54,42 +54,22 @@ static int writer_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
 /* gzip header with FEXTRA carrying the "ZB" subfield. Fixed 21-byte layout, the block size at
    offsets 16..19 and the flags byte at 20, which tests and tools rely on. */
 static int writer_header(gzblock_writer *w) {
-    uint8_t hdr[10 + 2 + 9 + GZBLOCK_NAME_MAX + 1];
-    size_t n = 10 + 2 + 9;
+    uint8_t buf[FORMAT_HEADER_MAX];
+    format_header hdr;
+    size_t n;
+
     if (w->hdr_written)
         return 0;
-    memset(hdr, 0, sizeof(hdr));
-    hdr[0] = 0x1f;
-    hdr[1] = 0x8b;
-    hdr[2] = 8;
-    hdr[3] = (uint8_t)(4 | (w->meta_name[0] != 0 ? 8 : 0));
-    hdr[4] = (uint8_t)w->meta_mtime;
-    hdr[5] = (uint8_t)(w->meta_mtime >> 8);
-    hdr[6] = (uint8_t)(w->meta_mtime >> 16);
-    hdr[7] = (uint8_t)(w->meta_mtime >> 24);
-    hdr[8] = (uint8_t)(w->level == 9 ? 2 :
-                       (w->strategy >= Z_HUFFMAN_ONLY || (w->level >= 0 && w->level < 2) ? 4 : 0));
-#ifdef _WIN32
-    hdr[9] = 0;
-#else
-    hdr[9] = 3;
-#endif
-    hdr[10] = 9;
-    hdr[12] = 'Z';
-    hdr[13] = 'B';
-    hdr[14] = 5;
-    hdr[16] = (uint8_t)w->block_size;
-    hdr[17] = (uint8_t)(w->block_size >> 8);
-    hdr[18] = (uint8_t)(w->block_size >> 16);
-    hdr[19] = (uint8_t)(w->block_size >> 24);
-    hdr[20] = ZB_PAIRED;
-    if (w->meta_name[0] != 0) {
-        size_t nl = strlen(w->meta_name) + 1;
-        memcpy(hdr + n, w->meta_name, nl);
-        n += nl;
-    }
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.block_size = w->block_size;
+    hdr.zb_flags = ZB_PAIRED;
+    hdr.mtime = w->meta_mtime;
+    hdr.name = w->meta_name[0] != 0 ? w->meta_name : NULL;
+    hdr.level = w->level;
+    hdr.strategy = w->strategy;
+    n = format_header_build(buf, &hdr);
     w->hdr_written = 1;
-    return writer_out(w, hdr, n);
+    return writer_out(w, buf, n);
 }
 
 int gzblock_wrsyncable(gzblock_writer *w, int on) {

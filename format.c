@@ -4,7 +4,56 @@
 
 #include "format.h"
 
-#include "gzblock.h"
+#include <string.h>
+
+#include "zlib-ng.h"
+
+size_t format_header_build(uint8_t *buf, const format_header *hdr) {
+    size_t name_len = hdr->name != NULL ? strlen(hdr->name) : 0;
+    size_t n = 10;
+
+    /* A name that does not fit is left out rather than stored cut in half. */
+    if (name_len >= GZBLOCK_NAME_MAX)
+        name_len = 0;
+
+    memset(buf, 0, 10);
+    buf[0] = 0x1f;
+    buf[1] = 0x8b;
+    buf[2] = 8;                                            /* deflate */
+    buf[3] = (uint8_t)((hdr->block_size != 0 ? 4 : 0) |    /* FEXTRA */
+                       (name_len != 0 ? 8 : 0));           /* FNAME */
+    buf[4] = (uint8_t)hdr->mtime;
+    buf[5] = (uint8_t)(hdr->mtime >> 8);
+    buf[6] = (uint8_t)(hdr->mtime >> 16);
+    buf[7] = (uint8_t)(hdr->mtime >> 24);
+    /* Extra flags, 2 for the slowest deflate settings, 4 for the fastest. */
+    buf[8] = (uint8_t)(hdr->level == 9 ? 2 :
+                       (hdr->strategy >= Z_HUFFMAN_ONLY ||
+                        (hdr->level >= 0 && hdr->level < 2) ? 4 : 0));
+#ifdef _WIN32
+    buf[9] = 0;
+#else
+    buf[9] = 3;                                            /* Unix */
+#endif
+    if (hdr->block_size != 0) {
+        buf[n++] = 9;      /* XLEN, one subfield of five bytes behind its four byte header */
+        buf[n++] = 0;
+        buf[n++] = 'Z';
+        buf[n++] = 'B';
+        buf[n++] = 5;      /* LEN */
+        buf[n++] = 0;
+        buf[n++] = (uint8_t)hdr->block_size;
+        buf[n++] = (uint8_t)(hdr->block_size >> 8);
+        buf[n++] = (uint8_t)(hdr->block_size >> 16);
+        buf[n++] = (uint8_t)(hdr->block_size >> 24);
+        buf[n++] = (uint8_t)hdr->zb_flags;
+    }
+    if (name_len != 0) {
+        memcpy(buf + n, hdr->name, name_len + 1);
+        n += name_len + 1;
+    }
+    return n;
+}
 
 size_t format_header_parse(const uint8_t *buf, size_t len, uint32_t *block_size, uint32_t *zb_flags) {
     size_t pos = 10;
