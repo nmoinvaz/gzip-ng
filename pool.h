@@ -44,9 +44,9 @@ struct pool_s;
 /* The codec the pool drives, handed in before pool_start(), one persistent stream per worker
    running one slot at a time. */
 typedef struct {
-    int (*init)(struct pool_s *p, zng_stream *z);
-    void (*end)(struct pool_s *p, zng_stream *z);
-    void (*run)(struct pool_s *p, zng_stream *z, slot_t *slot);
+    int (*init)(struct pool_s *pool, zng_stream *z);
+    void (*end)(struct pool_s *pool, zng_stream *z);
+    void (*run)(struct pool_s *pool, zng_stream *z, slot_t *slot);
 } pool_codec;
 
 typedef struct pool_s {
@@ -73,14 +73,14 @@ typedef struct pool_s {
 
 int pool_default_threads(void);
 
-slot_t *pool_slot(pool_t *p, size_t i);
-int pool_alloc(pool_t *p, int nthreads, size_t in_cap, size_t out_cap);
-void pool_free(pool_t *p);
-int pool_start(pool_t *p, int nthreads);
-void pool_stop(pool_t *p);
-void pool_submit(pool_t *p, slot_t *slot);
-void pool_wait(pool_t *p, slot_t *slot);
-void pool_release(pool_t *p, slot_t *slot);
+slot_t *pool_slot(pool_t *pool, size_t i);
+int pool_alloc(pool_t *pool, int nthreads, size_t in_cap, size_t out_cap);
+void pool_free(pool_t *pool);
+int pool_start(pool_t *pool, int nthreads);
+void pool_stop(pool_t *pool);
+void pool_submit(pool_t *pool, slot_t *slot);
+void pool_wait(pool_t *pool, slot_t *slot);
+void pool_release(pool_t *pool, slot_t *slot);
 
 #ifdef __cplusplus
 }
