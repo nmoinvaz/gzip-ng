@@ -502,16 +502,13 @@ static int reader_blocks(gzblock_reader *r) {
 
 /* The 8 trailer bytes follow the final block, then the next member or the end. */
 static int reader_member_end_step(gzblock_reader *r) {
-    const uint8_t *t;
     uint32_t want_crc, want_size;
 
     if (reader_fill(r, GZ_TRAILER) != 0)
         return -1;
     if (r->buf.len < GZ_TRAILER)
         return reader_fail(r, Z_BUF_ERROR, "unexpected end of file");
-    t = buf_data(&r->buf);
-    want_crc = (uint32_t)t[0] | ((uint32_t)t[1] << 8) | ((uint32_t)t[2] << 16) | ((uint32_t)t[3] << 24);
-    want_size = (uint32_t)t[4] | ((uint32_t)t[5] << 8) | ((uint32_t)t[6] << 16) | ((uint32_t)t[7] << 24);
+    format_trailer_parse(buf_data(&r->buf), &want_crc, &want_size);
     if (r->crc != want_crc)
         return reader_fail(r, Z_DATA_ERROR, "crc mismatch in the gzip trailer");
     if (want_size != (uint32_t)r->total)

@@ -11,6 +11,7 @@
 #include <time.h>
 
 #include "decompress.h"
+#include "format.h"
 #include "gzblock.h"
 
 void gzng_list_begin(const gzng_options *opt) {
@@ -38,7 +39,7 @@ static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime,
 int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *totals) {
     char stored[GZBLOCK_NAME_MAX], namebuf[4096];
     const char *name = path;
-    uint8_t tail[8];
+    uint8_t tail[GZ_TRAILER];
     uint32_t mtime = 0, crc = 0;
     uint64_t uncompressed;
     struct stat st;
@@ -60,15 +61,16 @@ int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *total
         return 1;
     }
     /* The trailer of the last member, the same 32-bit size gzip reports. */
-    fseek(in, -8, SEEK_END);
-    n = fread(tail, 1, 8, in);
+    fseek(in, -GZ_TRAILER, SEEK_END);
+    n = fread(tail, 1, sizeof(tail), in);
     fclose(in);
     if (n != 8)
         return 1;
-    crc = (uint32_t)tail[0] | ((uint32_t)tail[1] << 8) | ((uint32_t)tail[2] << 16) |
-          ((uint32_t)tail[3] << 24);
-    uncompressed = (uint64_t)tail[4] | ((uint64_t)tail[5] << 8) | ((uint64_t)tail[6] << 16) |
-                   ((uint64_t)tail[7] << 24);
+    {
+        uint32_t size32;
+        format_trailer_parse(tail, &crc, &size32);
+        uncompressed = size32;
+    }
 
     if (opt->name_mode == 1 && stored[0] != 0) {
         name = stored;

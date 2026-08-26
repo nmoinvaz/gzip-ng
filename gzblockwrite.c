@@ -383,14 +383,7 @@ int gzblock_wfinish(gzblock_writer *w) {
                 return -1;
         }
     }
-    trailer[0] = (uint8_t)w->crc;
-    trailer[1] = (uint8_t)(w->crc >> 8);
-    trailer[2] = (uint8_t)(w->crc >> 16);
-    trailer[3] = (uint8_t)(w->crc >> 24);
-    trailer[4] = (uint8_t)w->total;
-    trailer[5] = (uint8_t)(w->total >> 8);
-    trailer[6] = (uint8_t)(w->total >> 16);
-    trailer[7] = (uint8_t)(w->total >> 24);
+    format_trailer_build(trailer, w->crc, (uint64_t)w->total);
     if (writer_out(w, trailer, sizeof(trailer)) != 0)
         return -1;
     w->finished = 1;

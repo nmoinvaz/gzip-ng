@@ -80,4 +80,14 @@ TEST(format, other_data_is_rejected) {
     EXPECT_EQ((size_t)-1, format_header_parse(junk, sizeof(junk), &block_size, &zb_flags));
 }
 
+TEST(format, trailer_round_trips) {
+    uint8_t buf[GZ_TRAILER];
+    uint32_t crc = 0, total = 0;
+
+    format_trailer_build(buf, 0xdeadbeefu, 0x100000007ull);
+    format_trailer_parse(buf, &crc, &total);
+    EXPECT_EQ(0xdeadbeefu, crc);
+    EXPECT_EQ(7u, total) << "the length is recorded modulo 2^32";
+}
+
 }  // namespace
