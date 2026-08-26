@@ -277,7 +277,7 @@ static int process_dir(const char *path, const gzng_options *opt) {
         else if (opt->decompress ? !has_suffix(sub) : has_suffix(sub))
             continue;
         else
-            r = gzng_process_file(sub, opt);
+            r = gzng_process_path(sub, opt);
         if (r == 1 || (r == 2 && rc == 0))
             rc = r;
     }
@@ -306,7 +306,7 @@ static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_p
     return 0;
 }
 
-int gzng_process_file(const char *path, const gzng_options *opt) {
+int gzng_process_path(const char *path, const gzng_options *opt) {
     char in_path[MAX_PATH_LEN], out_path[MAX_PATH_LEN];
     uint64_t in_len = 0, out_len = 0;
     uint32_t store_mtime = 0, hdr_mtime = 0;
