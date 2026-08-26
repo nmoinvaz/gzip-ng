@@ -98,4 +98,14 @@ TEST(options, strategies) {
     }
 }
 
+TEST(options, transparent_and_text) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    char a0[] = "gzip-ng", a1[] = "-T", a2[] = "-A";
+    char *argv[] = {a0, a1, a2, nullptr};
+    EXPECT_EQ(3, gzng_options_parse(&opt, 3, argv));
+    EXPECT_EQ(1, opt.transparent);
+    EXPECT_EQ(1, opt.text_mode);
+}
+
 }  // namespace

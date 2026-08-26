@@ -20,9 +20,23 @@ static void fail(const char *path) {
     fprintf(stderr, "gzip-ng: %s: %s\n", path, errno ? strerror(errno) : "processing failed");
 }
 
+/* -T writes the bytes through untouched. */
+static int copy_stream(FILE *in, FILE *out) {
+    char buf[1 << 16];
+    size_t n;
+
+    while ((n = fread(buf, 1, sizeof(buf), in)) != 0)
+        if (fwrite(buf, 1, n, out) != n)
+            return -1;
+    return ferror(in) ? -1 : 0;
+}
+
 static int run_stream(FILE *in, FILE *out, const gzng_options *opt) {
-    return opt->decompress ? gzng_decompress_stream(in, out, opt)
-                           : gzng_compress_stream(in, out, opt);
+    if (opt->decompress)
+        return gzng_decompress_stream(in, out, opt);
+    if (opt->transparent)
+        return copy_stream(in, out);
+    return gzng_compress_stream(in, out, opt);
 }
 
 static int has_suffix(const char *path) {

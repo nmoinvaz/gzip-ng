@@ -71,3 +71,12 @@ foreach(level 0 1)
         message(FATAL_ERROR "level -${level} roundtrip failed")
     endif()
 endforeach()
+
+# -T copies through untouched, and decompression passes it through as well.
+file(WRITE ${WORKDIR}/t.txt "${DATA}")
+execute_process(COMMAND ${EXE} -T -c ${WORKDIR}/t.txt OUTPUT_FILE ${WORKDIR}/t.raw RESULT_VARIABLE rc)
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/t.txt ${WORKDIR}/t.raw
+                RESULT_VARIABLE rc2)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0)
+    message(FATAL_ERROR "-T did not copy through")
+endif()
