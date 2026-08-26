@@ -14,6 +14,7 @@
 #include "format.h"
 #include "gzblock.h"
 #include "pool.h"
+#include "util.h"
 #include "zlib-ng.h"
 
 #define IO_CHUNK   (256 * 1024)   /* read and write in this much at a time */

@@ -113,7 +113,7 @@ static int reader_stream(gzblock_reader *r) {
         if (r->buf.len == 0)
             return reader_fail(r, Z_BUF_ERROR, "unexpected end of file");
     }
-    feed = r->buf.len > UINT32_MAX ? UINT32_MAX : r->buf.len;
+    feed = clamp_u32(r->buf.len);
     r->z.next_in = (z_const uint8_t *)buf_data(&r->buf);
     r->z.avail_in = (uint32_t)feed;
     r->z.next_out = r->obuf;
@@ -134,7 +134,7 @@ static int reader_stream(gzblock_reader *r) {
 static int reader_passthru(gzblock_reader *r) {
     size_t n;
     if (r->buf.len != 0) {
-        n = r->buf.len < IO_CHUNK ? r->buf.len : IO_CHUNK;
+        n = MIN(r->buf.len, IO_CHUNK);
         memcpy(r->obuf, buf_data(&r->buf), n);
         buf_drop(&r->buf, n);
         reader_handout(r, r->obuf, n, NULL);

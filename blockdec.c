@@ -3,6 +3,7 @@
  */
 
 #include "blockdec.h"
+#include "util.h"
 
 void blockdec_begin(block_dec *d, zng_stream *z, uint8_t *out, uint32_t block_size) {
     d->z = z;
@@ -28,7 +29,7 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
     z->avail_in = 0;
     for (;;) {
         if (z->avail_in == 0 && left != 0) {
-            uint32_t chunk = left > UINT32_MAX ? UINT32_MAX : (uint32_t)left;
+            uint32_t chunk = clamp_u32(left);
             z->avail_in = chunk;
             left -= chunk;
         }

@@ -269,9 +269,7 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
     while (len != 0) {
         size_t take;
         if (w->inline_active) {
-            take = w->block_size - w->inline_fill;
-            if (take > len)
-                take = len;
+            take = MIN(w->block_size - w->inline_fill, len);
             if (writer_inline_feed(w, buf, take) != 0)
                 return -1;
             buf += take;
@@ -280,9 +278,7 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
         }
         if (w->cur == NULL && writer_acquire(w) != 0)
             return -1;
-        take = w->block_size - w->cur->in_len;
-        if (take > len)
-            take = len;
+        take = MIN(w->block_size - w->cur->in_len, len);
         if (w->rsyncable) {
             /* A hash hit after the minimum fill ends the block there, so boundaries follow the
                content and an edit re-aligns at the next hit instead of shifting every block. */

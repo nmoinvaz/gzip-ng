@@ -12,7 +12,7 @@ int pool_default_threads(void) {
 #if defined(GZBLOCK_THREADS) && defined(_SC_NPROCESSORS_ONLN)
     long n = sysconf(_SC_NPROCESSORS_ONLN);
     if (n > 0)
-        return n > 64 ? 64 : (int)n;
+        return (int)MIN(n, 64);
 #endif
     return 1;
 }
