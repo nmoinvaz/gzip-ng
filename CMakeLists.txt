@@ -49,6 +49,8 @@ add_library(gzng STATIC
     list.h
     process.c
     process.h
+    rolling.c
+    rolling.h
     options.c
     pool.c
     pool.h

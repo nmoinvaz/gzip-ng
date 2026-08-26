@@ -33,7 +33,7 @@ struct gzblock_reader_s {
     uint32_t block_size; /* block mode */
     int paired;          /* boundaries are marker pairs, lone markers are not candidates */
     int pair_seen;       /* a pair turned up in this member, so treat it as pair-delimited */
-    size_t max_seg;      /* longest a compressed block can be */
+    size_t max_seg;      /* how much the reader will hold looking for one boundary */
     buf_t hdr;           /* this member's header, kept for the fallback */
     size_t scanned;      /* bytes of buf already scanned for markers */
     size_t coal;         /* rightmost pair end while coalescing small chunks, 0 when not */
@@ -255,7 +255,9 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         r->tmp = NULL;
     }
     r->block_size = block_size;
-    r->max_seg = (size_t)block_size + (block_size >> 8) + 1024; /* stored blocks plus the markers */
+    /* A pair-terminated block may hold any amount and coalescing gathers several of them, so
+       this bounds what one segment may cost rather than describing what the format allows. */
+    r->max_seg = (size_t)block_size * 4 + 1024;
     if (!r->pool_up) {
         r->pool.codec.init = gzblock_codec_init;
         r->pool.codec.end = gzblock_codec_end;

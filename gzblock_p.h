@@ -14,6 +14,7 @@
 #include "format.h"
 #include "gzblock.h"
 #include "pool.h"
+#include "rolling.h"
 #include "util.h"
 #include "zlib-ng.h"
 

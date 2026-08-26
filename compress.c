@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "gzblock.h"
+#include "rolling.h"
 #include "zlib-ng.h"
 
 #define CHUNK (256 * 1024)
@@ -68,7 +69,7 @@ done:
 }
 
 /* Mean span of 4096 bytes between the sync points --rsyncable puts in. */
-#define RSYNC_MASK 0xfffu
+#define RSYNC_MASK 0xfffu /* a sync point every 4096 bytes on average */
 
 /* Push one span of input through deflate and write everything it produces. */
 static int deflate_span(zng_stream *z, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int flush) {
@@ -97,8 +98,8 @@ static size_t next_span(int rsyncable, uint32_t *hash, const uint8_t *buf, size_
     if (!rsyncable)
         return len;
     for (k = 0; k < len; k++) {
-        *hash = ((*hash << 1) ^ buf[k]) & RSYNC_MASK;
-        if (*hash == RSYNC_MASK) {
+        ROLLING_ADD(*hash, buf[k]);
+        if (ROLLING_HIT(*hash, RSYNC_MASK)) {
             *sync = 1;
             return k + 1;
         }

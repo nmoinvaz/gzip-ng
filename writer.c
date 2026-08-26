@@ -20,6 +20,7 @@ struct gzblock_writer_s {
     char meta_name[GZBLOCK_NAME_MAX];
     int rsyncable; /* end blocks at rolling hash hits so edits stay local */
     uint32_t rhash, rmask;
+    size_t rmax; /* a block is cut on size alone only here */
     size_t rmin; /* no early end before this much of the block is filled */
     int err;     /* zlib error code once failed */
     char msg[MSG_LEN];
@@ -204,6 +205,29 @@ static int writer_drain(gzblock_writer *w) {
  * The writer object
  * =========================================================================== */
 
+/* Size the ring for blocks of up to cap input bytes and start the workers. Called again when
+   --rsyncable widens what a block may hold, which happens before anything has been submitted. */
+static int writer_pool_size(gzblock_writer *w, size_t cap) {
+    zng_stream bound;
+    size_t out_cap;
+
+    memset(&bound, 0, sizeof(bound));
+    if (zng_deflateInit2(&bound, w->level, Z_DEFLATED, -MAX_WBITS, 8, w->strategy) != Z_OK)
+        return -1;
+    out_cap = zng_deflateBound(&bound, cap) + 32;
+    zng_deflateEnd(&bound);
+
+    if (w->pool_up) {
+        pool_stop(&w->pool);
+        pool_free(&w->pool);
+        w->pool_up = 0;
+    }
+    if (pool_alloc(&w->pool, w->nthreads, cap, out_cap) != 0 || pool_start(&w->pool, w->nthreads) != 0)
+        return -1;
+    w->pool_up = 1;
+    return 0;
+}
+
 gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy, uint32_t block_size,
                                     int nthreads) {
     gzblock_writer *w;
@@ -239,26 +263,37 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     w->pool.level = level;
     w->pool.strategy = strategy;
     w->obuf = (uint8_t *)malloc(IO_CHUNK);
-    if (w->obuf == NULL || pool_alloc(&w->pool, w->nthreads, block_size, out_cap) != 0 ||
-        pool_start(&w->pool, w->nthreads) != 0) {
+    if (w->obuf == NULL || writer_pool_size(w, block_size) != 0) {
         pool_free(&w->pool);
         free(w->obuf);
         free(w);
         return NULL;
     }
-    w->pool_up = 1;
+    (void)out_cap;
     return w;
 }
 
+/* With --rsyncable the block size becomes a target rather than a ceiling. Boundaries are asked
+   for every block_size / 2 bytes and refused before that much is in hand, which averages a block
+   of block_size, and a block runs to twice that before it is cut on size alone. Leaving that much
+   room is what keeps nearly every boundary content-defined, and so re-alignable after an edit. */
 int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
     uint32_t bits = 12;
+
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
-    w->rsyncable = on != 0;
+    if (!on) {
+        w->rsyncable = 0;
+        return 0;
+    }
     w->rmin = w->block_size / 2;
     while ((1u << bits) < (uint32_t)w->rmin && bits < 24)
         bits++;
     w->rmask = (1u << bits) - 1;
+    w->rmax = (size_t)w->block_size * 2;
+    if (writer_pool_size(w, w->rmax) != 0)
+        return w->failed = 1, -1;
+    w->rsyncable = 1;
     return 0;
 }
 
@@ -272,6 +307,8 @@ int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
 }
 
 int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
+    size_t limit = w->block_size;
+
     if (w->failed || w->finished)
         return -1;
     while (len != 0) {
@@ -286,14 +323,15 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
         }
         if (w->cur == NULL && writer_acquire(w) != 0)
             return -1;
-        take = MIN(w->block_size - w->cur->in_len, len);
+        limit = w->rsyncable ? w->rmax : w->block_size;
+        take = MIN(limit - w->cur->in_len, len);
         if (w->rsyncable) {
             /* A hash hit after the minimum fill ends the block there, so boundaries follow the
                content and an edit re-aligns at the next hit instead of shifting every block. */
             size_t k;
             for (k = 0; k < take; k++) {
-                w->rhash = ((w->rhash << 1) ^ buf[k]) & 0xffffffu;
-                if (w->cur->in_len + k + 1 >= w->rmin && (w->rhash & w->rmask) == w->rmask) {
+                ROLLING_ADD(w->rhash, buf[k]);
+                if (w->cur->in_len + k + 1 >= w->rmin && ROLLING_HIT(w->rhash, w->rmask)) {
                     take = k + 1;
                     break;
                 }
@@ -303,8 +341,7 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
         w->cur->in_len += take;
         buf += take;
         len -= take;
-        if (w->cur->in_len == w->block_size ||
-            (w->rsyncable && w->cur->in_len >= w->rmin && (w->rhash & w->rmask) == w->rmask))
+        if (w->cur->in_len == limit || (w->rsyncable && w->cur->in_len >= w->rmin && ROLLING_HIT(w->rhash, w->rmask)))
             writer_submit(w, 0);
     }
     return 0;
