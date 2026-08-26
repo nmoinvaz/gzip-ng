@@ -49,7 +49,7 @@ cmake --build build-bench
 build-bench/test/benchmarks/benchmark_gzng
 ```
 
-Comparing whole binaries is a different job, fork and exec noise belongs to tools built for it. `bench/compare.sh [size-MB] [threads]` runs gzip-ng against the system gzip and pigz where installed, through hyperfine when available and a built-in best-of-3 timer otherwise.
+Comparing whole binaries is a different job, fork and exec noise belongs to tools built for it. `test/benchmarks/compare.sh [size-MB] [threads]` runs gzip-ng against the system gzip and pigz where installed, through hyperfine when available and a built-in best-of-3 timer otherwise.
 
 ## Project notes
 
