@@ -231,4 +231,34 @@ TEST(block_writer, rsyncable_realigns_after_an_edit) {
     EXPECT_GT(common, std::min(n1, n2) / 4) << "tails did not re-align";
 }
 
+/* Take the ZB subfield back out, leaving what a writer that never knew about it would produce. */
+std::vector<uint8_t> without_zb(const std::vector<uint8_t> &packed) {
+    std::vector<uint8_t> out(packed);
+    EXPECT_TRUE(out[3] & 4) << "expected an extra field to remove";
+    size_t xlen = (size_t)out[10] | ((size_t)out[11] << 8);
+    out[3] = (uint8_t)(out[3] & ~4);
+    out.erase(out.begin() + 10, out.begin() + 12 + (long)xlen);
+    return out;
+}
+
+TEST(block_reader, blocks_larger_than_the_probe_assumes_still_decode) {
+    /* Nothing records the block size, so the reader assumes one and finds the blocks far bigger.
+       They are pair-terminated, which makes them good at any size, so it has to make room rather
+       than give up part way through the member. */
+    auto data = varied_data(6 << 20); /* barely compressible, so the segments stay large */
+    std::vector<uint8_t> out;
+    gzblock_writer *w = gzblock_writer_open(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 512 * 1024, 2);
+    ASSERT_NE(nullptr, w);
+    /* Content-defined ends, so the blocks vary and an early one can fit the reader's assumption
+       while a later one does not, which is past the point where it could start over. */
+    ASSERT_EQ(0, gzblock_writer_rsyncable(w, 1));
+    ASSERT_EQ(0, gzblock_writer_write(w, data.data(), data.size()));
+    ASSERT_EQ(0, gzblock_writer_finish(w));
+    gzblock_writer_close(w);
+    auto packed = without_zb(out);
+
+    for (int nthreads : {1, 3})
+        EXPECT_EQ(data, block_read(packed, nthreads)) << "nthreads " << nthreads;
+}
+
 }  // namespace

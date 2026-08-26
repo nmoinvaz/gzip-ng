@@ -334,6 +334,13 @@ static int reader_produce(gzblock_reader *r) {
         if (rc == -1)
             return -1;
         if (rc == -2) {
+            /* The blocks run larger than was assumed, which happens when nothing declared their
+               size and the guess was low. A pair-terminated block is good at any size, so raise
+               what one segment may cost and look again rather than give up on the member. */
+            if (r->pair_seen && r->max_seg < GZBLOCK_MAX_BLOCK) {
+                r->max_seg = MIN(r->max_seg * 2, (size_t)GZBLOCK_MAX_BLOCK);
+                continue;
+            }
             if (r->next_produce == 0 && r->next_emit == 0)
                 return reader_fallback(r); /* no block structure at this size */
             return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->next_produce);
