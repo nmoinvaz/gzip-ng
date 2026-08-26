@@ -36,8 +36,8 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -f --force       overwrite outputs, compress to a terminal\n");
     fprintf(out, "  -H --huffman     huffman only strategy, -U --rle run length\n");
     fprintf(out, "     --filtered --fixed   the remaining deflate strategies\n");
-    fprintf(out, "  -T : store without compressing\n");
-    fprintf(out, "  -A : text mode, accepted for compatibility\n");
+    fprintf(out, "  -T               store without compressing\n");
+    fprintf(out, "  -A               text mode, accepted for compatibility\n");
     fprintf(out, "  -b --blocksize size   compress in independent blocks, K, M, and G suffixes\n");
     fprintf(out, "  -p --processes n      threads to use, 0 picks the number of CPUs\n");
     fprintf(out, "  -1 --fast .. -9 --best  compression level, 6 by default\n");
