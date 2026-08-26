@@ -1,4 +1,4 @@
-/* gzblockpool.c -- the thread pool and slot ring behind the gzblock engine
+/* pool.c -- the thread pool and slot ring behind the gzblock engine
  * For conditions of distribution and use, see LICENSE.md
  */
 
@@ -8,7 +8,7 @@
 #  include <unistd.h>
 #endif
 
-int gzblk_default_threads(void) {
+int pool_default_threads(void) {
 #if defined(GZBLOCK_THREADS) && defined(_SC_NPROCESSORS_ONLN)
     long n = sysconf(_SC_NPROCESSORS_ONLN);
     if (n > 0)
@@ -17,12 +17,12 @@ int gzblk_default_threads(void) {
     return 1;
 }
 
-slot_t *gzblk_pool_slot(pool_t *p, size_t i) {
+slot_t *pool_slot(pool_t *p, size_t i) {
     return &p->ring[i % p->nring];
 }
 
 /* Allocate the ring, nthreads * 4 slots of in_cap + out_cap bytes, within RING_BYTES. */
-int gzblk_pool_alloc(pool_t *p, int nthreads, size_t in_cap, size_t out_cap) {
+int pool_alloc(pool_t *p, int nthreads, size_t in_cap, size_t out_cap) {
     size_t i;
 #ifdef GZBLOCK_THREADS
     p->nring = nthreads <= 1 ? 1 : (size_t)nthreads * 4;
@@ -52,7 +52,7 @@ int gzblk_pool_alloc(pool_t *p, int nthreads, size_t in_cap, size_t out_cap) {
     return 0;
 }
 
-void gzblk_pool_free(pool_t *p) {
+void pool_free(pool_t *p) {
     size_t i;
     if (p->ring != NULL) {
         for (i = 0; i < p->nring; i++) {
@@ -72,16 +72,16 @@ void gzblk_pool_free(pool_t *p) {
 /* Without worker threads the slots are worked on demand by the calling thread. */
 static int pool_start_inline(pool_t *p) {
     p->inline_run = 1;
-    return gzblk_stream_init(p, &p->z) == Z_OK ? 0 : -1;
+    return pool_codec_init(p, &p->z) == Z_OK ? 0 : -1;
 }
 
 static void pool_stop_inline(pool_t *p) {
-    gzblk_stream_end(p, &p->z);
+    pool_codec_end(p, &p->z);
 }
 
 static void slot_wait_inline(pool_t *p, slot_t *slot) {
     if (slot->state == SLOT_FILLED)
-        gzblk_run_slot(p, &p->z, slot);
+        pool_codec_run(p, &p->z, slot);
     slot->state = SLOT_DONE;
 }
 
@@ -91,7 +91,7 @@ static void *worker(void *arg) {
     pool_t *p = (pool_t *)arg;
     zng_stream z;
 
-    if (gzblk_stream_init(p, &z) != Z_OK)
+    if (pool_codec_init(p, &z) != Z_OK)
         return NULL;
     for (;;) {
         slot_t *slot;
@@ -107,18 +107,18 @@ static void *worker(void *arg) {
         slot->state = SLOT_CLAIMED;
         pthread_mutex_unlock(&p->mu);
 
-        gzblk_run_slot(p, &z, slot);
+        pool_codec_run(p, &z, slot);
 
         pthread_mutex_lock(&p->mu);
         slot->state = SLOT_DONE;
         pthread_cond_broadcast(&p->done_cv);
         pthread_mutex_unlock(&p->mu);
     }
-    gzblk_stream_end(p, &z);
+    pool_codec_end(p, &z);
     return NULL;
 }
 
-int gzblk_pool_start(pool_t *p, int nthreads) {
+int pool_start(pool_t *p, int nthreads) {
     if (nthreads <= 1)
         return pool_start_inline(p);
     pthread_mutex_init(&p->mu, NULL);
@@ -134,7 +134,7 @@ int gzblk_pool_start(pool_t *p, int nthreads) {
     return p->started > 0 ? 0 : -1;
 }
 
-void gzblk_pool_stop(pool_t *p) {
+void pool_stop(pool_t *p) {
     int i;
     if (p->inline_run) {
         pool_stop_inline(p);
@@ -156,7 +156,7 @@ void gzblk_pool_stop(pool_t *p) {
     pthread_cond_destroy(&p->done_cv);
 }
 
-void gzblk_slot_submit(pool_t *p, slot_t *slot) {
+void pool_submit(pool_t *p, slot_t *slot) {
     if (p->inline_run) {
         slot->state = SLOT_FILLED;
         return;
@@ -168,7 +168,7 @@ void gzblk_slot_submit(pool_t *p, slot_t *slot) {
     pthread_mutex_unlock(&p->mu);
 }
 
-void gzblk_slot_wait(pool_t *p, slot_t *slot) {
+void pool_wait(pool_t *p, slot_t *slot) {
     if (p->inline_run) {
         slot_wait_inline(p, slot);
         return;
@@ -179,7 +179,7 @@ void gzblk_slot_wait(pool_t *p, slot_t *slot) {
     pthread_mutex_unlock(&p->mu);
 }
 
-void gzblk_slot_release(pool_t *p, slot_t *slot) {
+void pool_release(pool_t *p, slot_t *slot) {
     if (p->inline_run) {
         slot->state = SLOT_FREE;
         return;
@@ -191,26 +191,26 @@ void gzblk_slot_release(pool_t *p, slot_t *slot) {
 
 #else /* !GZBLOCK_THREADS */
 
-int gzblk_pool_start(pool_t *p, int nthreads) {
+int pool_start(pool_t *p, int nthreads) {
     (void)nthreads;
     return pool_start_inline(p);
 }
 
-void gzblk_pool_stop(pool_t *p) {
+void pool_stop(pool_t *p) {
     pool_stop_inline(p);
     p->inline_run = 0;
 }
 
-void gzblk_slot_submit(pool_t *p, slot_t *slot) {
+void pool_submit(pool_t *p, slot_t *slot) {
     (void)p;
     slot->state = SLOT_FILLED;
 }
 
-void gzblk_slot_wait(pool_t *p, slot_t *slot) {
+void pool_wait(pool_t *p, slot_t *slot) {
     slot_wait_inline(p, slot);
 }
 
-void gzblk_slot_release(pool_t *p, slot_t *slot) {
+void pool_release(pool_t *p, slot_t *slot) {
     (void)p;
     slot->state = SLOT_FREE;
 }

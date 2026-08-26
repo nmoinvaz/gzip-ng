@@ -111,16 +111,16 @@ int gzblock_wmeta(gzblock_writer *w, uint32_t mtime, const char *name) {
 
 /* Write out the next compressed block in order. */
 static int w_drain(gzblock_writer *w) {
-    slot_t *slot = gzblk_pool_slot(&w->pool, w->next_emit);
+    slot_t *slot = pool_slot(&w->pool, w->next_emit);
 
-    gzblk_slot_wait(&w->pool, slot);
+    pool_wait(&w->pool, slot);
     if (slot->status != 0)
         return w_fail(w, Z_STREAM_ERROR, "deflate failed");
     if (w_header(w) != 0 || w_out(w, slot->out, slot->out_len) != 0)
         return -1;
     w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
     w->total += slot->in_len;
-    gzblk_slot_release(&w->pool, slot);
+    pool_release(&w->pool, slot);
     w->next_emit++;
     return 0;
 }
@@ -195,7 +195,7 @@ static int w_inline_begin(gzblock_writer *w) {
         w->cur = NULL;
         if (slot->in_len != 0 && w_inline_feed(w, slot->in, slot->in_len) != 0)
             return -1;
-        gzblk_slot_release(&w->pool, slot);
+        pool_release(&w->pool, slot);
     }
     return 0;
 }
@@ -203,7 +203,7 @@ static int w_inline_begin(gzblock_writer *w) {
 /* Take the next free slot to fill, draining finished ones to make room. */
 static int w_acquire(gzblock_writer *w) {
     slot_t *slot;
-    while ((slot = gzblk_pool_slot(&w->pool, w->next_produce))->state != SLOT_FREE) {
+    while ((slot = pool_slot(&w->pool, w->next_produce))->state != SLOT_FREE) {
         if (w_drain(w) != 0)
             return -1;
     }
@@ -216,7 +216,7 @@ static void w_submit(gzblock_writer *w, int last) {
     w->cur->last = last;
     w->cur->level = w->level;
     w->cur->strategy = w->strategy;
-    gzblk_slot_submit(&w->pool, w->cur);
+    pool_submit(&w->pool, w->cur);
     w->cur = NULL;
     w->next_produce++;
 }
@@ -237,7 +237,7 @@ gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int 
     w->block_size = block_size;
     w->level = level;
     w->strategy = strategy;
-    w->nthreads = nthreads > 0 ? nthreads : gzblk_default_threads();
+    w->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
 
     /* Room for a whole block's worst case plus the flush marker. */
     memset(&bound, 0, sizeof(bound));
@@ -253,9 +253,9 @@ gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int 
     w->pool.level = level;
     w->pool.strategy = strategy;
     w->obuf = (uint8_t *)malloc(IO_CHUNK);
-    if (w->obuf == NULL || gzblk_pool_alloc(&w->pool, w->nthreads, block_size, out_cap) != 0 ||
-        gzblk_pool_start(&w->pool, w->nthreads) != 0) {
-        gzblk_pool_free(&w->pool);
+    if (w->obuf == NULL || pool_alloc(&w->pool, w->nthreads, block_size, out_cap) != 0 ||
+        pool_start(&w->pool, w->nthreads) != 0) {
+        pool_free(&w->pool);
         free(w->obuf);
         free(w);
         return NULL;
@@ -410,8 +410,8 @@ void gzblock_wclose(gzblock_writer *w) {
     if (w == NULL)
         return;
     if (w->pool_up)
-        gzblk_pool_stop(&w->pool);
-    gzblk_pool_free(&w->pool);
+        pool_stop(&w->pool);
+    pool_free(&w->pool);
     if (w->iz_init)
         zng_deflateEnd(&w->iz);
     free(w->obuf);

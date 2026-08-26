@@ -29,7 +29,6 @@ find_package(Threads REQUIRED)
 
 add_library(gzng STATIC
     gzblock.c
-    gzblockpool.c
     gzblockread.c
     gzblockwrite.c
     gzblock.h
@@ -44,6 +43,8 @@ add_library(gzng STATIC
     process.c
     process.h
     options.c
+    pool.c
+    pool.h
     options.h
     gzng.h)
 target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

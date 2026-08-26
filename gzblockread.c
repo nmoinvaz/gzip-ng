@@ -303,8 +303,8 @@ static int r_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size
     gzblk_buf_drop(&r->buf, hdr_len);
 
     if (r->pool_up && r->block_size != block_size) {
-        gzblk_pool_stop(&r->pool);
-        gzblk_pool_free(&r->pool);
+        pool_stop(&r->pool);
+        pool_free(&r->pool);
         r->pool_up = 0;
         free(r->tmp);
         r->tmp = NULL;
@@ -317,9 +317,9 @@ static int r_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */
         r->tmp = (uint8_t *)malloc(block_size);
         r->tmp_cap = block_size;
-        if (r->tmp == NULL || gzblk_pool_alloc(&r->pool, r->nthreads, 0, block_size) != 0)
+        if (r->tmp == NULL || pool_alloc(&r->pool, r->nthreads, 0, block_size) != 0)
             return r_oom(r);
-        if (gzblk_pool_start(&r->pool, r->nthreads) != 0)
+        if (pool_start(&r->pool, r->nthreads) != 0)
             return r_fail(r, Z_MEM_ERROR, "cannot start threads");
         r->pool_up = 1;
     }
@@ -350,11 +350,11 @@ static int r_fallback(gzblock_reader *r) {
     if (gzblk_buf_append(&all, r->hdr.p, r->hdr.len) != 0)
         return r_oom(r);
     for (i = r->next_emit; i < r->next_produce; i++) {
-        slot_t *slot = gzblk_pool_slot(&r->pool, i);
-        gzblk_slot_wait(&r->pool, slot);
+        slot_t *slot = pool_slot(&r->pool, i);
+        pool_wait(&r->pool, slot);
         if (gzblk_buf_append(&all, slot->in, slot->in_len) != 0)
             return r_oom(r);
-        gzblk_slot_release(&r->pool, slot);
+        pool_release(&r->pool, slot);
     }
     if (gzblk_buf_append(&all, GZBLK_BUF(&r->buf), r->buf.len) != 0)
         return r_oom(r);
@@ -370,7 +370,7 @@ static int r_fallback(gzblock_reader *r) {
 /* Keep the pool fed, cutting segments into free slots until the ring is full or the input is done. */
 static int r_produce(gzblock_reader *r) {
     while (!r->cut_all) {
-        slot_t *slot = gzblk_pool_slot(&r->pool, r->next_produce);
+        slot_t *slot = pool_slot(&r->pool, r->next_produce);
         membuf swap;
         int rc;
 
@@ -399,7 +399,7 @@ static int r_produce(gzblock_reader *r) {
         r->seg.p = swap.p;
         r->seg.cap = swap.cap;
         r->seg.len = 0;
-        gzblk_slot_submit(&r->pool, slot);
+        pool_submit(&r->pool, slot);
         r->next_produce++;
     }
     return 0;
@@ -415,13 +415,13 @@ static int r_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest_n, s
     if (gzblk_buf_append(&all, rest, rest_n) != 0)
         return r_oom(r);
     if (slot != NULL)
-        gzblk_slot_release(&r->pool, slot);
+        pool_release(&r->pool, slot);
     for (i = r->next_emit; i < r->next_produce; i++) {
-        slot_t *s = gzblk_pool_slot(&r->pool, i);
-        gzblk_slot_wait(&r->pool, s);
+        slot_t *s = pool_slot(&r->pool, i);
+        pool_wait(&r->pool, s);
         if (gzblk_buf_append(&all, s->in, s->in_len) != 0)
             return r_oom(r);
-        gzblk_slot_release(&r->pool, s);
+        pool_release(&r->pool, s);
     }
     if (gzblk_buf_append(&all, GZBLK_BUF(&r->buf), r->buf.len) != 0)
         return r_oom(r);
@@ -457,13 +457,13 @@ static int r_repair(gzblock_reader *r, slot_t *first) {
         r->next_emit++;
         if (status == SEG_SHORT) {
             if (ps != NULL)
-                gzblk_slot_release(&r->pool, ps);
+                pool_release(&r->pool, ps);
             if (last)
                 return r_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->next_emit - 1);
             if (r->next_emit < r->next_produce) {
                 /* The next piece is already in the ring, wait for its worker and take it from there. */
-                ps = gzblk_pool_slot(&r->pool, r->next_emit);
-                gzblk_slot_wait(&r->pool, ps);
+                ps = pool_slot(&r->pool, r->next_emit);
+                pool_wait(&r->pool, ps);
                 piece = ps->in;
                 piece_len = ps->in_len;
                 last = ps->last;
@@ -491,11 +491,11 @@ static int r_repair(gzblock_reader *r, slot_t *first) {
         if (status == SEG_FULL && used == piece_len && !last) {
             r_block_out(r, r->tmp, (size_t)r->mz.total_out, (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
             if (ps != NULL)
-                gzblk_slot_release(&r->pool, ps);
+                pool_release(&r->pool, ps);
             return 0;
         }
         if (ps != NULL)
-            gzblk_slot_release(&r->pool, ps);
+            pool_release(&r->pool, ps);
         if (status == SEG_FULL)
             return r_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR, last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit - 1);
         return r_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit - 1, gzblk_seg_name(status));
@@ -504,9 +504,9 @@ static int r_repair(gzblock_reader *r, slot_t *first) {
 
 /* Hand out the next block in order. */
 static int r_drain(gzblock_reader *r) {
-    slot_t *slot = gzblk_pool_slot(&r->pool, r->next_emit);
+    slot_t *slot = pool_slot(&r->pool, r->next_emit);
 
-    gzblk_slot_wait(&r->pool, slot);
+    pool_wait(&r->pool, slot);
     if (slot->status == SEG_FULL && slot->in_used == slot->in_len && !slot->last) {
         r->next_emit++;
         r_block_out(r, slot->out, slot->out_len, slot->crc, slot);
@@ -656,7 +656,7 @@ gzblock_reader *gzblock_ropen(gzblock_read_fn read, void *ctx, const uint8_t *he
     r->read = read;
     r->ctx = ctx;
     r->block_hint = block_size > GZBLOCK_MAX_BLOCK ? 0 : block_size;
-    r->nthreads = nthreads > 0 ? nthreads : gzblk_default_threads();
+    r->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
     r->obuf = (uint8_t *)malloc(IO_CHUNK);
     if (r->obuf == NULL || (head_len != 0 && gzblk_buf_append(&r->buf, head, head_len) != 0)) {
         gzblock_rclose(r);
@@ -669,7 +669,7 @@ gzblock_reader *gzblock_ropen(gzblock_read_fn read, void *ctx, const uint8_t *he
 /* Output handed out earlier has been consumed, the slot holding it can go back to the pool. */
 static void r_done_pending(gzblock_reader *r) {
     if (r->out_n == 0 && r->out_slot != NULL) {
-        gzblk_slot_release(&r->pool, r->out_slot);
+        pool_release(&r->pool, r->out_slot);
         r->out_slot = NULL;
     }
 }
@@ -739,8 +739,8 @@ void gzblock_rclose(gzblock_reader *r) {
     if (r == NULL)
         return;
     if (r->pool_up)
-        gzblk_pool_stop(&r->pool);
-    gzblk_pool_free(&r->pool);
+        pool_stop(&r->pool);
+    pool_free(&r->pool);
     if (r->z_init)
         zng_inflateEnd(&r->z);
     if (r->mz_init)
