@@ -47,25 +47,32 @@ gzip-ng [options] [files...]
 
 Compresses files in place, file to file.gz, removing the input unless kept. With no files, or -, it filters stdin to stdout. Options and files mix in any order, short options cluster, and installed as gunzip, zcat, or gzcat it presets -d and -c the way gzip's aliases do.
 
-- -c --stdout : write to standard output, keep the files
-- -d --decompress : decompress, parallel automatically for block or pigz -i style input
-- -f --force : overwrite outputs, compress to a terminal
-- -k --keep : keep input files
-- -h --help, --version
-- -H --huffman, -U --rle, --filtered, --fixed : deflate strategies
-- -T : store without compressing
-- -A : text mode, accepted for compatibility
-- -b --blocksize size : compress in independent blocks, K, M, and G suffixes
-- -p --processes n : threads to use, 0 picks the number of CPUs
-- -1 --fast .. -9 --best : compression level, 6 by default
-- -l --list : list compressed file contents, -v adds method, crc, and date
-- -t --test : check integrity without writing
-- -n --no-name / -N --name : stored name and time, saved by default, restored only with -N
-- -r --recursive : descend into directories
-- -v --verbose / -q --quiet : per-file reports, or no warnings
-- -L --license
-- --rsyncable : content-defined block ends, edits stay local for rsync
-- --synchronous : fsync outputs before removing inputs
+| Option | Description |
+|:-------|:------------|
+| `-c` `--stdout` | Write to standard output, keep the files |
+| `-d` `--decompress` | Decompress, in parallel for block or pigz -i style input |
+| `-f` `--force` | Overwrite outputs, compress to a terminal |
+| `-k` `--keep` | Keep input files |
+| `-r` `--recursive` | Descend into directories |
+| `-t` `--test` | Check integrity without writing |
+| `-l` `--list` | List compressed file contents, `-v` adds method, crc, and date |
+| `-n` `--no-name` | Do not save or restore the name and time |
+| `-N` `--name` | Save and restore the name and time |
+| `-v` `--verbose` | Report each file processed |
+| `-q` `--quiet` | Suppress warnings |
+| `-1` `--fast` .. `-9` `--best` | Compression level, 6 by default |
+| `-b` `--blocksize` *size* | Compress in independent blocks, K, M, and G suffixes |
+| `-p` `--processes` *n* | Threads to use, 0 picks the number of CPUs |
+| `-H` `--huffman` | Huffman only strategy |
+| `-U` `--rle` | Run length strategy |
+| `--filtered` `--fixed` | The remaining deflate strategies |
+| `-T` | Store without compressing |
+| `-A` | Text mode, accepted for compatibility |
+| `--rsyncable` | Content-defined block ends, so edits stay local for rsync |
+| `--synchronous` | Write outputs to permanent storage before removing inputs |
+| `-h` `--help` | Show the usage summary |
+| `-V` `--version` | Show the version |
+| `-L` `--license` | Show the license |
 
 Exit status is 0, 1 on errors, 2 on warnings, as gzip behaves.
 
