@@ -3,6 +3,8 @@ project(gzip-ng VERSION 0.1.0 LANGUAGES C)
 
 option(GZNG_ENABLE_TESTS "Build gzip-ng tests" ON)
 option(GZNG_ENABLE_BENCHMARKS "Build gzip-ng benchmarks" OFF)
+option(GZNG_THREADS "Compress and decompress blocks on a thread pool" ON)
+option(GZNG_SIMD "Scan for block boundaries with NEON or SSE2" ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -25,7 +27,6 @@ if(NOT TARGET zlib-ng::zlib)
     FetchContent_MakeAvailable(zlib-ng)
 endif()
 
-find_package(Threads REQUIRED)
 
 add_library(gzng STATIC
     gzblock.c
@@ -57,8 +58,16 @@ add_library(gzng STATIC
     options.h
     gzng.h)
 target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(gzng PRIVATE GZBLOCK_THREADS)
-target_link_libraries(gzng PUBLIC zlib-ng::zlib Threads::Threads)
+target_link_libraries(gzng PUBLIC zlib-ng::zlib)
+
+if(GZNG_THREADS)
+    find_package(Threads REQUIRED)
+    target_compile_definitions(gzng PRIVATE GZBLOCK_THREADS)
+    target_link_libraries(gzng PUBLIC Threads::Threads)
+endif()
+if(NOT GZNG_SIMD)
+    target_compile_definitions(gzng PRIVATE GZBLOCK_NO_SIMD)
+endif()
 
 add_executable(gzip-ng main.c)
 target_link_libraries(gzip-ng PRIVATE gzng)

@@ -21,6 +21,24 @@ ctest --test-dir build
 
 zlib-ng and Google Test are fetched automatically when not found.
 
+## Build Options
+
+| CMake                 | Description                                                | Default |
+|:----------------------|:-----------------------------------------------------------|---------|
+| GZNG_ENABLE_TESTS     | Build the test binaries and register them with ctest        | ON      |
+| GZNG_ENABLE_BENCHMARKS| Build the benchmarks using Google Benchmark                 | OFF     |
+| GZNG_THREADS          | Compress and decompress blocks on a thread pool             | ON      |
+| GZNG_SIMD             | Scan for block boundaries with NEON or SSE2                 | ON      |
+
+Dependencies are found on the system first and fetched only when missing. Each fetch takes a tag,
+so a build can pin what it compiles against.
+
+| CMake            | Description                                     | Default  |
+|:-----------------|:------------------------------------------------|----------|
+| ZLIBNG_TAG       | Tag of zlib-ng to fetch when none is installed   | 2.3.3    |
+| GTEST_TAG        | Tag of Google Test to fetch when none is found   | v1.18.0  |
+| GBENCHMARK_TAG   | Tag of Google Benchmark to fetch when none found | v1.9.5   |
+
 ## Usage
 
 ```
