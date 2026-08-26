@@ -132,3 +132,12 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/sync.txt ${
 if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
     message(FATAL_ERROR "--synchronous roundtrip failed")
 endif()
+
+# -c stores the name too, gzip does, so the header carries it either way.
+file(WRITE ${WORKDIR}/keptname.txt "${DATA}")
+execute_process(COMMAND ${EXE} -c ${WORKDIR}/keptname.txt OUTPUT_FILE ${WORKDIR}/fromc.gz RESULT_VARIABLE rc)
+file(READ ${WORKDIR}/fromc.gz HEADBYTES HEX LIMIT 64)
+string(FIND "${HEADBYTES}" "6b6570746e616d652e747874" name_at)
+if(NOT rc EQUAL 0 OR name_at EQUAL -1)
+    message(FATAL_ERROR "-c did not store the file name")
+endif()

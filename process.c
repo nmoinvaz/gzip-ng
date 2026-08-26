@@ -250,7 +250,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
             fclose(in);
             return 1;
         }
-        rc = run_stream(in, stdout, opt, 0, NULL, &in_len, &out_len);
+        rc = run_stream(in, stdout, opt, store_mtime, store_name, &in_len, &out_len);
         fclose(in);
         if (rc != 0 || fflush(stdout) != 0) {
             fail(inpath);
