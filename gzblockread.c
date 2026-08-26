@@ -53,6 +53,10 @@ struct gzblock_reader_s {
     size_t total;
 };
 
+/* ===========================================================================
+ * Errors, input, and handing output to the caller
+ * =========================================================================== */
+
 static int reader_fail(gzblock_reader *r, int err, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -78,6 +82,10 @@ static void reader_handout(gzblock_reader *r, const uint8_t *p, size_t n, slot_t
     r->out_n = n;
     r->out_slot = slot;
 }
+
+/* ===========================================================================
+ * Members without block structure, plain inflate and pass-through
+ * =========================================================================== */
 
 /* Plain inflate of a member, starting with whatever is in buf. */
 static int reader_start_stream(gzblock_reader *r) {
@@ -147,6 +155,10 @@ static int reader_passthru(gzblock_reader *r) {
 }
 
 
+
+/* ===========================================================================
+ * Cutting pair-terminated segments out of the input
+ * =========================================================================== */
 
 /* Move the first n bytes of the input buffer into seg. */
 static int reader_cut(gzblock_reader *r, size_t n, int last, int pair) {
@@ -225,6 +237,10 @@ read_more:
             return -1;
     }
 }
+
+/* ===========================================================================
+ * The block pipeline, segments in submit order, blocks out in order
+ * =========================================================================== */
 
 /* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or -b
    supplies, a block size. */
@@ -375,6 +391,10 @@ static void reader_block_out(gzblock_reader *r, const uint8_t *out, size_t out_l
     r->total += out_len;
     reader_handout(r, out, out_len, slot);
 }
+
+/* ===========================================================================
+ * False markers, repair by re-inflating, full fallback behind it
+ * =========================================================================== */
 
 /* A false marker split the block in first. Inflate it again from there on this thread, feeding the
    following pieces until the real block completes. */
@@ -530,6 +550,10 @@ static int reader_probe(gzblock_reader *r, size_t hdr_len) {
     return 0;
 }
 
+/* ===========================================================================
+ * Member headers and the probe for pair-delimited data
+ * =========================================================================== */
+
 static int reader_header(gzblock_reader *r) {
     size_t want = 1024, hdr_len;
     uint32_t hdr_block_size, zb_flags;
@@ -578,6 +602,10 @@ static int reader_header(gzblock_reader *r) {
     }
     return reader_start_blocks(r, hdr_len, hdr_block_size, zb_flags);
 }
+
+/* ===========================================================================
+ * The reader object
+ * =========================================================================== */
 
 gzblock_reader *gzblock_ropen(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
                                          uint32_t block_size, int nthreads) {

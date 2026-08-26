@@ -34,6 +34,10 @@ struct gzblock_writer_s {
     uint8_t *obuf;          /* IO_CHUNK of output space for the inline stream */
 };
 
+/* ===========================================================================
+ * Errors, output, and the member header
+ * =========================================================================== */
+
 static int writer_fail(gzblock_writer *w, int err, const char *msg) {
     msg_set(w->msg, "%s", msg);
     w->err = err;
@@ -125,6 +129,10 @@ static int writer_drain(gzblock_writer *w) {
     return 0;
 }
 
+/* ===========================================================================
+ * Flush and parameter changes continue the block on the calling thread
+ * =========================================================================== */
+
 /* Run the inline stream with flush until its output is drained to the file. */
 static int writer_inline_out(gzblock_writer *w, int flush) {
     int err;
@@ -200,6 +208,10 @@ static int writer_inline_begin(gzblock_writer *w) {
     return 0;
 }
 
+/* ===========================================================================
+ * Blocks through the pool, filled in order, written out in order
+ * =========================================================================== */
+
 /* Take the next free slot to fill, draining finished ones to make room. */
 static int writer_acquire(gzblock_writer *w) {
     slot_t *slot;
@@ -220,6 +232,10 @@ static void writer_submit(gzblock_writer *w, int last) {
     w->cur = NULL;
     w->next_produce++;
 }
+
+/* ===========================================================================
+ * The writer object
+ * =========================================================================== */
 
 gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int strategy,
                                          uint32_t block_size, int nthreads) {
