@@ -21,12 +21,22 @@ extern const uint32_t rolling_gear[256];
 #define ROLLING_ADD(hash, byte) ((hash) = ((hash) << 1) + rolling_gear[(byte)])
 #define ROLLING_HIT(hash, mask) (((hash) & (mask)) == 0)
 
-/* The mask that asks for a boundary about every span bytes, rounded up to a power of two and
-   held between 4 KiB and 16 MiB. */
-static inline uint32_t rolling_mask(size_t span) {
-    uint32_t bits = 12;
+/* Closest and furthest apart boundaries are ever asked to fall. Below the minimum a sync point
+   costs more than the sharing it buys, which is the spacing gzip and pigz settled on for
+   rsyncable output, and the maximum is where a 32 bit mask runs out of usable bits. */
+#define ROLLING_MIN_SPAN 4096u
+#define ROLLING_MAX_SPAN (16u << 20)
 
-    while (((size_t)1 << bits) < span && bits < 24)
+/* The mask that asks for a boundary about every span bytes, rounded up to a power of two and
+   held between the two. */
+static inline uint32_t rolling_mask(size_t span) {
+    uint32_t bits = 0;
+
+    if (span < ROLLING_MIN_SPAN)
+        span = ROLLING_MIN_SPAN;
+    if (span > ROLLING_MAX_SPAN)
+        span = ROLLING_MAX_SPAN;
+    while (((size_t)1 << bits) < span)
         bits++;
     return ((uint32_t)1 << bits) - 1;
 }
