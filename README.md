@@ -60,12 +60,14 @@ Compresses files in place, file to file.gz, removing the input unless kept. With
 | `-N` `--name` | Save and restore the name and time |
 | `-v` `--verbose` | Report each file processed |
 | `-q` `--quiet` | Suppress warnings |
-| `-1` `--fast` .. `-9` `--best` | Compression level, 6 by default |
+| `-1` .. `-9` | Compression level, 6 by default |
+| `--fast` `--best` | Level 1 and level 9 |
 | `-b` `--blocksize` *size* | Compress in independent blocks, K, M, and G suffixes |
 | `-p` `--processes` *n* | Threads to use, 0 picks the number of CPUs |
 | `-H` `--huffman` | Huffman only strategy |
 | `-U` `--rle` | Run length strategy |
-| `--filtered` `--fixed` | The remaining deflate strategies |
+| `--filtered` | Filtered strategy |
+| `--fixed` | Fixed codes strategy |
 | `-T` | Store without compressing |
 | `-A` | Text mode, accepted for compatibility |
 | `--rsyncable` | Content-defined block ends, so edits stay local for rsync |
