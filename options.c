@@ -32,7 +32,7 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -p --processes n      threads to use, 0 picks the number of CPUs\n");
     fprintf(out, "  -1 --fast .. -9 --best  compression level, 6 by default\n");
     fprintf(out, "  -h --help        show this help\n");
-    fprintf(out, "     --version\n");
+    fprintf(out, "  -V --version     show the version\n");
 }
 
 uint32_t gzng_parse_size(const char *arg) {
@@ -165,6 +165,9 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
             case 'A': opt->text_mode = 1; break;
             case 'h':
                 gzng_usage(stdout);
+                return 1;
+            case 'V':
+                printf("gzip-ng %s (zlib-ng %s)\n", gzng_version(), gzng_zlibng_version());
                 return 1;
             case 'H': opt->strategy = Z_HUFFMAN_ONLY; break;
             case 'U': opt->strategy = Z_RLE; break;

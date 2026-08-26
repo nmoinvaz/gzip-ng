@@ -122,6 +122,13 @@ TEST(options, help_short) {
     EXPECT_EQ(1, parse(&opt, a, &nfiles));
 }
 
+TEST(options, version_short) {
+    gzng_options opt;
+    Args a({"-V"});
+    int nfiles = 0;
+    EXPECT_EQ(1, parse(&opt, a, &nfiles));
+}
+
 TEST(options, unknown_option_fails) {
     gzng_options opt;
     Args a({"-x"});
