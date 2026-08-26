@@ -18,5 +18,7 @@ if(NOT benchmark_FOUND)
     FetchContent_MakeAvailable(benchmark)
 endif()
 
-add_executable(benchmark_gzng benchmark_gzblock.cc)
+add_executable(benchmark_gzng
+    benchmark_gzblock.cc
+    benchmark_scanner.cc)
 target_link_libraries(benchmark_gzng PRIVATE gzng benchmark::benchmark benchmark::benchmark_main)
