@@ -33,6 +33,8 @@ add_library(gzng STATIC
     src/gzblock.h
     src/gzblock_p.h
     src/gzng.c
+    src/options.c
+    src/options.h
     src/gzng.h)
 target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(gzng PRIVATE GZBLOCK_THREADS)

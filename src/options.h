@@ -1,0 +1,39 @@
+/* options.h -- gzip-ng command line options
+ * For conditions of distribution and use, see LICENSE.md
+ */
+
+#ifndef GZNG_OPTIONS_H_
+#define GZNG_OPTIONS_H_
+
+#include <stdint.h>
+#include <stdio.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct {
+    int decompress;      /* -d */
+    int stdout_mode;     /* -c */
+    int keep;            /* -k */
+    int level;           /* -0 to -9 */
+    int strategy;        /* -f, -h, -R, -F */
+    int transparent;     /* -T, copy without compressing */
+    int text_mode;       /* -A, no effect where text and binary io agree */
+    uint32_t block_size; /* -b, 0 writes one plain deflate stream */
+    int threads;         /* -p, 0 picks the number of CPUs */
+} gzng_options;
+
+void gzng_options_init(gzng_options *opt);
+
+/* Parse the command line. Returns the index of the first file argument, 0 when the run is already
+   complete (--help), or -1 on a bad option with a message printed. */
+int gzng_options_parse(gzng_options *opt, int argc, char **argv);
+
+void gzng_usage(FILE *out);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
