@@ -51,6 +51,8 @@ add_library(gzng STATIC
     options.c
     pool.c
     pool.h
+    scanner.c
+    scanner.h
     options.h
     gzng.h)
 target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
