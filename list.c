@@ -37,7 +37,7 @@ static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime,
 }
 
 int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *totals) {
-    char stored[GZBLOCK_NAME_MAX], namebuf[4096];
+    char stored[GZBLOCK_NAME_MAX], name_buf[4096];
     const char *name = path;
     uint8_t tail[GZ_TRAILER];
     uint32_t mtime = 0, crc = 0;
@@ -76,10 +76,10 @@ int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *total
         name = stored;
     } else {
         size_t len = strlen(path);
-        if (len > 3 && strcmp(path + len - 3, ".gz") == 0 && len - 3 < sizeof(namebuf)) {
-            memcpy(namebuf, path, len - 3);
-            namebuf[len - 3] = 0;
-            name = namebuf;
+        if (len > 3 && strcmp(path + len - 3, ".gz") == 0 && len - 3 < sizeof(name_buf)) {
+            memcpy(name_buf, path, len - 3);
+            name_buf[len - 3] = 0;
+            name = name_buf;
         }
     }
     row(opt, crc, mtime, (uint64_t)st.st_size, uncompressed, name);

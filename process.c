@@ -103,29 +103,29 @@ int gzng_process_stdio(const gzng_options *opt) {
    by reading file.gz, each removing its input. */
 /* gzip carries the input file's mode and times onto the output, and -N on decompression
    prefers the time stored in the header. */
-static void copy_attrs(const char *outpath, const struct stat *ist, uint32_t hdr_mtime) {
+static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t hdr_mtime) {
     struct timeval tv[2];
 
-    chmod(outpath, ist->st_mode & 07777);
+    chmod(out_path, ist->st_mode & 07777);
     tv[0].tv_sec = ist->st_atime;
     tv[0].tv_usec = 0;
     tv[1].tv_sec = hdr_mtime != 0 ? (time_t)hdr_mtime : ist->st_mtime;
     tv[1].tv_usec = 0;
-    utimes(outpath, tv);
+    utimes(out_path, tv);
 }
 
 /* The output name for -N, the stored name placed in the input's directory. */
-static void stored_outpath(char *outpath, size_t cap, const char *inpath, const char *stored) {
-    const char *slash = strrchr(inpath, '/');
+static void stored_out_path(char *out_path, size_t cap, const char *in_path, const char *stored) {
+    const char *slash = strrchr(in_path, '/');
     const char *base = strrchr(stored, '/');
 
     base = base ? base + 1 : stored;
     if (base[0] == 0)
         return;
     if (slash != NULL)
-        snprintf(outpath, cap, "%.*s%s", (int)(slash - inpath + 1), inpath, base);
+        snprintf(out_path, cap, "%.*s%s", (int)(slash - in_path + 1), in_path, base);
     else
-        snprintf(outpath, cap, "%s", base);
+        snprintf(out_path, cap, "%s", base);
 }
 
 /* Walk a directory. Compression skips entries already suffixed, decompression takes only
@@ -164,7 +164,7 @@ static int process_dir(const char *path, const gzng_options *opt) {
 }
 
 int gzng_process_file(const char *path, const gzng_options *opt) {
-    char inpath[MAX_PATH_LEN], outpath[MAX_PATH_LEN];
+    char in_path[MAX_PATH_LEN], out_path[MAX_PATH_LEN];
     FILE *in, *out;
     uint64_t in_len = 0, out_len = 0;
     uint32_t store_mtime = 0, hdr_mtime = 0;
@@ -205,43 +205,43 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
             return 2;
         }
     }
-    if (strlen(path) + SUFFIX_LEN >= sizeof(inpath)) {
+    if (strlen(path) + SUFFIX_LEN >= sizeof(in_path)) {
         errno = ENAMETOOLONG;
         fail(path);
         return 1;
     }
     if (!opt->decompress) {
-        snprintf(inpath, sizeof(inpath), "%s", path);
-        snprintf(outpath, sizeof(outpath), "%s" SUFFIX, path);
+        snprintf(in_path, sizeof(in_path), "%s", path);
+        snprintf(out_path, sizeof(out_path), "%s" SUFFIX, path);
     } else if (has_suffix(path)) {
-        snprintf(inpath, sizeof(inpath), "%s", path);
-        snprintf(outpath, sizeof(outpath), "%.*s", (int)(strlen(path) - SUFFIX_LEN), path);
+        snprintf(in_path, sizeof(in_path), "%s", path);
+        snprintf(out_path, sizeof(out_path), "%.*s", (int)(strlen(path) - SUFFIX_LEN), path);
     } else {
-        snprintf(inpath, sizeof(inpath), "%s" SUFFIX, path);
-        snprintf(outpath, sizeof(outpath), "%s", path);
+        snprintf(in_path, sizeof(in_path), "%s" SUFFIX, path);
+        snprintf(out_path, sizeof(out_path), "%s", path);
     }
     errno = 0;
-    in = fopen(inpath, "rb");
+    in = fopen(in_path, "rb");
     if (in == NULL) {
-        fail(inpath);
+        fail(in_path);
         return 1;
     }
     have_ist = fstat(fileno(in), &ist) == 0;
     if (!opt->decompress && opt->name_mode != 0 && have_ist) {
-        const char *base = strrchr(inpath, '/');
-        store_name = base ? base + 1 : inpath;
+        const char *base = strrchr(in_path, '/');
+        store_name = base ? base + 1 : in_path;
         store_mtime = (uint32_t)ist.st_mtime;
     }
     if (opt->decompress && !opt->stdout_mode) {
         char stored[GZBLOCK_NAME_MAX];
         if (gzng_read_meta(in, &hdr_mtime, stored, sizeof(stored)) != 0) {
             if (!opt->quiet)
-                fprintf(stderr, "gzip-ng: %s: not in gzip format\n", inpath);
+                fprintf(stderr, "gzip-ng: %s: not in gzip format\n", in_path);
             fclose(in);
             return 1;
         }
         if (opt->name_mode == 1 && stored[0] != 0)
-            stored_outpath(outpath, sizeof(outpath), inpath, stored);
+            stored_out_path(out_path, sizeof(out_path), in_path, stored);
         if (opt->name_mode != 1)
             hdr_mtime = 0;
     }
@@ -253,21 +253,21 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         rc = run_stream(in, stdout, opt, store_mtime, store_name, &in_len, &out_len);
         fclose(in);
         if (rc != 0 || fflush(stdout) != 0) {
-            fail(inpath);
+            fail(in_path);
             return 1;
         }
-        report(opt, inpath, NULL, in_len, out_len);
+        report(opt, in_path, NULL, in_len, out_len);
         return 0;
     }
-    out = fopen(outpath, opt->force ? "wb" : "wbx");
+    out = fopen(out_path, opt->force ? "wb" : "wbx");
     if (out == NULL) {
         if (!opt->force && errno == EEXIST) {
             if (!opt->quiet)
-                fprintf(stderr, "gzip-ng: %s already exists, not overwritten, use -f\n", outpath);
+                fprintf(stderr, "gzip-ng: %s already exists, not overwritten, use -f\n", out_path);
             fclose(in);
             return 2;
         }
-        fail(outpath);
+        fail(out_path);
         fclose(in);
         return 1;
     }
@@ -277,28 +277,28 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     if (rc == 0 && opt->synchronous && (fflush(out) != 0 || fsync(fileno(out)) != 0))
         rc = -1;
     if (fclose(out) != 0 || rc != 0) {
-        fail(rc != 0 ? inpath : outpath);
-        unlink(outpath);
+        fail(rc != 0 ? in_path : out_path);
+        unlink(out_path);
         return 1;
     }
     if (have_ist)
-        copy_attrs(outpath, &ist, opt->decompress ? hdr_mtime : 0);
+        copy_attrs(out_path, &ist, opt->decompress ? hdr_mtime : 0);
     if (opt->synchronous) {
-        const char *slash = strrchr(outpath, '/');
-        char dirpath[MAX_PATH_LEN];
+        const char *slash = strrchr(out_path, '/');
+        char dir_path[MAX_PATH_LEN];
         int dfd;
         if (slash != NULL)
-            snprintf(dirpath, sizeof(dirpath), "%.*s", (int)(slash - outpath), outpath);
+            snprintf(dir_path, sizeof(dir_path), "%.*s", (int)(slash - out_path), out_path);
         else
-            snprintf(dirpath, sizeof(dirpath), ".");
-        dfd = open(dirpath, O_RDONLY);
+            snprintf(dir_path, sizeof(dir_path), ".");
+        dfd = open(dir_path, O_RDONLY);
         if (dfd >= 0) {
             fsync(dfd);
             close(dfd);
         }
     }
     if (!opt->keep)
-        unlink(inpath);
-    report(opt, inpath, outpath, in_len, out_len);
+        unlink(in_path);
+    report(opt, in_path, out_path, in_len, out_len);
     return 0;
 }
