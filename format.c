@@ -13,7 +13,7 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     size_t name_len = hdr->name != NULL ? strlen(hdr->name) : 0;
     size_t n = 10;
 
-    /* A name that does not fit is left out rather than stored cut in half. */
+    /* A name that does not fit is omitted rather than truncated. */
     if (name_len >= GZBLOCK_NAME_MAX)
         name_len = 0;
 

@@ -4,8 +4,8 @@
 
 #include "rolling.h"
 
-/* One random word per byte value. Fixed here rather than generated, so the boundaries a file
-   gets do not depend on the build. */
+/* One random word per byte value, fixed here rather than generated so that boundaries do not
+   depend on the build. */
 const uint32_t rolling_gear[256] = {
     0xdc1b77ae, 0x64f0eeb9, 0x7b07ce91, 0x305f050c, 0x2ceb16e0, 0x97101dce, 0x9ad2e144, 0xd9aa792e, 0xddaa4e85,
     0x8f8ea9d3, 0x08f474ff, 0x2ead8547, 0x55bc79f8, 0x0e1fc49b, 0xb92199e8, 0xc5765079, 0x353cfc38, 0xa32edabf,

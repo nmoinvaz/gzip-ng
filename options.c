@@ -59,8 +59,8 @@ void gzng_options_personas(gzng_options *opt, const char *argv0) {
 }
 
 /* ===========================================================================
- * The options, each described once
- * =========================================================================== */
+ * Option table
+ */
 
 enum {
     OPT_STDOUT = 1,
@@ -191,7 +191,7 @@ static const option_desc *find_name(const char *name) {
 
 /* ===========================================================================
  * Parsing
- * =========================================================================== */
+ */
 
 static void show_license(void) {
     printf("gzip-ng %s, zlib license\n\n", gzng_version());

@@ -31,8 +31,8 @@
 #  define GZNG_BIG_ENDIAN 1
 #endif
 
-/* gzip counts in little endian, so a value is reversed on a machine that does not, and the bytes
-   themselves are moved with memcpy, which every compiler turns into the load or store it is. */
+/* gzip stores its fields little endian. On a big endian machine the value is reversed first,
+   and memcpy moves the bytes, which compilers fold into a single load or store. */
 static inline void store_le16(uint8_t *buf, uint16_t v) {
 #ifdef GZNG_BIG_ENDIAN
     v = BSWAP16(v);

@@ -39,8 +39,8 @@ static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt, u
         goto done;
     if (mtime != 0 || name != NULL)
         gzblock_writer_meta(w, mtime, name);
-    /* Blocks always end on the content rather than on a count. It costs a fiftieth of a percent
-       of the output and makes an edit re-align, so there is no reason to ask for it. */
+    /* Boundaries always follow the content. It costs 0.02% of the output and keeps an edit
+       local, so it is not worth putting behind a flag. */
     gzblock_writer_rsyncable(w, 1);
     for (;;) {
         size_t n = fread(buf, 1, CHUNK, in);
@@ -69,7 +69,7 @@ done:
     return rc;
 }
 
-/* Mean span of 4096 bytes between the sync points --rsyncable puts in. */
+/* Mean bytes between the sync points --rsyncable emits. */
 #define RSYNC_MASK 0xfffu /* a sync point every 4096 bytes on average */
 
 /* Push one span of input through deflate and write everything it produces. */
@@ -90,8 +90,8 @@ static int deflate_span(zng_stream *z, FILE *out, uint8_t *obuf, const uint8_t *
     return 0;
 }
 
-/* How much of buf to hand over next. Without --rsyncable that is all of it, with it the span
-   ends at the next rolling hash hit, where *sync asks for a flush so an edit stays local. */
+/* How much of buf to feed next. Without --rsyncable that is all of it. With it the span ends
+   at the next rolling hash hit, where *sync asks for a flush. */
 static size_t next_span(int rsyncable, uint32_t *hash, const uint8_t *buf, size_t len, int *sync) {
     size_t k;
 
@@ -112,8 +112,8 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
                          uint64_t *in_len, uint64_t *out_len) {
     zng_gz_header head;
 
-    /* Threads have nothing to do without blocks to hand them, so asking for them asks for
-       blocks. Compressing without either stays a single deflate stream. */
+    /* Threads need blocks to work on, so -p implies one. Without either this stays a single
+       deflate stream. */
     if (opt->block_size != 0 || (opt->threads_given && opt->threads != 1)) {
         gzng_options blocked = *opt;
         if (blocked.block_size == 0)
@@ -150,7 +150,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
         if (ferror(in))
             goto done;
         final = have < CHUNK;
-        /* An empty read still runs once, which is what finishes the stream. */
+        /* An empty read still runs once, which is what emits Z_FINISH. */
         do {
             int sync;
             size_t span = next_span(opt->rsyncable, &hash, ibuf + pos, have - pos, &sync);

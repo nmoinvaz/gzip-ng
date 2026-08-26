@@ -53,8 +53,8 @@ struct gzblock_reader_s {
 };
 
 /* ===========================================================================
- * Errors, input, and handing output to the caller
- * =========================================================================== */
+ * Errors, input, and output handoff
+ */
 
 static int reader_fail(gzblock_reader *r, int err, const char *fmt, ...) {
     va_list ap;
@@ -83,8 +83,8 @@ static void reader_handout(gzblock_reader *r, const uint8_t *p, size_t n, slot_t
 }
 
 /* ===========================================================================
- * Members without block structure, plain inflate and pass-through
- * =========================================================================== */
+ * Plain inflate and pass-through
+ */
 
 /* Plain inflate of a member, starting with whatever is in buf. */
 static int reader_start_stream(gzblock_reader *r) {
@@ -154,8 +154,8 @@ static int reader_passthru(gzblock_reader *r) {
 }
 
 /* ===========================================================================
- * Cutting pair-terminated segments out of the input
- * =========================================================================== */
+ * Cutting segments out of the input
+ */
 
 /* Move the first n bytes of the input buffer into seg. */
 static int reader_cut(gzblock_reader *r, size_t n, int last, int pair) {
@@ -236,8 +236,8 @@ static int reader_next_segment(gzblock_reader *r) {
 }
 
 /* ===========================================================================
- * The block pipeline, segments in submit order, blocks out in order
- * =========================================================================== */
+ * The block pipeline
+ */
 
 /* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or -b
    supplies, a block size. */
@@ -255,8 +255,8 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         r->tmp = NULL;
     }
     r->block_size = block_size;
-    /* A pair-terminated block may hold any amount and coalescing gathers several of them, so
-       this bounds what one segment may cost rather than describing what the format allows. */
+    /* A pair-terminated block may be any size and coalescing gathers several, so this is a
+       memory bound rather than a property of the format. */
     r->max_seg = (size_t)block_size * 4 + 1024;
     if (!r->pool_up) {
         r->pool.codec.init = gzblock_codec_init;
@@ -334,9 +334,9 @@ static int reader_produce(gzblock_reader *r) {
         if (rc == -1)
             return -1;
         if (rc == -2) {
-            /* The blocks run larger than was assumed, which happens when nothing declared their
-               size and the guess was low. A pair-terminated block is good at any size, so raise
-               what one segment may cost and look again rather than give up on the member. */
+            /* The blocks are larger than assumed, which happens when the probe's guess was low.
+               A pair-terminated block is valid at any size, so raise the bound and retry rather
+               than fail the member. */
             if (r->pair_seen && r->max_seg < GZBLOCK_MAX_BLOCK) {
                 r->max_seg = MIN(r->max_seg * 2, (size_t)GZBLOCK_MAX_BLOCK);
                 continue;
@@ -399,8 +399,8 @@ static void reader_block_out(gzblock_reader *r, const uint8_t *out, size_t out_l
 }
 
 /* ===========================================================================
- * False markers, repair by re-inflating, full fallback behind it
- * =========================================================================== */
+ * False marker repair and fallback
+ */
 
 /* A false marker split the block in first. Inflate it again from there on this thread, feeding the
    following pieces until the real block completes. */
@@ -470,8 +470,8 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
 }
 
 /* ===========================================================================
- * Draining finished blocks and ending the member
- * =========================================================================== */
+ * Draining blocks and ending a member
+ */
 
 /* Hand out the next block in order. */
 static int reader_drain(gzblock_reader *r) {
@@ -540,8 +540,8 @@ static int reader_member_end_step(gzblock_reader *r) {
 /* Decide how to decode what comes next: a gzip member in block mode or plain, pass-through for data
    that is not gzip, or the end. */
 /* ===========================================================================
- * Member headers and the probe for pair-delimited data
- * =========================================================================== */
+ * Member headers and the boundary probe
+ */
 
 /* Probe defaults when nothing declares a block size, the coalescing target and how far to look. */
 #define PROBE_BLOCK  (128u << 10)
@@ -620,7 +620,7 @@ static int reader_header(gzblock_reader *r) {
 
 /* ===========================================================================
  * The reader object
- * =========================================================================== */
+ */
 
 gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
                                     uint32_t block_size, int nthreads) {

@@ -37,7 +37,7 @@ struct gzblock_writer_s {
 
 /* ===========================================================================
  * Errors, output, and the member header
- * =========================================================================== */
+ */
 
 static int writer_fail(gzblock_writer *w, int err, const char *msg) {
     snprintf(w->msg, sizeof(w->msg), "%s", msg);
@@ -72,8 +72,8 @@ static int writer_header(gzblock_writer *w) {
 }
 
 /* ===========================================================================
- * Flush and parameter changes continue the block on the calling thread
- * =========================================================================== */
+ * Inline continuation for flush and parameter changes
+ */
 
 /* Run the inline stream with flush until its output is drained to the file. */
 static int writer_inline_out(gzblock_writer *w, int flush) {
@@ -159,8 +159,8 @@ static int writer_inline_migrate(gzblock_writer *w) {
 }
 
 /* ===========================================================================
- * Blocks through the pool, filled in order, written out in order
- * =========================================================================== */
+ * Blocks through the pool
+ */
 
 /* Take the next free slot to fill, draining finished ones to make room. */
 static int writer_acquire(gzblock_writer *w) {
@@ -201,10 +201,10 @@ static int writer_drain(gzblock_writer *w) {
 
 /* ===========================================================================
  * The writer object
- * =========================================================================== */
+ */
 
 /* Size the ring for blocks of up to cap input bytes and start the workers. Called again when
-   --rsyncable widens what a block may hold, which happens before anything has been submitted. */
+   --rsyncable widens the limit, which happens before any block is submitted. */
 static int writer_pool_size(gzblock_writer *w, size_t cap) {
     zng_stream bound;
     size_t out_cap;
@@ -271,10 +271,10 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     return w;
 }
 
-/* With --rsyncable the block size becomes a target rather than a ceiling. Boundaries are asked
-   for every block_size / 2 bytes and refused before that much is in hand, which averages a block
-   of block_size, and a block runs to twice that before it is cut on size alone. Leaving that much
-   room is what keeps nearly every boundary content-defined, and so re-alignable after an edit. */
+/* With --rsyncable the block size is a target rather than a ceiling. A boundary is wanted
+   every block_size / 2 bytes and refused before that much is buffered, which averages one block
+   of block_size, and a block is cut on size alone only at twice it. That headroom keeps 96% of
+   boundaries content-defined. */
 int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
     uint32_t bits = 12;
 

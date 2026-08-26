@@ -23,8 +23,8 @@
 #define MAX_PATH_LEN 4096
 
 /* ===========================================================================
- * Saying what happened
- * =========================================================================== */
+ * Diagnostics
+ */
 
 static void fail(const char *path) {
     fprintf(stderr, "gzip-ng: %s: %s\n", path, errno ? strerror(errno) : "processing failed");
@@ -50,8 +50,8 @@ static void report(const gzng_options *opt, const char *name, const char *outnam
 }
 
 /* ===========================================================================
- * Running one stream through
- * =========================================================================== */
+ * Stream processing
+ */
 
 /* -T writes the bytes through untouched. */
 static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
@@ -107,8 +107,8 @@ int gzng_process_stdio(const gzng_options *opt) {
 }
 
 /* ===========================================================================
- * Which file is read and which is written
- * =========================================================================== */
+ * Input and output paths
+ */
 
 static int has_suffix(const char *path) {
     size_t n = strlen(path);
@@ -150,10 +150,10 @@ static void stored_out_path(char *out_path, size_t cap, const char *in_path, con
 }
 
 /* ===========================================================================
- * What the header carries, and what the file system carries
- * =========================================================================== */
+ * Header fields and file attributes
+ */
 
-/* What to record in the header of a file being compressed. */
+/* The name and time to record in the header, subject to -n, -N, -m, and -M. */
 static void store_meta(const gzng_options *opt, const char *in_path, const struct stat *ist, uint32_t *mtime,
                        const char **name) {
     if (opt->name_mode != 0) {
@@ -164,8 +164,8 @@ static void store_meta(const gzng_options *opt, const char *in_path, const struc
         *mtime = (uint32_t)ist->st_mtime;
 }
 
-/* What the header of a file being decompressed says. With -N the stored name decides where the
-   output goes. Returns -1 when the input is not gzip at all. */
+/* Read the stored name and time. With -N the stored name decides the output path.
+   Returns -1 when the input is not gzip. */
 static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, char *out_path, size_t cap,
                         uint32_t *hdr_mtime) {
     char stored[GZBLOCK_NAME_MAX];
@@ -194,7 +194,7 @@ static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t hd
     utimes(out_path, tv);
 }
 
-/* A new file is not on permanent storage until the directory naming it is. */
+/* A new name is durable only once its directory is synced too. */
 static void sync_dir(const char *out_path) {
     const char *slash = strrchr(out_path, '/');
     char dir_path[MAX_PATH_LEN];
@@ -212,8 +212,8 @@ static void sync_dir(const char *out_path) {
 }
 
 /* ===========================================================================
- * Checking a file without writing one
- * =========================================================================== */
+ * Integrity testing
+ */
 
 static int test_file(const char *path, const gzng_options *opt) {
     uint64_t in_len = 0, out_len = 0;
@@ -228,7 +228,7 @@ static int test_file(const char *path, const gzng_options *opt) {
         fail(path);
         return 1;
     }
-    /* Data that is not gzip at all fails the test rather than passing through as itself. */
+    /* Non-gzip input fails the test rather than passing through. */
     if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
         warn(opt, "gzip-ng: %s: not in gzip format\n", path);
         fclose(in);
@@ -242,8 +242,8 @@ static int test_file(const char *path, const gzng_options *opt) {
 }
 
 /* ===========================================================================
- * Walking a directory
- * =========================================================================== */
+ * Directory recursion
+ */
 
 static int is_directory(const char *path) {
     struct stat st;
@@ -286,10 +286,10 @@ static int process_dir(const char *path, const gzng_options *opt) {
 }
 
 /* ===========================================================================
- * One file
- * =========================================================================== */
+ * Processing a file
+ */
 
-/* To stdout the input stays where it is, otherwise it is replaced by what comes out of it. */
+/* With -c the input file is left in place. */
 static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_path, uint32_t store_mtime,
                              const char *store_name) {
     uint64_t in_len = 0, out_len = 0;
@@ -361,7 +361,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     }
     rc = run_stream(in, out, opt, store_mtime, store_name, &in_len, &out_len);
     fclose(in);
-    /* The output reaches permanent storage before the input goes away. */
+    /* --synchronous flushes the output before the input is unlinked. */
     if (rc == 0 && opt->synchronous && (fflush(out) != 0 || fsync(fileno(out)) != 0))
         rc = 1;
     if (fclose(out) != 0 || rc != 0) {
