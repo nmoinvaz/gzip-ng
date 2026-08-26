@@ -101,6 +101,11 @@ typedef struct {
 #endif
 } pool_t;
 
+/* Codec hooks the pool drives, one persistent stream per worker running one slot at a time. */
+int gzblk_stream_init(pool_t *p, zng_stream *z);
+void gzblk_stream_end(pool_t *p, zng_stream *z);
+void gzblk_run_slot(pool_t *p, zng_stream *z, slot_t *slot);
+
 slot_t *gzblk_pool_slot(pool_t *p, size_t i);
 int gzblk_pool_alloc(pool_t *p, int nthreads, size_t in_cap, size_t out_cap);
 void gzblk_pool_free(pool_t *p);
