@@ -26,7 +26,8 @@ struct gzblock_writer_s {
     char msg[MSG_LEN];
 
     /* A block that has to be flushed part way continues on the calling thread as one deflate
-       stream, so it still decodes to exactly block_size bytes. */
+       stream, so a flush does not shorten it. Blocks end at block_size, or at a rolling hash hit
+       when the writer is rsyncable. */
     zng_stream iz;
     int iz_init, inline_active;
     size_t inline_fill;     /* input bytes of the inline block so far */

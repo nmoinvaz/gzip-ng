@@ -50,7 +50,7 @@ struct gzblock_reader_s {
     zng_stream mz;       /* for repairing false splits on this thread */
     size_t tmp_cap;
     int mz_init;
-    uint8_t *tmp;             /* block_size bytes for repaired and final blocks */
+    uint8_t *tmp;             /* repaired and final blocks, block_size until one needs more */
     uint32_t crc;             /* running crc and length of the member's output */
     size_t total;
 };
@@ -130,7 +130,7 @@ static int reader_stream(gzblock_reader *r) {
     return 0;
 }
 
-/* Not gzip at all, copied through unchanged the way gzread() does. */
+/* Not gzip at all, copied through unchanged. */
 static int reader_passthru(gzblock_reader *r) {
     size_t n;
     if (r->buf.len != 0) {
@@ -564,9 +564,9 @@ static int reader_header(gzblock_reader *r) {
             if (r->buf.len == 0 && r->eof)
                 r->state = READER_END;
             else if (r->members == 0)
-                r->state = READER_PASSTHRU;   /* not gzip, pass it through like gzread() */
+                r->state = READER_PASSTHRU;   /* not gzip, hand it back unchanged */
             else
-                r->state = READER_END;        /* trailing garbage, ignored like gzread() */
+                r->state = READER_END;        /* trailing garbage after a member, ignored */
             return 0;
         }
         hdr_len = format_header_parse(buf_data(&r->buf), r->buf.len, &hdr_block_size, &zb_flags);

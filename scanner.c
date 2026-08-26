@@ -25,7 +25,7 @@ static const uint8_t *scan_marker_scalar(const uint8_t *p, const uint8_t *end) {
    The vector versions filter for the zero byte the way libc memchr does, one load and one
    reduction per 16 bytes, but stay inline so the roughly one hit per 256 bytes that compressed
    data produces costs a few cycles instead of a call boundary. Candidates get the full four-byte
-   check, real markers are tens of kilobytes apart. */
+   check, real markers are kilobytes apart. */
 #if !defined(GZBLOCK_NO_SIMD) && (defined(__aarch64__) || defined(_M_ARM64))
 
 #include <arm_neon.h>

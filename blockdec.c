@@ -16,10 +16,12 @@ void blockdec_begin(block_dec *d, zng_stream *z, uint8_t *out, uint32_t block_si
     z->avail_out = block_size;
 }
 
-/* Feed the next piece of a block. Returns SEG_SHORT when the block needs more input, SEG_FULL once the
-   block's output and its trailing marker are consumed, SEG_END when the deflate stream ends,
-   SEG_OVERFLOW when the block wants more than block_size bytes of output, or SEG_ERROR on invalid
-   data. *used receives how much of this piece was consumed. */
+/* Feed the next piece of a block. Returns SEG_SHORT when the block needs more input, SEG_FULL
+   once the block's output and its trailing marker are consumed, SEG_END when the deflate stream
+   ends, SEG_OVERFLOW when the block wants more than block_size bytes of output, or SEG_ERROR on
+   invalid data. With accept_partial the input ends at a marker pair, which no chance pattern
+   produces, so any clean output size ends the block and SEG_FULL comes back early. *used
+   receives how much of this piece was consumed. */
 int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) {
     zng_stream *z = d->z;
     size_t left = in_len, start_in = (size_t)z->total_in;

@@ -1,33 +1,8 @@
-/* gzblock.c -- gzip members made of independent deflate blocks, written and read in parallel
+/* gzblock.c -- the deflate and inflate the pool runs over one slot at a time
  * For conditions of distribution and use, see LICENSE.md
  */
 
-/*
- * Format. One ordinary gzip member whose deflate stream is cut into independent blocks of
- * block_size input bytes. Each block ends with two empty stored blocks, the nine bytes
- * 00 00 FF FF 00 00 00 FF FF, the same shape pigz --independent writes, so blocks can be
- * inflated on their own and boundaries are hard to fake. The gzip header records the layout in an
- * extra subfield with the ID "ZB", the block size as a 32-bit little-endian value and a flags
- * byte whose bit 0 says the boundaries are marker pairs, which lets the reader ignore the single
- * markers that a flush inside a block or a chance pattern in stored data produce. Any deflate
- * stream built the same way decodes here, pigz -i output included given its block size, and
- * streams with single full flush markers are still read by scanning for those.
- *
- * Threads. A pool of workers runs deflate or inflate over a ring of slots. The main thread fills
- * the slots in order and drains them in order, so output order is slot order and memory is
- * bounded by the ring. The writer cuts its input into blocks. The reader cuts the compressed
- * stream into candidate segments at every marker. A marker pattern can also occur by chance
- * inside compressed data. Such a false start shows up as a segment that ends before it has
- * produced block_size bytes, which the main thread repairs by inflating from that point serially
- * across as many following pieces as the real block spans.
- */
-
 #include "gzblock_p.h"
-
-/* ===========================================================================
- * Pool, a ring of slots worked on by threads
- */
-
 
 static void run_segment(zng_stream *z, slot_t *slot, uint32_t block_size) {
     block_dec d;
@@ -36,7 +11,7 @@ static void run_segment(zng_stream *z, slot_t *slot, uint32_t block_size) {
 
     /* Strict blocks must fill exactly block_size, so a reused larger buffer is capped for them. */
     blockdec_begin(&d, z, slot->out,
-                      slot->pair || slot->last ? (uint32_t)slot->out_cap : block_size);
+                   slot->pair || slot->last ? (uint32_t)slot->out_cap : block_size);
     d.accept_partial = slot->pair;
     for (;;) {
         status = blockdec_feed(&d, slot->in + off, slot->in_len - off, &used);

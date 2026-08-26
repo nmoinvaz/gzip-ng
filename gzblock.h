@@ -12,8 +12,18 @@
 extern "C" {
 #endif
 
-/* Internal to the library, the gz layer sits on top of this, see gzsetblocksize() and
-   gzsetthreads(). Errors are reported with a zlib return code and a message. */
+/* One ordinary gzip member whose deflate stream is cut into independent blocks of block_size
+   input bytes. Each block ends with two empty stored blocks, the nine bytes
+   00 00 FF FF 00 00 00 FF FF, the same shape pigz --independent writes, so a block inflates on
+   its own and a boundary is hard to fake. The gzip header records the layout in an extra
+   subfield with the ID "ZB", see format.h, whose flags say the boundaries are marker pairs, which
+   lets the reader ignore the single markers a flush inside a block or a chance pattern in stored
+   data produce. Any deflate stream built the same way decodes here, pigz -i output included, and
+   streams with single full flush markers are read by scanning for those.
+
+   A pool of workers runs deflate or inflate over a ring of slots, filled in order and drained in
+   order, so output order is slot order and memory is bounded by the ring. Errors are reported
+   with a zlib return code and a message. */
 
 /* Largest block size accepted, from a caller or from a file's header. Bounds what a member can make
    the reader allocate, two slots of input and output at this size stay within the ring budget. */
@@ -64,7 +74,7 @@ void gzblock_writer_close(gzblock_writer *w);
    any member when block_size is nonzero, is inflated as independent blocks on nthreads threads at
    once, nthreads of 0 picking the number of CPUs and 1 doing the work on the calling thread.
    Other members are streamed through plain inflate. Input that is not gzip at all is passed
-   through unchanged, trailing garbage after the last member is ignored, both as gzread() does.
+   through unchanged and trailing garbage after the last member is ignored.
    head holds bytes already taken from the input that come before what read() returns, or NULL. */
 typedef struct gzblock_reader_s gzblock_reader;
 
