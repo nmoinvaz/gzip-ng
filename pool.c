@@ -2,6 +2,10 @@
  * For conditions of distribution and use, see LICENSE.md
  */
 
+#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
+#  define _DARWIN_C_SOURCE   /* sysconf(_SC_NPROCESSORS_ONLN) is hidden under strict POSIX */
+#endif
+
 #include "gzblock_p.h"
 
 #ifdef GZBLOCK_THREADS
