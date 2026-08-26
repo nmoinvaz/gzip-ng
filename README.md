@@ -39,6 +39,18 @@ Compresses files in place, file to file.gz, removing the input unless -k. With n
 - -p threads : threads to use, 0 picks the number of CPUs
 - -0 to -9 : compression level, 6 by default
 
+## Benchmarks
+
+Engine benchmarks use Google Benchmark, off by default:
+
+```
+cmake -B build-bench -DCMAKE_BUILD_TYPE=Release -DGZNG_ENABLE_BENCHMARKS=ON
+cmake --build build-bench
+build-bench/test/benchmarks/benchmark_gzng
+```
+
+Comparing whole binaries is a different job, fork and exec noise belongs to tools built for it. `bench/compare.sh [size-MB] [threads]` runs gzip-ng against the system gzip and pigz where installed, through hyperfine when available and a built-in best-of-3 timer otherwise.
+
 ## Project notes
 
 - Plan and progress: https://gist.github.com/nmoinvaz/4f88555bdf30d0d0850f062525a12738
