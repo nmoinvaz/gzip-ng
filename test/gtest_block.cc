@@ -91,4 +91,87 @@ TEST(block_writer, flush_and_params_inside_a_block) {
     EXPECT_EQ(data, whole_inflate(out, data.size()));
 }
 
+struct MemIn {
+    const uint8_t *p;
+    size_t len, pos, chunk;
+};
+
+size_t mem_read(void *ctx, uint8_t *buf, size_t len) {
+    auto *in = static_cast<MemIn *>(ctx);
+    size_t n = std::min(std::min(len, in->chunk), in->len - in->pos);
+    memcpy(buf, in->p + in->pos, n);
+    in->pos += n;
+    return n;
+}
+
+std::vector<uint8_t> block_read(const std::vector<uint8_t> &packed, int nthreads,
+                                uint32_t block_size = 0, size_t io_chunk = 65521) {
+    MemIn in{packed.data(), packed.size(), 0, io_chunk};
+    gzblock_reader *r = gzblock_ropen(mem_read, &in, nullptr, 0, block_size, nthreads);
+    EXPECT_NE(nullptr, r);
+    std::vector<uint8_t> out;
+    uint8_t buf[65521];
+    for (;;) {
+        size_t got = 0;
+        EXPECT_EQ(0, gzblock_read(r, buf, sizeof(buf), &got)) << gzblock_rerror(r);
+        if (got == 0)
+            break;
+        out.insert(out.end(), buf, buf + got);
+    }
+    gzblock_rclose(r);
+    return out;
+}
+
+TEST(block_reader, roundtrip_across_thread_counts) {
+    auto data = sample_data(1 << 20);
+    auto packed = block_compress(data, 64 * 1024, 2);
+    for (int nthreads : {0, 1, 3})
+        EXPECT_EQ(data, block_read(packed, nthreads)) << "nthreads " << nthreads;
+}
+
+TEST(block_reader, zero_copy_handout) {
+    auto data = sample_data(500000);
+    auto packed = block_compress(data, 64 * 1024, 2);
+    MemIn in{packed.data(), packed.size(), 0, 65521};
+    gzblock_reader *r = gzblock_ropen(mem_read, &in, nullptr, 0, 0, 3);
+    ASSERT_NE(nullptr, r);
+    std::vector<uint8_t> out;
+    for (;;) {
+        const uint8_t *p = nullptr;
+        size_t n = 0;
+        ASSERT_EQ(0, gzblock_rnext(r, &p, &n)) << gzblock_rerror(r);
+        if (n == 0)
+            break;
+        out.insert(out.end(), p, p + n);
+    }
+    gzblock_rclose(r);
+    EXPECT_EQ(data, out);
+}
+
+TEST(block_reader, plain_gzip_streams_through) {
+    auto data = sample_data(400000);
+    std::vector<uint8_t> packed(zng_compressBound(data.size()) + 32);
+    zng_stream z;
+    memset(&z, 0, sizeof(z));
+    ASSERT_EQ(Z_OK, zng_deflateInit2(&z, 6, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY));
+    z.next_in = data.data();
+    z.avail_in = static_cast<uint32_t>(data.size());
+    z.next_out = packed.data();
+    z.avail_out = static_cast<uint32_t>(packed.size());
+    ASSERT_EQ(Z_STREAM_END, zng_deflate(&z, Z_FINISH));
+    packed.resize(z.total_out);
+    zng_deflateEnd(&z);
+    EXPECT_EQ(data, block_read(packed, 0));
+}
+
+TEST(block_reader, concatenated_members) {
+    auto data = sample_data(300000);
+    auto one = block_compress(data, 64 * 1024, 1);
+    std::vector<uint8_t> two = one;
+    two.insert(two.end(), one.begin(), one.end());
+    std::vector<uint8_t> expect = data;
+    expect.insert(expect.end(), data.begin(), data.end());
+    EXPECT_EQ(expect, block_read(two, 3));
+}
+
 }  // namespace
