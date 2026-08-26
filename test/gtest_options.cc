@@ -122,6 +122,15 @@ TEST(options, help_short) {
     EXPECT_EQ(1, parse(&opt, a, &nfiles));
 }
 
+TEST(options, quiet_flag) {
+    gzng_options opt;
+    Args a({"-v", "-q"});
+    int nfiles = 0;
+    EXPECT_EQ(0, parse(&opt, a, &nfiles));
+    EXPECT_EQ(1, opt.quiet);
+    EXPECT_EQ(0, opt.verbose);
+}
+
 TEST(options, verbose_flag) {
     gzng_options opt;
     Args a({"-v"});

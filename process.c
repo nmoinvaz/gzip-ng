@@ -59,7 +59,7 @@ static void report(const gzng_options *opt, const char *name, const char *outnam
     uint64_t other = opt->decompress ? in_len : out_len;
     double pct = basis != 0 ? 100.0 * (1.0 - (double)other / (double)basis) : 0.0;
 
-    if (!opt->verbose)
+    if (!opt->verbose || opt->quiet)
         return;
     if (outname != NULL)
         fprintf(stderr, "%s:\t%5.1f%% -- replaced with %s\n", name, pct, outname);
@@ -142,7 +142,8 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
             if (opt->recursive)
                 return process_dir(path, opt);
-            fprintf(stderr, "gzip-ng: %s is a directory, ignored\n", path);
+            if (!opt->quiet)
+                fprintf(stderr, "gzip-ng: %s is a directory, ignored\n", path);
             return 2;
         }
     }
@@ -184,7 +185,8 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     out = fopen(outpath, opt->force ? "wb" : "wbx");
     if (out == NULL) {
         if (!opt->force && errno == EEXIST) {
-            fprintf(stderr, "gzip-ng: %s already exists, not overwritten, use -f\n", outpath);
+            if (!opt->quiet)
+                fprintf(stderr, "gzip-ng: %s already exists, not overwritten, use -f\n", outpath);
             fclose(in);
             return 2;
         }

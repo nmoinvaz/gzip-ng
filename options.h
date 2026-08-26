@@ -19,6 +19,7 @@ typedef struct {
     int force;           /* -f, overwrite outputs, write compressed data to a terminal */
     int recursive;       /* -r, descend into directories */
     int verbose;         /* -v, report each file processed */
+    int quiet;           /* -q, suppress warnings */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */

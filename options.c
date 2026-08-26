@@ -25,6 +25,7 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -k --keep        keep input files\n");
     fprintf(out, "  -r --recursive   descend into directories\n");
     fprintf(out, "  -v --verbose     report each file processed\n");
+    fprintf(out, "  -q --quiet       suppress warnings\n");
     fprintf(out, "  -f --force       overwrite outputs, compress to a terminal\n");
     fprintf(out, "  -H --huffman     huffman only strategy, -U --rle run length\n");
     fprintf(out, "     --filtered --fixed   the remaining deflate strategies\n");
@@ -121,6 +122,9 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg,
         opt->recursive = 1;
     } else if (strcmp(arg, "--verbose") == 0) {
         opt->verbose = 1;
+    } else if (strcmp(arg, "--quiet") == 0) {
+        opt->quiet = 1;
+        opt->verbose = 0;
     } else if (strcmp(arg, "--filtered") == 0) {
         opt->strategy = Z_FILTERED;
     } else if (strcmp(arg, "--huffman") == 0) {
@@ -183,6 +187,7 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
             case 'f': opt->force = 1; break;
             case 'r': opt->recursive = 1; break;
             case 'v': opt->verbose = 1; break;
+            case 'q': opt->quiet = 1; opt->verbose = 0; break;
             case 'T': opt->transparent = 1; break;
             case 'A': opt->text_mode = 1; break;
             case 'h':
