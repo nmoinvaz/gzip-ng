@@ -21,22 +21,10 @@ void gzblk_msgv(char *msg, const char *fmt, va_list ap);
 void gzblk_msg(char *msg, const char *fmt, ...);
 
 #include "buf.h"
+#include "blockdec.h"
 #include "format.h"
 
 
-/* How one piece of a block ended, see gzblk_block_feed(). */
-enum { SEG_FULL, SEG_END, SEG_SHORT, SEG_OVERFLOW, SEG_ERROR };
-
-/* Incremental decoder for one independent block, fed one piece of input at a time. */
-typedef struct {
-    zng_stream *z;
-    int want_marker;    /* output complete, the trailing empty stored block is still to come */
-    int accept_partial; /* the input ends at a marker pair, so any clean output size is a block */
-} block_dec;
-
-void gzblk_block_begin(block_dec *d, zng_stream *z, uint8_t *out, uint32_t block_size);
-int gzblk_block_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used);
-const char *gzblk_seg_name(int status);
 
 #include "pool.h"
 

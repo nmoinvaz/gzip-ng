@@ -453,10 +453,10 @@ static int r_repair(gzblock_reader *r, slot_t *first) {
     int last = first->last, pair = first->pair, status;
     slot_t *ps = first;
 
-    gzblk_block_begin(&m, &r->mz, r->tmp, r->block_size);
+    blockdec_begin(&m, &r->mz, r->tmp, r->block_size);
     for (;;) {
         m.accept_partial = pair;
-        status = gzblk_block_feed(&m, piece, piece_len, &used);
+        status = blockdec_feed(&m, piece, piece_len, &used);
         r->next_emit++;
         if (status == SEG_SHORT) {
             if (ps != NULL)
@@ -501,7 +501,7 @@ static int r_repair(gzblock_reader *r, slot_t *first) {
             pool_release(&r->pool, ps);
         if (status == SEG_FULL)
             return r_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR, last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit - 1);
-        return r_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit - 1, gzblk_seg_name(status));
+        return r_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit - 1, blockdec_status_name(status));
     }
 }
 
@@ -535,7 +535,7 @@ static int r_drain(gzblock_reader *r) {
         return r_repair(r, slot);
     if (slot->status == SEG_FULL)
         return r_fail(r, slot->last ? Z_BUF_ERROR : Z_DATA_ERROR, slot->last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit);
-    return r_fail(r, slot->status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit, gzblk_seg_name(slot->status));
+    return r_fail(r, slot->status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit, blockdec_status_name(slot->status));
 }
 
 static int r_blocks(gzblock_reader *r) {

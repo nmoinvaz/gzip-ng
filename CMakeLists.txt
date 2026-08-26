@@ -35,6 +35,8 @@ add_library(gzng STATIC
     gzblock_p.h
     buf.c
     buf.h
+    blockdec.c
+    blockdec.h
     compress.c
     compress.h
     decompress.c
