@@ -173,3 +173,15 @@ string(FIND "${TBYTES}" "0000ffff000000ffff" tpair_at)
 if(tpair_at EQUAL -1)
     message(FATAL_ERROR "-p produced no block boundaries")
 endif()
+
+# Every path writes the same header. Left to itself zlib-ng stamps a platform OS code that
+# RFC 1952 does not define, so -n on a plain stream once disagreed with block output.
+file(WRITE ${WORKDIR}/os.txt "${DATA}")
+foreach(variant "-n" "-n;-b;64K" "-n;-p;2")
+    execute_process(COMMAND ${EXE} ${variant} -c ${WORKDIR}/os.txt OUTPUT_FILE ${WORKDIR}/os.gz RESULT_VARIABLE rc)
+    file(READ ${WORKDIR}/os.gz OSHEAD HEX LIMIT 10)
+    string(SUBSTRING "${OSHEAD}" 18 2 OS_BYTE)
+    if(NOT rc EQUAL 0 OR NOT OS_BYTE STREQUAL "03")
+        message(FATAL_ERROR "${variant} wrote OS byte ${OS_BYTE}, expected 03")
+    endif()
+endforeach()

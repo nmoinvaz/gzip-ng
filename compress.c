@@ -134,15 +134,15 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
         free(bufs);
         return -1;
     }
-    if (mtime != 0 || name != NULL) {
-        memset(&head, 0, sizeof(head));
-        head.time = mtime;
-        head.name = (uint8_t *)(uintptr_t)name;
+    /* Always set the header, even with nothing to record in it. Left to itself zlib-ng stamps
+       its own OS code, which on some platforms is a value RFC 1952 does not define. */
+    memset(&head, 0, sizeof(head));
+    head.time = mtime;
+    head.name = (uint8_t *)(uintptr_t)name;
 #ifndef _WIN32
-        head.os = 3;
+    head.os = 3;
 #endif
-        zng_deflateSetHeader(&z, &head);
-    }
+    zng_deflateSetHeader(&z, &head);
     for (;;) {
         size_t have = fread(ibuf, 1, CHUNK, in), pos = 0;
         int final;
