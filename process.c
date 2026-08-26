@@ -200,7 +200,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     in = fopen(inpath, "rb");
     if (in == NULL) {
         fail(inpath);
-        return -1;
+        return 1;
     }
     have_ist = fstat(fileno(in), &ist) == 0;
     if (!opt->decompress && opt->name_mode != 0 && have_ist) {
