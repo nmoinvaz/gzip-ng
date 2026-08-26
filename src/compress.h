@@ -1,0 +1,23 @@
+/* compress.h -- serial gzip compression
+ * For conditions of distribution and use, see LICENSE.md
+ */
+
+#ifndef GZNG_COMPRESS_H_
+#define GZNG_COMPRESS_H_
+
+#include <stdio.h>
+
+#include "options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Compress in to out as one plain gzip stream. Returns 0, or -1 with errno telling io errors. */
+int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -27,6 +27,7 @@ endif()
 
 add_executable(gtest_gzng
     gtest_block.cc
+    gtest_compress.cc
     gtest_gzng.cc
     gtest_options.cc)
 target_link_libraries(gtest_gzng PRIVATE gzng GTest::Main)

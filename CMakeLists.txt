@@ -32,7 +32,11 @@ add_library(gzng STATIC
     src/gzblockwrite.c
     src/gzblock.h
     src/gzblock_p.h
+    src/compress.c
+    src/compress.h
     src/gzng.c
+    src/process.c
+    src/process.h
     src/options.c
     src/options.h
     src/gzng.h)
