@@ -70,7 +70,11 @@ done:
 }
 
 /* Mean bytes between the sync points --rsyncable emits into a plain stream. */
-#define RSYNC_SPAN 4096 /* a sync point every 4096 bytes on average */
+/* How far apart --rsyncable puts its sync points in a plain stream, the spacing gzip and pigz
+   both use. These are Z_SYNC_FLUSH points that let rsync resynchronise after an edit. They do
+   not reset the dictionary and they do not start a block, so they cost a little ratio and
+   nothing else. Block boundaries are a separate matter, spaced by -b. */
+#define RSYNC_SPAN 4096
 
 /* Push one span of input through deflate and write everything it produces. */
 static int deflate_span(zng_stream *z, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int flush) {
