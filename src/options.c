@@ -18,7 +18,7 @@ void gzng_options_init(gzng_options *opt) {
 }
 
 void gzng_usage(FILE *out) {
-    fprintf(out, "Usage: gzip-ng [-c] [-d] [-k] [-f|-h|-R|-F|-T] [-A] [-b size] [-0 to -9] [--help] [--version] [files...]\n");
+    fprintf(out, "Usage: gzip-ng [-c] [-d] [-k] [-f|-h|-R|-F|-T] [-A] [-b size] [-p threads] [-0 to -9] [--help] [--version] [files...]\n");
     fprintf(out, "Compresses files in place. With no files, filters stdin to stdout.\n\n");
     fprintf(out, "  -c : write to standard output, keep the files\n");
     fprintf(out, "  -d : decompress\n");
@@ -26,6 +26,7 @@ void gzng_usage(FILE *out) {
     fprintf(out, "  -0 to -9 : compression level, 6 by default\n");
     fprintf(out, "  -f : filtered strategy, -h : huffman only, -R : run length, -F : fixed codes\n");
     fprintf(out, "  -b size : compress in independent blocks of size, K, M, and G suffixes\n");
+    fprintf(out, "  -p threads : threads to use, 0 picks the number of CPUs\n");
     fprintf(out, "  -T : store without compressing\n");
     fprintf(out, "  -A : text mode, accepted for compatibility\n");
 }
@@ -82,6 +83,16 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv) {
         }
         if (strcmp(arg, "-k") == 0) {
             opt->keep = 1;
+            continue;
+        }
+        if (strcmp(arg, "-p") == 0 && i + 1 < argc) {
+            char *end;
+            long n = strtol(argv[++i], &end, 10);
+            if (end == argv[i] || *end != 0 || n < 0 || n > 1024) {
+                fprintf(stderr, "%s: bad thread count %s\n", argv[0], argv[i]);
+                return -1;
+            }
+            opt->threads = (int)n;
             continue;
         }
         if (strcmp(arg, "-p") == 0 && i + 1 < argc) {

@@ -132,4 +132,16 @@ TEST(options, block_size_flag) {
     EXPECT_EQ(-1, gzng_options_parse(&opt, 3, argv));
 }
 
+TEST(options, threads_flag) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    char a0[] = "gzip-ng", a1[] = "-p", a2[] = "8";
+    char *argv[] = {a0, a1, a2, nullptr};
+    EXPECT_EQ(3, gzng_options_parse(&opt, 3, argv));
+    EXPECT_EQ(8, opt.threads);
+    char bad[] = "-2";
+    argv[2] = bad;
+    EXPECT_EQ(-1, gzng_options_parse(&opt, 3, argv));
+}
+
 }  // namespace

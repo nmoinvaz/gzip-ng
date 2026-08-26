@@ -90,3 +90,18 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/b.txt ${WOR
 if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
     message(FATAL_ERROR "-b roundtrip failed")
 endif()
+
+# -p drives both directions across the pool.
+file(WRITE ${WORKDIR}/p.txt "${DATA}")
+execute_process(COMMAND ${EXE} -b 64K -p 3 -k ${WORKDIR}/p.txt RESULT_VARIABLE rc)
+execute_process(COMMAND ${EXE} -d -c -p 2 ${WORKDIR}/p.txt.gz OUTPUT_FILE ${WORKDIR}/p.out RESULT_VARIABLE rc2)
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/p.txt ${WORKDIR}/p.out
+                RESULT_VARIABLE rc3)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
+    message(FATAL_ERROR "-p roundtrip failed")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/p.txt.gz ${WORKDIR}/b.txt.gz
+                RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "thread count changed the compressed bytes")
+endif()
