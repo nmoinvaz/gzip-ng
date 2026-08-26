@@ -2,7 +2,7 @@
 
 A gzip replacement built on [zlib-ng](https://github.com/zlib-ng/zlib-ng), with parallel compression into independent deflate blocks and parallel decompression of block-structured files, including pigz -i and pigz --rsyncable -i output.
 
-Early skeleton. The engine and CLI are being ported from the zlib-ng prototype branch.
+The block engine is ported and the CLI covers the minigzip switch surface, the gzip drop-in surface comes next.
 
 ## Goals
 
@@ -20,6 +20,24 @@ ctest --test-dir build
 ```
 
 zlib-ng and Google Test are fetched automatically when not found.
+
+## Usage
+
+```
+gzip-ng [-c] [-d] [-k] [-f|-h|-R|-F|-T] [-A] [-b size] [-p threads] [-0 to -9] [files...]
+```
+
+Compresses files in place, file to file.gz, removing the input unless -k. With no files it filters stdin to stdout. Installed as gunzip, zcat, or gzcat it presets -d and -c the way gzip's aliases do.
+
+- -c : write to standard output, keep the files
+- -d : decompress, parallel automatically for block or pigz -i style input
+- -k : keep input files
+- -f, -h, -R, -F : deflate strategies, filtered, huffman only, run length, fixed
+- -T : store without compressing
+- -A : text mode, accepted for compatibility
+- -b size : compress in independent blocks of size, K, M, and G suffixes
+- -p threads : threads to use, 0 picks the number of CPUs
+- -0 to -9 : compression level, 6 by default
 
 ## Project notes
 
