@@ -26,15 +26,15 @@ size_t vec_write(void *ctx, const uint8_t *buf, size_t len) {
 std::vector<uint8_t> block_compress(const std::vector<uint8_t> &data, uint32_t block_size,
                                     int nthreads, size_t chunk = 65521) {
     std::vector<uint8_t> out;
-    gzblock_writer *w = gzblock_wopen(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY,
+    gzblock_writer *w = gzblock_writer_open(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY,
                                       block_size, nthreads);
     EXPECT_NE(nullptr, w);
     for (size_t pos = 0; pos < data.size(); pos += chunk) {
         size_t n = std::min(chunk, data.size() - pos);
-        EXPECT_EQ(0, gzblock_write(w, data.data() + pos, n)) << gzblock_werror(w);
+        EXPECT_EQ(0, gzblock_writer_write(w, data.data() + pos, n)) << gzblock_writer_error(w);
     }
-    EXPECT_EQ(0, gzblock_wfinish(w)) << gzblock_werror(w);
-    gzblock_wclose(w);
+    EXPECT_EQ(0, gzblock_writer_finish(w)) << gzblock_writer_error(w);
+    gzblock_writer_close(w);
     return out;
 }
 
@@ -79,15 +79,15 @@ TEST(block_writer, threads_do_not_change_the_bytes) {
 TEST(block_writer, flush_and_params_inside_a_block) {
     auto data = sample_data(300000);
     std::vector<uint8_t> out;
-    gzblock_writer *w = gzblock_wopen(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY,
+    gzblock_writer *w = gzblock_writer_open(vec_write, &out, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY,
                                       64 * 1024, 2);
     ASSERT_NE(nullptr, w);
-    ASSERT_EQ(0, gzblock_write(w, data.data(), 100000)) << gzblock_werror(w);
-    ASSERT_EQ(0, gzblock_wflush(w)) << gzblock_werror(w);
-    ASSERT_EQ(0, gzblock_wsetparams(w, 1, Z_DEFAULT_STRATEGY)) << gzblock_werror(w);
-    ASSERT_EQ(0, gzblock_write(w, data.data() + 100000, data.size() - 100000)) << gzblock_werror(w);
-    ASSERT_EQ(0, gzblock_wfinish(w)) << gzblock_werror(w);
-    gzblock_wclose(w);
+    ASSERT_EQ(0, gzblock_writer_write(w, data.data(), 100000)) << gzblock_writer_error(w);
+    ASSERT_EQ(0, gzblock_writer_flush(w)) << gzblock_writer_error(w);
+    ASSERT_EQ(0, gzblock_writer_setparams(w, 1, Z_DEFAULT_STRATEGY)) << gzblock_writer_error(w);
+    ASSERT_EQ(0, gzblock_writer_write(w, data.data() + 100000, data.size() - 100000)) << gzblock_writer_error(w);
+    ASSERT_EQ(0, gzblock_writer_finish(w)) << gzblock_writer_error(w);
+    gzblock_writer_close(w);
     EXPECT_EQ(data, whole_inflate(out, data.size()));
 }
 
@@ -107,18 +107,18 @@ size_t mem_read(void *ctx, uint8_t *buf, size_t len) {
 std::vector<uint8_t> block_read(const std::vector<uint8_t> &packed, int nthreads,
                                 uint32_t block_size = 0, size_t io_chunk = 65521) {
     MemIn in{packed.data(), packed.size(), 0, io_chunk};
-    gzblock_reader *r = gzblock_ropen(mem_read, &in, nullptr, 0, block_size, nthreads);
+    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, block_size, nthreads);
     EXPECT_NE(nullptr, r);
     std::vector<uint8_t> out;
     uint8_t buf[65521];
     for (;;) {
         size_t got = 0;
-        EXPECT_EQ(0, gzblock_read(r, buf, sizeof(buf), &got)) << gzblock_rerror(r);
+        EXPECT_EQ(0, gzblock_reader_read(r, buf, sizeof(buf), &got)) << gzblock_reader_error(r);
         if (got == 0)
             break;
         out.insert(out.end(), buf, buf + got);
     }
-    gzblock_rclose(r);
+    gzblock_reader_close(r);
     return out;
 }
 
@@ -133,18 +133,18 @@ TEST(block_reader, zero_copy_handout) {
     auto data = sample_data(500000);
     auto packed = block_compress(data, 64 * 1024, 2);
     MemIn in{packed.data(), packed.size(), 0, 65521};
-    gzblock_reader *r = gzblock_ropen(mem_read, &in, nullptr, 0, 0, 3);
+    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, 0, 3);
     ASSERT_NE(nullptr, r);
     std::vector<uint8_t> out;
     for (;;) {
         const uint8_t *p = nullptr;
         size_t n = 0;
-        ASSERT_EQ(0, gzblock_rnext(r, &p, &n)) << gzblock_rerror(r);
+        ASSERT_EQ(0, gzblock_reader_next(r, &p, &n)) << gzblock_reader_error(r);
         if (n == 0)
             break;
         out.insert(out.end(), p, p + n);
     }
-    gzblock_rclose(r);
+    gzblock_reader_close(r);
     EXPECT_EQ(data, out);
 }
 
@@ -177,12 +177,12 @@ TEST(block_reader, concatenated_members) {
 TEST(block_writer, meta_lands_in_the_header) {
     auto data = sample_data(1000);
     std::vector<uint8_t> out;
-    gzblock_writer *w = gzblock_wopen(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 64 * 1024, 1);
+    gzblock_writer *w = gzblock_writer_open(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 64 * 1024, 1);
     ASSERT_NE(nullptr, w);
-    ASSERT_EQ(0, gzblock_wmeta(w, 12345u, "hello.txt"));
-    ASSERT_EQ(0, gzblock_write(w, data.data(), data.size()));
-    ASSERT_EQ(0, gzblock_wfinish(w));
-    gzblock_wclose(w);
+    ASSERT_EQ(0, gzblock_writer_meta(w, 12345u, "hello.txt"));
+    ASSERT_EQ(0, gzblock_writer_write(w, data.data(), data.size()));
+    ASSERT_EQ(0, gzblock_writer_finish(w));
+    gzblock_writer_close(w);
     ASSERT_GT(out.size(), 31u);
     EXPECT_EQ(4 | 8, out[3]);
     EXPECT_EQ(12345u, (uint32_t)out[4] | ((uint32_t)out[5] << 8));
@@ -192,12 +192,12 @@ TEST(block_writer, meta_lands_in_the_header) {
 
 std::vector<uint8_t> rsync_compress(const std::vector<uint8_t> &data) {
     std::vector<uint8_t> out;
-    gzblock_writer *w = gzblock_wopen(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 64 * 1024, 1);
+    gzblock_writer *w = gzblock_writer_open(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 64 * 1024, 1);
     EXPECT_NE(nullptr, w);
-    EXPECT_EQ(0, gzblock_wrsyncable(w, 1));
-    EXPECT_EQ(0, gzblock_write(w, data.data(), data.size()));
-    EXPECT_EQ(0, gzblock_wfinish(w));
-    gzblock_wclose(w);
+    EXPECT_EQ(0, gzblock_writer_rsyncable(w, 1));
+    EXPECT_EQ(0, gzblock_writer_write(w, data.data(), data.size()));
+    EXPECT_EQ(0, gzblock_writer_finish(w));
+    gzblock_writer_close(w);
     return out;
 }
 

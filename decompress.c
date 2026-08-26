@@ -57,27 +57,27 @@ int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt,
                            uint64_t *in_len, uint64_t *out_len) {
     rsource src = {in, 0};
     uint64_t total_out = 0;
-    gzblock_reader *r = gzblock_ropen(file_read, &src, NULL, 0, opt->block_size, opt->threads);
+    gzblock_reader *r = gzblock_reader_open(file_read, &src, NULL, 0, opt->block_size, opt->threads);
 
     if (r == NULL)
         return -1;
     for (;;) {
         const uint8_t *p;
         size_t n;
-        if (gzblock_rnext(r, &p, &n) != 0) {
-            fprintf(stderr, "gzip-ng: %s\n", gzblock_rerror(r));
-            gzblock_rclose(r);
+        if (gzblock_reader_next(r, &p, &n) != 0) {
+            fprintf(stderr, "gzip-ng: %s\n", gzblock_reader_error(r));
+            gzblock_reader_close(r);
             return -1;
         }
         if (n == 0)
             break;
         total_out += n;
         if (out != NULL && fwrite(p, 1, n, out) != n) {
-            gzblock_rclose(r);
+            gzblock_reader_close(r);
             return -1;
         }
     }
-    gzblock_rclose(r);
+    gzblock_reader_close(r);
     if (in_len != NULL)
         *in_len = src.in;
     if (out_len != NULL)

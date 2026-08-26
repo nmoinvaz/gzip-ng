@@ -72,7 +72,7 @@ static int writer_header(gzblock_writer *w) {
     return writer_out(w, buf, n);
 }
 
-int gzblock_wrsyncable(gzblock_writer *w, int on) {
+int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
     uint32_t bits = 12;
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
@@ -84,7 +84,7 @@ int gzblock_wrsyncable(gzblock_writer *w, int on) {
     return 0;
 }
 
-int gzblock_wmeta(gzblock_writer *w, uint32_t mtime, const char *name) {
+int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
     w->meta_mtime = mtime;
@@ -217,7 +217,7 @@ static void writer_submit(gzblock_writer *w, int last) {
  * The writer object
  * =========================================================================== */
 
-gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int strategy,
+gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy,
                                          uint32_t block_size, int nthreads) {
     gzblock_writer *w;
     zng_stream bound;
@@ -263,7 +263,7 @@ gzblock_writer *gzblock_wopen(gzblock_write_fn write, void *ctx, int level, int 
     return w;
 }
 
-int gzblock_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
+int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
     if (w->failed || w->finished)
         return -1;
     while (len != 0) {
@@ -308,7 +308,7 @@ int gzblock_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
 
 static int writer_inline_migrate(gzblock_writer *w);
 
-int gzblock_wsetparams(gzblock_writer *w, int level, int strategy) {
+int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
     if (w->failed || w->finished)
         return -1;
     if (level == w->level && strategy == w->strategy)
@@ -348,7 +348,7 @@ static int writer_inline_migrate(gzblock_writer *w) {
     return 0;
 }
 
-int gzblock_wflush(gzblock_writer *w) {
+int gzblock_writer_flush(gzblock_writer *w) {
     if (w->failed || w->finished)
         return -1;
     if (writer_inline_migrate(w) != 0)
@@ -362,7 +362,7 @@ int gzblock_wflush(gzblock_writer *w) {
     return writer_header(w);
 }
 
-int gzblock_wfinish(gzblock_writer *w) {
+int gzblock_writer_finish(gzblock_writer *w) {
     uint8_t trailer[GZ_TRAILER];
 
     if (w->failed)
@@ -390,15 +390,15 @@ int gzblock_wfinish(gzblock_writer *w) {
     return 0;
 }
 
-const char *gzblock_werror(const gzblock_writer *w) {
+const char *gzblock_writer_error(const gzblock_writer *w) {
     return w->msg;
 }
 
-int gzblock_werrcode(const gzblock_writer *w) {
+int gzblock_writer_errcode(const gzblock_writer *w) {
     return w->err;
 }
 
-void gzblock_wclose(gzblock_writer *w) {
+void gzblock_writer_close(gzblock_writer *w) {
     if (w == NULL)
         return;
     if (w->pool_up)

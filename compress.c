@@ -30,7 +30,7 @@ static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
                                  uint64_t *in_len, uint64_t *out_len) {
     wsink sink = {out, 0};
     uint64_t total_in = 0;
-    gzblock_writer *w = gzblock_wopen(file_write, &sink, opt->level, opt->strategy,
+    gzblock_writer *w = gzblock_writer_open(file_write, &sink, opt->level, opt->strategy,
                                       opt->block_size, opt->threads);
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
     int rc = -1;
@@ -38,28 +38,28 @@ static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt,
     if (w == NULL || buf == NULL)
         goto done;
     if (mtime != 0 || name != NULL)
-        gzblock_wmeta(w, mtime, name);
+        gzblock_writer_meta(w, mtime, name);
     if (opt->rsyncable)
-        gzblock_wrsyncable(w, 1);
+        gzblock_writer_rsyncable(w, 1);
     for (;;) {
         size_t n = fread(buf, 1, CHUNK, in);
         if (n == 0)
             break;
         total_in += n;
-        if (gzblock_write(w, buf, n) != 0)
+        if (gzblock_writer_write(w, buf, n) != 0)
             goto engine_error;
     }
     if (ferror(in))
         goto done;
-    if (gzblock_wfinish(w) != 0)
+    if (gzblock_writer_finish(w) != 0)
         goto engine_error;
     rc = 0;
     goto done;
 engine_error:
-    fprintf(stderr, "gzip-ng: %s\n", gzblock_werror(w));
+    fprintf(stderr, "gzip-ng: %s\n", gzblock_writer_error(w));
 done:
     if (w != NULL)
-        gzblock_wclose(w);
+        gzblock_writer_close(w);
     free(buf);
     if (in_len != NULL)
         *in_len = total_in;

@@ -606,7 +606,7 @@ static int reader_header(gzblock_reader *r) {
  * The reader object
  * =========================================================================== */
 
-gzblock_reader *gzblock_ropen(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
+gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
                                          uint32_t block_size, int nthreads) {
     gzblock_reader *r;
 
@@ -621,7 +621,7 @@ gzblock_reader *gzblock_ropen(gzblock_read_fn read, void *ctx, const uint8_t *he
     r->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
     r->obuf = (uint8_t *)malloc(IO_CHUNK);
     if (r->obuf == NULL || (head_len != 0 && buf_append(&r->buf, head, head_len) != 0)) {
-        gzblock_rclose(r);
+        gzblock_reader_close(r);
         return NULL;
     }
     r->state = READER_HEADER;
@@ -656,7 +656,7 @@ static int reader_advance(gzblock_reader *r) {
     return 0;
 }
 
-int gzblock_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got) {
+int gzblock_reader_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got) {
     size_t done = 0;
 
     reader_done_pending(r);
@@ -677,7 +677,7 @@ int gzblock_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got) {
     return 0;
 }
 
-int gzblock_rnext(gzblock_reader *r, const uint8_t **p, size_t *n) {
+int gzblock_reader_next(gzblock_reader *r, const uint8_t **p, size_t *n) {
     reader_done_pending(r);
     if (reader_advance(r) != 0)
         return -1;
@@ -689,15 +689,15 @@ int gzblock_rnext(gzblock_reader *r, const uint8_t **p, size_t *n) {
     return 0;
 }
 
-const char *gzblock_rerror(const gzblock_reader *r) {
+const char *gzblock_reader_error(const gzblock_reader *r) {
     return r->msg;
 }
 
-int gzblock_rerrcode(const gzblock_reader *r) {
+int gzblock_reader_errcode(const gzblock_reader *r) {
     return r->err;
 }
 
-void gzblock_rclose(gzblock_reader *r) {
+void gzblock_reader_close(gzblock_reader *r) {
     if (r == NULL)
         return;
     if (r->pool_up)
