@@ -7,11 +7,50 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "gzblock.h"
 #include "zlib-ng.h"
 
 #define CHUNK (256 * 1024)
 
+static size_t file_write(void *ctx, const uint8_t *buf, size_t len) {
+    return fwrite(buf, 1, len, (FILE *)ctx);
+}
+
+/* Compress through the block engine, independent blocks sealed with marker pairs. */
+static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt) {
+    gzblock_writer *w = gzblock_wopen(file_write, out, opt->level, opt->strategy,
+                                      opt->block_size, opt->threads);
+    uint8_t *buf = (uint8_t *)malloc(CHUNK);
+    int rc = -1;
+
+    if (w == NULL || buf == NULL)
+        goto done;
+    for (;;) {
+        size_t n = fread(buf, 1, CHUNK, in);
+        if (n == 0)
+            break;
+        if (gzblock_write(w, buf, n) != 0)
+            goto engine_error;
+    }
+    if (ferror(in))
+        goto done;
+    if (gzblock_wfinish(w) != 0)
+        goto engine_error;
+    rc = 0;
+    goto done;
+engine_error:
+    fprintf(stderr, "gzip-ng: %s\n", gzblock_werror(w));
+done:
+    if (w != NULL)
+        gzblock_wclose(w);
+    free(buf);
+    return rc;
+}
+
 int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt) {
+    if (opt->block_size != 0)
+        return block_compress_stream(in, out, opt);
+
     zng_stream z;
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
     uint8_t *ibuf = bufs, *obuf = bufs ? bufs + CHUNK : NULL;

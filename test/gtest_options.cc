@@ -108,4 +108,28 @@ TEST(options, transparent_and_text) {
     EXPECT_EQ(1, opt.text_mode);
 }
 
+TEST(options, parse_size) {
+    EXPECT_EQ(131072u, gzng_parse_size("128K"));
+    EXPECT_EQ(1u << 20, gzng_parse_size("1M"));
+    EXPECT_EQ(0u, gzng_parse_size("1G"));      /* over the engine cap */
+    EXPECT_EQ(256u << 20, gzng_parse_size("256M"));
+    EXPECT_EQ(4096u, gzng_parse_size("4096"));
+    EXPECT_EQ(0u, gzng_parse_size("0"));
+    EXPECT_EQ(0u, gzng_parse_size("x"));
+    EXPECT_EQ(0u, gzng_parse_size("12KB"));
+    EXPECT_EQ(0u, gzng_parse_size("512M"));
+}
+
+TEST(options, block_size_flag) {
+    gzng_options opt;
+    gzng_options_init(&opt);
+    char a0[] = "gzip-ng", a1[] = "-b", a2[] = "64K";
+    char *argv[] = {a0, a1, a2, nullptr};
+    EXPECT_EQ(3, gzng_options_parse(&opt, 3, argv));
+    EXPECT_EQ(64u * 1024, opt.block_size);
+    char bad[] = "junk";
+    argv[2] = bad;
+    EXPECT_EQ(-1, gzng_options_parse(&opt, 3, argv));
+}
+
 }  // namespace

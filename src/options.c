@@ -4,8 +4,10 @@
 
 #include "options.h"
 
+#include <stdlib.h>
 #include <string.h>
 
+#include "gzblock.h"
 #include "gzng.h"
 #include "zlib-ng.h"
 
@@ -16,15 +18,30 @@ void gzng_options_init(gzng_options *opt) {
 }
 
 void gzng_usage(FILE *out) {
-    fprintf(out, "Usage: gzip-ng [-c] [-d] [-k] [-f|-h|-R|-F|-T] [-A] [-0 to -9] [--help] [--version] [files...]\n");
+    fprintf(out, "Usage: gzip-ng [-c] [-d] [-k] [-f|-h|-R|-F|-T] [-A] [-b size] [-0 to -9] [--help] [--version] [files...]\n");
     fprintf(out, "Compresses files in place. With no files, filters stdin to stdout.\n\n");
     fprintf(out, "  -c : write to standard output, keep the files\n");
     fprintf(out, "  -d : decompress\n");
     fprintf(out, "  -k : keep input files\n");
     fprintf(out, "  -0 to -9 : compression level, 6 by default\n");
     fprintf(out, "  -f : filtered strategy, -h : huffman only, -R : run length, -F : fixed codes\n");
+    fprintf(out, "  -b size : compress in independent blocks of size, K, M, and G suffixes\n");
     fprintf(out, "  -T : store without compressing\n");
     fprintf(out, "  -A : text mode, accepted for compatibility\n");
+}
+
+uint32_t gzng_parse_size(const char *arg) {
+    char *end;
+    unsigned long long v = strtoull(arg, &end, 10);
+
+    switch (*end) {
+    case 'k': case 'K': v <<= 10; end++; break;
+    case 'm': case 'M': v <<= 20; end++; break;
+    case 'g': case 'G': v <<= 30; end++; break;
+    }
+    if (end == arg || *end != 0 || v == 0 || v > GZBLOCK_MAX_BLOCK)
+        return 0;
+    return (uint32_t)v;
 }
 
 void gzng_options_personas(gzng_options *opt, const char *argv0) {
@@ -65,6 +82,24 @@ int gzng_options_parse(gzng_options *opt, int argc, char **argv) {
         }
         if (strcmp(arg, "-k") == 0) {
             opt->keep = 1;
+            continue;
+        }
+        if (strcmp(arg, "-p") == 0 && i + 1 < argc) {
+            char *end;
+            long n = strtol(argv[++i], &end, 10);
+            if (end == argv[i] || *end != 0 || n < 0 || n > 1024) {
+                fprintf(stderr, "%s: bad thread count %s\n", argv[0], argv[i]);
+                return -1;
+            }
+            opt->threads = (int)n;
+            continue;
+        }
+        if (strcmp(arg, "-b") == 0 && i + 1 < argc) {
+            opt->block_size = gzng_parse_size(argv[++i]);
+            if (opt->block_size == 0) {
+                fprintf(stderr, "%s: bad block size %s\n", argv[0], argv[i]);
+                return -1;
+            }
             continue;
         }
         if (strcmp(arg, "-T") == 0) {

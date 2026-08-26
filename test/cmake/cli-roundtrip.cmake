@@ -80,3 +80,13 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/t.txt ${WOR
 if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0)
     message(FATAL_ERROR "-T did not copy through")
 endif()
+
+# -b writes independent blocks that roundtrip.
+file(WRITE ${WORKDIR}/b.txt "${DATA}")
+execute_process(COMMAND ${EXE} -b 64K -k ${WORKDIR}/b.txt RESULT_VARIABLE rc)
+execute_process(COMMAND ${EXE} -d -c ${WORKDIR}/b.txt.gz OUTPUT_FILE ${WORKDIR}/b.out RESULT_VARIABLE rc2)
+execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files ${WORKDIR}/b.txt ${WORKDIR}/b.out
+                RESULT_VARIABLE rc3)
+if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
+    message(FATAL_ERROR "-b roundtrip failed")
+endif()
