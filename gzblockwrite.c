@@ -73,43 +73,6 @@ static int writer_header(gzblock_writer *w) {
     return writer_out(w, buf, n);
 }
 
-int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
-    uint32_t bits = 12;
-    if (w == NULL || w->hdr_written || w->failed)
-        return -1;
-    w->rsyncable = on != 0;
-    w->rmin = w->block_size / 2;
-    while ((1u << bits) < (uint32_t)w->rmin && bits < 24)
-        bits++;
-    w->rmask = (1u << bits) - 1;
-    return 0;
-}
-
-int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
-    if (w == NULL || w->hdr_written || w->failed)
-        return -1;
-    w->meta_mtime = mtime;
-    if (name != NULL && strlen(name) < GZBLOCK_NAME_MAX)
-        memcpy(w->meta_name, name, strlen(name) + 1);
-    return 0;
-}
-
-/* Write out the next compressed block in order. */
-static int writer_drain(gzblock_writer *w) {
-    slot_t *slot = pool_slot(&w->pool, w->next_emit);
-
-    pool_wait(&w->pool, slot);
-    if (slot->status != 0)
-        return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
-    if (writer_header(w) != 0 || writer_out(w, slot->out, slot->out_len) != 0)
-        return -1;
-    w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
-    w->total += slot->in_len;
-    pool_release(&w->pool, slot);
-    w->next_emit++;
-    return 0;
-}
-
 /* ===========================================================================
  * Flush and parameter changes continue the block on the calling thread
  * =========================================================================== */
@@ -189,6 +152,14 @@ static int writer_inline_begin(gzblock_writer *w) {
     return 0;
 }
 
+/* A partly filled block moves to the inline stream, so it can be flushed or reconfigured without
+   ending early. No-op when there is no such block. */
+static int writer_inline_migrate(gzblock_writer *w) {
+    if (!w->inline_active && w->cur != NULL && w->cur->in_len != 0)
+        return writer_inline_begin(w);
+    return 0;
+}
+
 /* ===========================================================================
  * Blocks through the pool, filled in order, written out in order
  * =========================================================================== */
@@ -212,6 +183,22 @@ static void writer_submit(gzblock_writer *w, int last) {
     pool_submit(&w->pool, w->cur);
     w->cur = NULL;
     w->next_produce++;
+}
+
+/* Write out the next compressed block in order. */
+static int writer_drain(gzblock_writer *w) {
+    slot_t *slot = pool_slot(&w->pool, w->next_emit);
+
+    pool_wait(&w->pool, slot);
+    if (slot->status != 0)
+        return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
+    if (writer_header(w) != 0 || writer_out(w, slot->out, slot->out_len) != 0)
+        return -1;
+    w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
+    w->total += slot->in_len;
+    pool_release(&w->pool, slot);
+    w->next_emit++;
+    return 0;
 }
 
 /* ===========================================================================
@@ -264,6 +251,27 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     return w;
 }
 
+int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
+    uint32_t bits = 12;
+    if (w == NULL || w->hdr_written || w->failed)
+        return -1;
+    w->rsyncable = on != 0;
+    w->rmin = w->block_size / 2;
+    while ((1u << bits) < (uint32_t)w->rmin && bits < 24)
+        bits++;
+    w->rmask = (1u << bits) - 1;
+    return 0;
+}
+
+int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
+    if (w == NULL || w->hdr_written || w->failed)
+        return -1;
+    w->meta_mtime = mtime;
+    if (name != NULL && strlen(name) < GZBLOCK_NAME_MAX)
+        memcpy(w->meta_name, name, strlen(name) + 1);
+    return 0;
+}
+
 int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
     if (w->failed || w->finished)
         return -1;
@@ -303,8 +311,6 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
     return 0;
 }
 
-static int writer_inline_migrate(gzblock_writer *w);
-
 int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
     if (w->failed || w->finished)
         return -1;
@@ -334,14 +340,6 @@ int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
     }
     w->level = level;
     w->strategy = strategy;
-    return 0;
-}
-
-/* A partly filled block moves to the inline stream, so it can be flushed or reconfigured without
-   ending early. No-op when there is no such block. */
-static int writer_inline_migrate(gzblock_writer *w) {
-    if (!w->inline_active && w->cur != NULL && w->cur->in_len != 0)
-        return writer_inline_begin(w);
     return 0;
 }
 

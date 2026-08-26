@@ -459,6 +459,10 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
     }
 }
 
+/* ===========================================================================
+ * Draining finished blocks and ending the member
+ * =========================================================================== */
+
 /* Hand out the next block in order. */
 static int reader_drain(gzblock_reader *r) {
     slot_t *slot = pool_slot(&r->pool, r->next_emit);
@@ -523,6 +527,10 @@ static int reader_member_end_step(gzblock_reader *r) {
 
 /* Decide how to decode what comes next: a gzip member in block mode or plain, pass-through for data
    that is not gzip, or the end. */
+/* ===========================================================================
+ * Member headers and the probe for pair-delimited data
+ * =========================================================================== */
+
 /* Probe defaults when nothing declares a block size, the coalescing target and how far to look. */
 #define PROBE_BLOCK (128u << 10)
 #define PROBE_WINDOW (1u << 20)
@@ -548,10 +556,6 @@ static int reader_probe(gzblock_reader *r, size_t hdr_len) {
     }
     return 0;
 }
-
-/* ===========================================================================
- * Member headers and the probe for pair-delimited data
- * =========================================================================== */
 
 static int reader_header(gzblock_reader *r) {
     size_t want = 1024, hdr_len;
