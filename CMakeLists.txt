@@ -24,11 +24,17 @@ if(NOT TARGET zlib-ng::zlib)
     FetchContent_MakeAvailable(zlib-ng)
 endif()
 
+find_package(Threads REQUIRED)
+
 add_library(gzng STATIC
+    src/gzblock.c
+    src/gzblock.h
+    src/gzblock_p.h
     src/gzng.c
     src/gzng.h)
 target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(gzng PUBLIC zlib-ng::zlib)
+target_compile_definitions(gzng PRIVATE GZBLOCK_THREADS)
+target_link_libraries(gzng PUBLIC zlib-ng::zlib Threads::Threads)
 
 add_executable(gzip-ng src/main.c)
 target_link_libraries(gzip-ng PRIVATE gzng)
