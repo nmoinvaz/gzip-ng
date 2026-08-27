@@ -313,8 +313,7 @@ static int reader_fallback(gzblock_reader *r) {
     if (buf_append(&all, r->scan.hdr.p, r->scan.hdr.len) != 0)
         return reader_oom(r);
     for (i = r->pipeline.next_emit; i < r->pipeline.next_produce; i++) {
-        slot_t *slot = pool_slot(&r->pipeline.pool, i);
-        pool_wait(&r->pipeline.pool, slot);
+        slot_t *slot = pipeline_wait(&r->pipeline, i);
         if (buf_append(&all, slot->in, slot->in_len) != 0)
             return reader_oom(r);
         pool_release(&r->pipeline.pool, slot);
@@ -435,8 +434,7 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
                 return reader_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->pipeline.next_emit - 1);
             if (r->pipeline.next_emit < r->pipeline.next_produce) {
                 /* The next piece is already in the ring, wait for its worker and take it from there. */
-                ps = pool_slot(&r->pipeline.pool, r->pipeline.next_emit);
-                pool_wait(&r->pipeline.pool, ps);
+                ps = pipeline_wait(&r->pipeline, r->pipeline.next_emit);
                 piece = ps->in;
                 piece_len = ps->in_len;
                 last = ps->last;
