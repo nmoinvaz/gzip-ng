@@ -47,14 +47,18 @@ typedef struct {
     int seg_pair; /* the segment ends with a marker pair */
 } reader_scan;
 
+typedef struct {
+    size_t next_produce, next_emit;
+    pool_t pool;
+    int pool_up;
+} reader_pipeline;
+
 struct gzblock_reader_s {
     reader_io io;
     reader_inflate stream;
     reader_scan scan;
 
-    size_t next_produce, next_emit;
-    pool_t pool;
-    int pool_up;
+    reader_pipeline blocks;
     zng_stream mz; /* for repairing false splits on this thread */
     size_t tmp_cap;
     int mz_init;
@@ -258,10 +262,10 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         return reader_oom(r);
     buf_drop(&r->io.buf, hdr_len);
 
-    if (r->pool_up && r->scan.block_size != block_size) {
-        pool_stop(&r->pool);
-        pool_free(&r->pool);
-        r->pool_up = 0;
+    if (r->blocks.pool_up && r->scan.block_size != block_size) {
+        pool_stop(&r->blocks.pool);
+        pool_free(&r->blocks.pool);
+        r->blocks.pool_up = 0;
         free(r->tmp);
         r->tmp = NULL;
     }
@@ -269,20 +273,20 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
     /* A pair-terminated block may be any size and coalescing gathers several, so this is a
        memory bound rather than a property of the format. */
     r->scan.max_seg = (size_t)block_size * 4 + 1024;
-    if (!r->pool_up) {
-        r->pool.codec.init = gzblock_codec_init;
-        r->pool.codec.end = gzblock_codec_end;
-        r->pool.codec.run = gzblock_codec_run;
-        r->pool.mode = POOL_INFLATE;
-        r->pool.block_size = block_size;
+    if (!r->blocks.pool_up) {
+        r->blocks.pool.codec.init = gzblock_codec_init;
+        r->blocks.pool.codec.end = gzblock_codec_end;
+        r->blocks.pool.codec.run = gzblock_codec_run;
+        r->blocks.pool.mode = POOL_INFLATE;
+        r->blocks.pool.block_size = block_size;
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */
         r->tmp = (uint8_t *)malloc(block_size);
         r->tmp_cap = block_size;
-        if (r->tmp == NULL || pool_alloc(&r->pool, r->io.nthreads, 0, block_size) != 0)
+        if (r->tmp == NULL || pool_alloc(&r->blocks.pool, r->io.nthreads, 0, block_size) != 0)
             return reader_oom(r);
-        if (pool_start(&r->pool, r->io.nthreads) != 0)
+        if (pool_start(&r->blocks.pool, r->io.nthreads) != 0)
             return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
-        r->pool_up = 1;
+        r->blocks.pool_up = 1;
     }
     if (!r->mz_init) {
         memset(&r->mz, 0, sizeof(r->mz));
@@ -295,7 +299,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
     r->scan.coal = 0;
     r->scan.pair_seen = 0;
     r->scan.cut_all = 0;
-    r->next_produce = r->next_emit = 0;
+    r->blocks.next_produce = r->blocks.next_emit = 0;
     r->crc = 0;
     r->total = 0;
     r->io.state = READER_BLOCKS;
@@ -310,19 +314,19 @@ static int reader_fallback(gzblock_reader *r) {
 
     if (buf_append(&all, r->scan.hdr.p, r->scan.hdr.len) != 0)
         return reader_oom(r);
-    for (i = r->next_emit; i < r->next_produce; i++) {
-        slot_t *slot = pool_slot(&r->pool, i);
-        pool_wait(&r->pool, slot);
+    for (i = r->blocks.next_emit; i < r->blocks.next_produce; i++) {
+        slot_t *slot = pool_slot(&r->blocks.pool, i);
+        pool_wait(&r->blocks.pool, slot);
         if (buf_append(&all, slot->in, slot->in_len) != 0)
             return reader_oom(r);
-        pool_release(&r->pool, slot);
+        pool_release(&r->blocks.pool, slot);
     }
     if (buf_append(&all, buf_data(&r->io.buf), r->io.buf.len) != 0)
         return reader_oom(r);
     free(r->io.buf.p);
     r->io.buf = all;
     r->scan.hdr.len = 0;
-    r->next_produce = r->next_emit = 0;
+    r->blocks.next_produce = r->blocks.next_emit = 0;
     r->scan.scanned = 0;
     r->scan.cut_all = 0;
     return reader_start_stream(r);
@@ -331,7 +335,7 @@ static int reader_fallback(gzblock_reader *r) {
 /* Keep the pool fed, cutting segments into free slots until the ring is full or the input is done. */
 static int reader_produce(gzblock_reader *r) {
     while (!r->scan.cut_all) {
-        slot_t *slot = pool_slot(&r->pool, r->next_produce);
+        slot_t *slot = pool_slot(&r->blocks.pool, r->blocks.next_produce);
         buf_t swap;
         int rc;
 
@@ -352,9 +356,9 @@ static int reader_produce(gzblock_reader *r) {
                 r->scan.max_seg = MIN(r->scan.max_seg * 2, (size_t)GZBLOCK_MAX_BLOCK);
                 continue;
             }
-            if (r->next_produce == 0 && r->next_emit == 0)
+            if (r->blocks.next_produce == 0 && r->blocks.next_emit == 0)
                 return reader_fallback(r); /* no block structure at this size */
-            return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->next_produce);
+            return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->blocks.next_produce);
         }
         /* Swap buffers rather than copy, the slot keeps the segment and seg reuses the old one. */
         swap.p = slot->in;
@@ -367,8 +371,8 @@ static int reader_produce(gzblock_reader *r) {
         r->scan.seg.p = swap.p;
         r->scan.seg.capacity = swap.capacity;
         r->scan.seg.len = 0;
-        pool_submit(&r->pool, slot);
-        r->next_produce++;
+        pool_submit(&r->blocks.pool, slot);
+        r->blocks.next_produce++;
     }
     return 0;
 }
@@ -383,13 +387,13 @@ static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest
     if (buf_append(&all, rest, rest_n) != 0)
         return reader_oom(r);
     if (slot != NULL)
-        pool_release(&r->pool, slot);
-    for (i = r->next_emit; i < r->next_produce; i++) {
-        slot_t *s = pool_slot(&r->pool, i);
-        pool_wait(&r->pool, s);
+        pool_release(&r->blocks.pool, slot);
+    for (i = r->blocks.next_emit; i < r->blocks.next_produce; i++) {
+        slot_t *s = pool_slot(&r->blocks.pool, i);
+        pool_wait(&r->blocks.pool, s);
         if (buf_append(&all, s->in, s->in_len) != 0)
             return reader_oom(r);
-        pool_release(&r->pool, s);
+        pool_release(&r->blocks.pool, s);
     }
     if (buf_append(&all, buf_data(&r->io.buf), r->io.buf.len) != 0)
         return reader_oom(r);
@@ -397,7 +401,7 @@ static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest
     r->io.buf = all;
     r->scan.scanned = 0;
     r->scan.cut_all = 0;
-    r->next_produce = r->next_emit = 0;
+    r->blocks.next_produce = r->blocks.next_emit = 0;
     r->io.state = READER_MEMBER_END;
     return 0;
 }
@@ -426,16 +430,16 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
     for (;;) {
         m.accept_partial = pair;
         status = blockdec_feed(&m, piece, piece_len, &used);
-        r->next_emit++;
+        r->blocks.next_emit++;
         if (status == SEG_SHORT) {
             if (ps != NULL)
-                pool_release(&r->pool, ps);
+                pool_release(&r->blocks.pool, ps);
             if (last)
-                return reader_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->next_emit - 1);
-            if (r->next_emit < r->next_produce) {
+                return reader_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->blocks.next_emit - 1);
+            if (r->blocks.next_emit < r->blocks.next_produce) {
                 /* The next piece is already in the ring, wait for its worker and take it from there. */
-                ps = pool_slot(&r->pool, r->next_emit);
-                pool_wait(&r->pool, ps);
+                ps = pool_slot(&r->blocks.pool, r->blocks.next_emit);
+                pool_wait(&r->blocks.pool, ps);
                 piece = ps->in;
                 piece_len = ps->in_len;
                 last = ps->last;
@@ -448,13 +452,13 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
                 if (rc != 1)
                     return reader_fail(r, rc == 0 ? Z_BUF_ERROR : Z_DATA_ERROR,
                                        rc == 0 ? "unexpected end of file" : "block %zu is larger than the block size",
-                                       r->next_emit);
+                                       r->blocks.next_emit);
                 ps = NULL;
                 piece = r->scan.seg.p;
                 piece_len = r->scan.seg.len;
                 last = r->scan.seg_last;
                 pair = r->scan.seg_pair;
-                r->next_produce++;
+                r->blocks.next_produce++;
             }
             continue;
         }
@@ -467,15 +471,15 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
             reader_block_out(r, r->tmp, (size_t)r->mz.total_out,
                              (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
             if (ps != NULL)
-                pool_release(&r->pool, ps);
+                pool_release(&r->blocks.pool, ps);
             return 0;
         }
         if (ps != NULL)
-            pool_release(&r->pool, ps);
+            pool_release(&r->blocks.pool, ps);
         if (status == SEG_FULL)
             return reader_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR,
-                               last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit - 1);
-        return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit - 1,
+                               last ? "unexpected end of file" : "block %zu has trailing data", r->blocks.next_emit - 1);
+        return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->blocks.next_emit - 1,
                            blockdec_status_name(status));
     }
 }
@@ -486,11 +490,11 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
 
 /* Hand out the next block in order. */
 static int reader_drain(gzblock_reader *r) {
-    slot_t *slot = pool_slot(&r->pool, r->next_emit);
+    slot_t *slot = pool_slot(&r->blocks.pool, r->blocks.next_emit);
 
-    pool_wait(&r->pool, slot);
+    pool_wait(&r->blocks.pool, slot);
     if (slot->status == SEG_FULL && slot->in_used == slot->in_len && !slot->last) {
-        r->next_emit++;
+        r->blocks.next_emit++;
         reader_block_out(r, slot->out, slot->out_len, slot->crc, slot);
         return 0;
     }
@@ -505,17 +509,17 @@ static int reader_drain(gzblock_reader *r) {
         }
         memcpy(r->tmp, slot->out, slot->out_len);
         reader_block_out(r, r->tmp, slot->out_len, slot->crc, NULL);
-        r->next_emit++;
+        r->blocks.next_emit++;
         return reader_member_end(r, slot->in + slot->in_used, slot->in_len - slot->in_used, slot);
     }
-    if (slot->status == SEG_OVERFLOW && r->next_emit == 0)
+    if (slot->status == SEG_OVERFLOW && r->blocks.next_emit == 0)
         return reader_fallback(r);
     if (slot->status == SEG_SHORT && !slot->last)
         return reader_repair(r, slot);
     if (slot->status == SEG_FULL)
         return reader_fail(r, slot->last ? Z_BUF_ERROR : Z_DATA_ERROR,
-                           slot->last ? "unexpected end of file" : "block %zu has trailing data", r->next_emit);
-    return reader_fail(r, slot->status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->next_emit,
+                           slot->last ? "unexpected end of file" : "block %zu has trailing data", r->blocks.next_emit);
+    return reader_fail(r, slot->status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->blocks.next_emit,
                        blockdec_status_name(slot->status));
 }
 
@@ -524,7 +528,7 @@ static int reader_blocks(gzblock_reader *r) {
         return -1;
     if (r->io.state != READER_BLOCKS)
         return 0; /* fell back to plain inflate */
-    if (r->next_emit < r->next_produce)
+    if (r->blocks.next_emit < r->blocks.next_produce)
         return reader_drain(r);
     return reader_fail(r, Z_BUF_ERROR, "unexpected end of file");
 }
@@ -658,7 +662,7 @@ gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8
 /* Output handed out earlier has been consumed, the slot holding it can go back to the pool. */
 static void reader_done_pending(gzblock_reader *r) {
     if (r->io.out_n == 0 && r->io.out_slot != NULL) {
-        pool_release(&r->pool, r->io.out_slot);
+        pool_release(&r->blocks.pool, r->io.out_slot);
         r->io.out_slot = NULL;
     }
 }
@@ -739,9 +743,9 @@ int gzblock_reader_errcode(const gzblock_reader *r) {
 void gzblock_reader_close(gzblock_reader *r) {
     if (r == NULL)
         return;
-    if (r->pool_up)
-        pool_stop(&r->pool);
-    pool_free(&r->pool);
+    if (r->blocks.pool_up)
+        pool_stop(&r->blocks.pool);
+    pool_free(&r->blocks.pool);
     if (r->stream.z_init)
         zng_inflateEnd(&r->stream.z);
     if (r->mz_init)
