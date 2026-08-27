@@ -219,12 +219,10 @@ static int writer_pool_size(gzblock_writer *w, size_t cap) {
     out_cap = zng_deflateBound(&bound, cap) + 32;
     zng_deflateEnd(&bound);
 
-    if (w->pipeline.pool_up) {
+    if (w->pipeline.pool_up)
         pipeline_free(&w->pipeline);
-    }
-    if (pool_alloc(&w->pipeline.pool, w->nthreads, cap, out_cap) != 0 || pool_start(&w->pipeline.pool, w->nthreads) != 0)
+    if (pipeline_start(&w->pipeline, w->nthreads, cap, out_cap) != 0)
         return -1;
-    w->pipeline.pool_up = 1;
     return 0;
 }
 

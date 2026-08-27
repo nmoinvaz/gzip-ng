@@ -276,11 +276,15 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */
         r->repair.tmp = (uint8_t *)malloc(block_size);
         r->repair.tmp_cap = block_size;
-        if (r->repair.tmp == NULL || pool_alloc(&r->pipeline.pool, r->io.nthreads, 0, block_size) != 0)
+        if (r->repair.tmp == NULL)
             return reader_oom(r);
-        if (pool_start(&r->pipeline.pool, r->io.nthreads) != 0)
-            return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
-        r->pipeline.pool_up = 1;
+        {
+            int rc = pipeline_start(&r->pipeline, r->io.nthreads, 0, block_size);
+            if (rc == -1)
+                return reader_oom(r);
+            if (rc == -2)
+                return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
+        }
     }
     if (!r->repair.z_init) {
         memset(&r->repair.z, 0, sizeof(r->repair.z));
