@@ -21,6 +21,12 @@
 #define IO_CHUNK (256 * 1024) /* read and write in this much at a time */
 #define MSG_LEN  128          /* room for one error message */
 
+typedef struct {
+    pool_t pool;
+    size_t next_produce, next_emit;
+    int pool_up;
+} pipeline_t;
+
 /* The deflate and inflate codec, which the reader and writer hand to their pool. */
 int gzblock_codec_init(pool_t *pool, zng_stream *z);
 void gzblock_codec_end(pool_t *pool, zng_stream *z);

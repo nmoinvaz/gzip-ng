@@ -9,9 +9,7 @@ struct gzblock_writer_s {
     void *ctx;
     uint32_t block_size;
     int level, strategy, nthreads;
-    pool_t pool;
-    int pool_up;
-    size_t next_produce, next_emit;
+    pipeline_t pipeline;
     slot_t *cur; /* slot being filled */
     uint32_t crc;
     size_t total;
@@ -122,7 +120,7 @@ static int writer_drain(gzblock_writer *w);
 /* Move the block being filled onto the inline stream. Everything before it goes to the file first,
    so the inline output can follow directly. */
 static int writer_inline_begin(gzblock_writer *w) {
-    while (w->next_emit < w->next_produce) {
+    while (w->pipeline.next_emit < w->pipeline.next_produce) {
         if (writer_drain(w) != 0)
             return -1;
     }
@@ -145,7 +143,7 @@ static int writer_inline_begin(gzblock_writer *w) {
         w->cur = NULL;
         if (slot->in_len != 0 && writer_inline_feed(w, slot->in, slot->in_len) != 0)
             return -1;
-        pool_release(&w->pool, slot);
+        pool_release(&w->pipeline.pool, slot);
     }
     return 0;
 }
@@ -165,7 +163,7 @@ static int writer_inline_migrate(gzblock_writer *w) {
 /* Take the next free slot to fill, draining finished ones to make room. */
 static int writer_acquire(gzblock_writer *w) {
     slot_t *slot;
-    while ((slot = pool_slot(&w->pool, w->next_produce))->state != SLOT_FREE) {
+    while ((slot = pool_slot(&w->pipeline.pool, w->pipeline.next_produce))->state != SLOT_FREE) {
         if (writer_drain(w) != 0)
             return -1;
     }
@@ -178,24 +176,24 @@ static void writer_submit(gzblock_writer *w, int last) {
     w->cur->last = last;
     w->cur->level = w->level;
     w->cur->strategy = w->strategy;
-    pool_submit(&w->pool, w->cur);
+    pool_submit(&w->pipeline.pool, w->cur);
     w->cur = NULL;
-    w->next_produce++;
+    w->pipeline.next_produce++;
 }
 
 /* Write out the next compressed block in order. */
 static int writer_drain(gzblock_writer *w) {
-    slot_t *slot = pool_slot(&w->pool, w->next_emit);
+    slot_t *slot = pool_slot(&w->pipeline.pool, w->pipeline.next_emit);
 
-    pool_wait(&w->pool, slot);
+    pool_wait(&w->pipeline.pool, slot);
     if (slot->status != 0)
         return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
     if (writer_header(w) != 0 || writer_out(w, slot->out, slot->out_len) != 0)
         return -1;
     w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
     w->total += slot->in_len;
-    pool_release(&w->pool, slot);
-    w->next_emit++;
+    pool_release(&w->pipeline.pool, slot);
+    w->pipeline.next_emit++;
     return 0;
 }
 
@@ -215,14 +213,14 @@ static int writer_pool_size(gzblock_writer *w, size_t cap) {
     out_cap = zng_deflateBound(&bound, cap) + 32;
     zng_deflateEnd(&bound);
 
-    if (w->pool_up) {
-        pool_stop(&w->pool);
-        pool_free(&w->pool);
-        w->pool_up = 0;
+    if (w->pipeline.pool_up) {
+        pool_stop(&w->pipeline.pool);
+        pool_free(&w->pipeline.pool);
+        w->pipeline.pool_up = 0;
     }
-    if (pool_alloc(&w->pool, w->nthreads, cap, out_cap) != 0 || pool_start(&w->pool, w->nthreads) != 0)
+    if (pool_alloc(&w->pipeline.pool, w->nthreads, cap, out_cap) != 0 || pool_start(&w->pipeline.pool, w->nthreads) != 0)
         return -1;
-    w->pool_up = 1;
+    w->pipeline.pool_up = 1;
     return 0;
 }
 
@@ -253,16 +251,16 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     out_cap = zng_deflateBound(&bound, block_size) + 32;
     zng_deflateEnd(&bound);
 
-    w->pool.codec.init = gzblock_codec_init;
-    w->pool.codec.end = gzblock_codec_end;
-    w->pool.codec.run = gzblock_codec_run;
-    w->pool.mode = POOL_DEFLATE;
-    w->pool.block_size = block_size;
-    w->pool.level = level;
-    w->pool.strategy = strategy;
+    w->pipeline.pool.codec.init = gzblock_codec_init;
+    w->pipeline.pool.codec.end = gzblock_codec_end;
+    w->pipeline.pool.codec.run = gzblock_codec_run;
+    w->pipeline.pool.mode = POOL_DEFLATE;
+    w->pipeline.pool.block_size = block_size;
+    w->pipeline.pool.level = level;
+    w->pipeline.pool.strategy = strategy;
     w->obuf = (uint8_t *)malloc(IO_CHUNK);
     if (w->obuf == NULL || writer_pool_size(w, block_size) != 0) {
-        pool_free(&w->pool);
+        pool_free(&w->pipeline.pool);
         free(w->obuf);
         free(w);
         return NULL;
@@ -380,7 +378,7 @@ int gzblock_writer_flush(gzblock_writer *w) {
         return -1;
     if (w->inline_active)
         return writer_inline_out(w, Z_SYNC_FLUSH);
-    while (w->next_emit < w->next_produce) {
+    while (w->pipeline.next_emit < w->pipeline.next_produce) {
         if (writer_drain(w) != 0)
             return -1;
     }
@@ -403,7 +401,7 @@ int gzblock_writer_finish(gzblock_writer *w) {
         if (w->cur == NULL && writer_acquire(w) != 0)
             return -1;
         writer_submit(w, 1);
-        while (w->next_emit < w->next_produce) {
+        while (w->pipeline.next_emit < w->pipeline.next_produce) {
             if (writer_drain(w) != 0)
                 return -1;
         }
@@ -426,9 +424,9 @@ int gzblock_writer_errcode(const gzblock_writer *w) {
 void gzblock_writer_close(gzblock_writer *w) {
     if (w == NULL)
         return;
-    if (w->pool_up)
-        pool_stop(&w->pool);
-    pool_free(&w->pool);
+    if (w->pipeline.pool_up)
+        pool_stop(&w->pipeline.pool);
+    pool_free(&w->pipeline.pool);
     if (w->iz_init)
         zng_deflateEnd(&w->iz);
     free(w->obuf);
