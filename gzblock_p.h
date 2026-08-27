@@ -49,6 +49,11 @@ static inline int pipeline_start(pipeline_t *pipeline, int nthreads, size_t in_c
     return 0;
 }
 
+static inline void pipeline_submit(pipeline_t *pipeline, slot_t *slot) {
+    pool_submit(&pipeline->pool, slot);
+    pipeline->next_produce++;
+}
+
 static inline slot_t *pipeline_wait(pipeline_t *pipeline, size_t index) {
     slot_t *slot = pool_slot(&pipeline->pool, index);
     pool_wait(&pipeline->pool, slot);

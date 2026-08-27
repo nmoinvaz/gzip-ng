@@ -182,9 +182,8 @@ static void writer_submit(gzblock_writer *w, int last) {
     w->cur->last = last;
     w->cur->level = w->level;
     w->cur->strategy = w->strategy;
-    pool_submit(&w->pipeline.pool, w->cur);
+    pipeline_submit(&w->pipeline, w->cur);
     w->cur = NULL;
-    w->pipeline.next_produce++;
 }
 
 /* Write out the next compressed block in order. */

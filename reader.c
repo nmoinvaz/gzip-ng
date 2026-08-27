@@ -368,8 +368,7 @@ static int reader_produce(gzblock_reader *r) {
         r->scan.seg.p = swap.p;
         r->scan.seg.capacity = swap.capacity;
         r->scan.seg.len = 0;
-        pool_submit(&r->pipeline.pool, slot);
-        r->pipeline.next_produce++;
+        pipeline_submit(&r->pipeline, slot);
     }
     return 0;
 }
