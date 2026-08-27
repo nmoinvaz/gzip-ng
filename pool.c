@@ -2,24 +2,15 @@
  * For conditions of distribution and use, see LICENSE.md
  */
 
-#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
-#  define _DARWIN_C_SOURCE /* sysconf(_SC_NPROCESSORS_ONLN) is hidden under strict POSIX */
-#endif
+#include "pool_p.h"
 
-#include "gzblock_p.h"
+#include <stdlib.h>
 
-#ifdef GZBLOCK_THREADS
-#  include <unistd.h>
-#endif
-
+#ifndef GZBLOCK_THREADS
 int pool_default_threads(void) {
-#if defined(GZBLOCK_THREADS) && defined(_SC_NPROCESSORS_ONLN)
-    long n = sysconf(_SC_NPROCESSORS_ONLN);
-    if (n > 0)
-        return (int)MIN(n, 64);
-#endif
     return 1;
 }
+#endif
 
 slot_t *pool_slot(pool_t *pool, size_t i) {
     return &pool->ring[i % pool->nring];
@@ -74,126 +65,22 @@ void pool_free(pool_t *pool) {
 }
 
 /* Without worker threads the slots are worked on demand by the calling thread. */
-static int pool_start_inline(pool_t *pool) {
+int pool_start_inline(pool_t *pool) {
     pool->inline_run = 1;
     return pool->codec.init(pool, &pool->z) == Z_OK ? 0 : -1;
 }
 
-static void pool_stop_inline(pool_t *pool) {
+void pool_stop_inline(pool_t *pool) {
     pool->codec.end(pool, &pool->z);
 }
 
-static void slot_wait_inline(pool_t *pool, slot_t *slot) {
+void pool_wait_inline(pool_t *pool, slot_t *slot) {
     if (slot->state == SLOT_FILLED)
         pool->codec.run(pool, &pool->z, slot);
     slot->state = SLOT_DONE;
 }
 
-#ifdef GZBLOCK_THREADS
-
-static void *worker(void *arg) {
-    pool_t *pool = (pool_t *)arg;
-    zng_stream z;
-
-    if (pool->codec.init(pool, &z) != Z_OK)
-        return NULL;
-    for (;;) {
-        slot_t *slot;
-
-        pthread_mutex_lock(&pool->mu);
-        while (!pool->abort && pool->qhead == pool->qtail)
-            pthread_cond_wait(&pool->work_cv, &pool->mu);
-        if (pool->abort) {
-            pthread_mutex_unlock(&pool->mu);
-            break;
-        }
-        slot = pool->queue[pool->qhead++ % pool->nring];
-        slot->state = SLOT_CLAIMED;
-        pthread_mutex_unlock(&pool->mu);
-
-        pool->codec.run(pool, &z, slot);
-
-        pthread_mutex_lock(&pool->mu);
-        slot->state = SLOT_DONE;
-        pthread_cond_broadcast(&pool->done_cv);
-        pthread_mutex_unlock(&pool->mu);
-    }
-    pool->codec.end(pool, &z);
-    return NULL;
-}
-
-int pool_start(pool_t *pool, int nthreads) {
-    if (nthreads <= 1)
-        return pool_start_inline(pool);
-    pthread_mutex_init(&pool->mu, NULL);
-    pthread_cond_init(&pool->work_cv, NULL);
-    pthread_cond_init(&pool->done_cv, NULL);
-    pool->threads = (pthread_t *)calloc((size_t)nthreads, sizeof(pthread_t));
-    if (pool->threads == NULL)
-        return -1;
-    for (pool->started = 0; pool->started < nthreads; pool->started++) {
-        if (pthread_create(&pool->threads[pool->started], NULL, worker, pool) != 0)
-            break;
-    }
-    return pool->started > 0 ? 0 : -1;
-}
-
-void pool_stop(pool_t *pool) {
-    int i;
-    if (pool->inline_run) {
-        pool_stop_inline(pool);
-        pool->inline_run = 0;
-        return;
-    }
-    if (pool->threads == NULL)
-        return;
-    pthread_mutex_lock(&pool->mu);
-    pool->abort = 1;
-    pthread_cond_broadcast(&pool->work_cv);
-    pthread_mutex_unlock(&pool->mu);
-    for (i = 0; i < pool->started; i++)
-        pthread_join(pool->threads[i], NULL);
-    free(pool->threads);
-    pool->threads = NULL;
-    pthread_mutex_destroy(&pool->mu);
-    pthread_cond_destroy(&pool->work_cv);
-    pthread_cond_destroy(&pool->done_cv);
-}
-
-void pool_submit(pool_t *pool, slot_t *slot) {
-    if (pool->inline_run) {
-        slot->state = SLOT_FILLED;
-        return;
-    }
-    pthread_mutex_lock(&pool->mu);
-    slot->state = SLOT_FILLED;
-    pool->queue[pool->qtail++ % pool->nring] = slot;
-    pthread_cond_signal(&pool->work_cv);
-    pthread_mutex_unlock(&pool->mu);
-}
-
-void pool_wait(pool_t *pool, slot_t *slot) {
-    if (pool->inline_run) {
-        slot_wait_inline(pool, slot);
-        return;
-    }
-    pthread_mutex_lock(&pool->mu);
-    while (slot->state != SLOT_DONE)
-        pthread_cond_wait(&pool->done_cv, &pool->mu);
-    pthread_mutex_unlock(&pool->mu);
-}
-
-void pool_release(pool_t *pool, slot_t *slot) {
-    if (pool->inline_run) {
-        slot->state = SLOT_FREE;
-        return;
-    }
-    pthread_mutex_lock(&pool->mu);
-    slot->state = SLOT_FREE;
-    pthread_mutex_unlock(&pool->mu);
-}
-
-#else /* !GZBLOCK_THREADS */
+#ifndef GZBLOCK_THREADS
 
 int pool_start(pool_t *pool, int nthreads) {
     (void)nthreads;
@@ -211,7 +98,7 @@ void pool_submit(pool_t *pool, slot_t *slot) {
 }
 
 void pool_wait(pool_t *pool, slot_t *slot) {
-    slot_wait_inline(pool, slot);
+    pool_wait_inline(pool, slot);
 }
 
 void pool_release(pool_t *pool, slot_t *slot) {

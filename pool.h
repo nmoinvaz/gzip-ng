@@ -14,10 +14,6 @@
 extern "C" {
 #endif
 
-#ifdef GZBLOCK_THREADS
-#  include <pthread.h>
-#endif
-
 #define RING_BYTES (1ULL << 30) /* upper bound on block buffers held in flight */
 
 /* Ring of blocks, filled in order by the calling thread, worked on by the pool, drained in
@@ -60,15 +56,9 @@ typedef struct pool_s {
     slot_t **queue; /* filled slots in fill order, at most nring */
     size_t qhead, qtail;
     int abort;
-    zng_stream z;   /* stream for working slots on the calling thread */
-    int inline_run; /* no worker threads, slots are worked on demand */
-#ifdef GZBLOCK_THREADS
-    pthread_mutex_t mu;
-    pthread_cond_t work_cv; /* a slot was queued, or abort */
-    pthread_cond_t done_cv; /* a slot became done */
-    pthread_t *threads;
-    int started;
-#endif
+    zng_stream z;            /* stream for working slots on the calling thread */
+    int inline_run;          /* no worker threads, slots are worked on demand */
+    struct pool_threads *th; /* workers, mutex, and the two condition variables */
 } pool_t;
 
 int pool_default_threads(void);

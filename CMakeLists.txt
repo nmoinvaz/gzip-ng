@@ -54,6 +54,9 @@ add_library(gzng STATIC
     options.c
     pool.c
     pool.h
+    pool_p.h
+    pool_pthread.c
+    pool_win32.c
     scanner.c
     scanner.h
     util.h
