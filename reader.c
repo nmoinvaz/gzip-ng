@@ -261,9 +261,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
     buf_drop(&r->io.buf, hdr_len);
 
     if (r->pipeline.pool_up && r->scan.block_size != block_size) {
-        pool_stop(&r->pipeline.pool);
-        pool_free(&r->pipeline.pool);
-        r->pipeline.pool_up = 0;
+        pipeline_free(&r->pipeline);
         free(r->repair.tmp);
         r->repair.tmp = NULL;
     }
@@ -297,7 +295,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
     r->scan.coal = 0;
     r->scan.pair_seen = 0;
     r->scan.cut_all = 0;
-    r->pipeline.next_produce = r->pipeline.next_emit = 0;
+    pipeline_reset(&r->pipeline);
     r->crc = 0;
     r->total = 0;
     r->io.state = READER_BLOCKS;
@@ -324,7 +322,7 @@ static int reader_fallback(gzblock_reader *r) {
     free(r->io.buf.p);
     r->io.buf = all;
     r->scan.hdr.len = 0;
-    r->pipeline.next_produce = r->pipeline.next_emit = 0;
+    pipeline_reset(&r->pipeline);
     r->scan.scanned = 0;
     r->scan.cut_all = 0;
     return reader_start_stream(r);
@@ -399,7 +397,7 @@ static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest
     r->io.buf = all;
     r->scan.scanned = 0;
     r->scan.cut_all = 0;
-    r->pipeline.next_produce = r->pipeline.next_emit = 0;
+    pipeline_reset(&r->pipeline);
     r->io.state = READER_MEMBER_END;
     return 0;
 }
@@ -741,9 +739,7 @@ int gzblock_reader_errcode(const gzblock_reader *r) {
 void gzblock_reader_close(gzblock_reader *r) {
     if (r == NULL)
         return;
-    if (r->pipeline.pool_up)
-        pool_stop(&r->pipeline.pool);
-    pool_free(&r->pipeline.pool);
+    pipeline_free(&r->pipeline);
     if (r->stream.z_init)
         zng_inflateEnd(&r->stream.z);
     if (r->repair.z_init)

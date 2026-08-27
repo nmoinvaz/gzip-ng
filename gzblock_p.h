@@ -27,6 +27,17 @@ typedef struct {
     int pool_up;
 } pipeline_t;
 
+static inline void pipeline_reset(pipeline_t *pipeline) {
+    pipeline->next_produce = pipeline->next_emit = 0;
+}
+
+static inline void pipeline_free(pipeline_t *pipeline) {
+    if (pipeline->pool_up)
+        pool_stop(&pipeline->pool);
+    pool_free(&pipeline->pool);
+    pipeline->pool_up = 0;
+}
+
 /* The deflate and inflate codec, which the reader and writer hand to their pool. */
 int gzblock_codec_init(pool_t *pool, zng_stream *z);
 void gzblock_codec_end(pool_t *pool, zng_stream *z);

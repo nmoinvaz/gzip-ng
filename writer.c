@@ -214,9 +214,7 @@ static int writer_pool_size(gzblock_writer *w, size_t cap) {
     zng_deflateEnd(&bound);
 
     if (w->pipeline.pool_up) {
-        pool_stop(&w->pipeline.pool);
-        pool_free(&w->pipeline.pool);
-        w->pipeline.pool_up = 0;
+        pipeline_free(&w->pipeline);
     }
     if (pool_alloc(&w->pipeline.pool, w->nthreads, cap, out_cap) != 0 || pool_start(&w->pipeline.pool, w->nthreads) != 0)
         return -1;
@@ -260,7 +258,7 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     w->pipeline.pool.strategy = strategy;
     w->obuf = (uint8_t *)malloc(IO_CHUNK);
     if (w->obuf == NULL || writer_pool_size(w, block_size) != 0) {
-        pool_free(&w->pipeline.pool);
+        pipeline_free(&w->pipeline);
         free(w->obuf);
         free(w);
         return NULL;
@@ -424,9 +422,7 @@ int gzblock_writer_errcode(const gzblock_writer *w) {
 void gzblock_writer_close(gzblock_writer *w) {
     if (w == NULL)
         return;
-    if (w->pipeline.pool_up)
-        pool_stop(&w->pipeline.pool);
-    pool_free(&w->pipeline.pool);
+    pipeline_free(&w->pipeline);
     if (w->iz_init)
         zng_deflateEnd(&w->iz);
     free(w->obuf);
