@@ -117,13 +117,19 @@ static int writer_inline_feed(gzblock_writer *w, const uint8_t *buf, size_t len)
 
 static int writer_drain(gzblock_writer *w);
 
-/* Move the block being filled onto the inline stream. Everything before it goes to the file first,
-   so the inline output can follow directly. */
-static int writer_inline_begin(gzblock_writer *w) {
+static int writer_drain_all(gzblock_writer *w) {
     while (w->pipeline.next_emit < w->pipeline.next_produce) {
         if (writer_drain(w) != 0)
             return -1;
     }
+    return 0;
+}
+
+/* Move the block being filled onto the inline stream. Everything before it goes to the file first,
+   so the inline output can follow directly. */
+static int writer_inline_begin(gzblock_writer *w) {
+    if (writer_drain_all(w) != 0)
+        return -1;
     if (writer_header(w) != 0)
         return -1;
     if (!w->iz_init) {
@@ -376,10 +382,8 @@ int gzblock_writer_flush(gzblock_writer *w) {
         return -1;
     if (w->inline_active)
         return writer_inline_out(w, Z_SYNC_FLUSH);
-    while (w->pipeline.next_emit < w->pipeline.next_produce) {
-        if (writer_drain(w) != 0)
-            return -1;
-    }
+    if (writer_drain_all(w) != 0)
+        return -1;
     return writer_header(w);
 }
 
@@ -399,10 +403,8 @@ int gzblock_writer_finish(gzblock_writer *w) {
         if (w->cur == NULL && writer_acquire(w) != 0)
             return -1;
         writer_submit(w, 1);
-        while (w->pipeline.next_emit < w->pipeline.next_produce) {
-            if (writer_drain(w) != 0)
-                return -1;
-        }
+        if (writer_drain_all(w) != 0)
+            return -1;
     }
     format_trailer_build(trailer, w->crc, (uint64_t)w->total);
     if (writer_out(w, trailer, sizeof(trailer)) != 0)

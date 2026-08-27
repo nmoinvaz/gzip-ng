@@ -385,8 +385,7 @@ static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest
     if (slot != NULL)
         pool_release(&r->pipeline.pool, slot);
     for (i = r->pipeline.next_emit; i < r->pipeline.next_produce; i++) {
-        slot_t *s = pool_slot(&r->pipeline.pool, i);
-        pool_wait(&r->pipeline.pool, s);
+        slot_t *s = pipeline_wait(&r->pipeline, i);
         if (buf_append(&all, s->in, s->in_len) != 0)
             return reader_oom(r);
         pool_release(&r->pipeline.pool, s);
@@ -486,9 +485,9 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
 
 /* Hand out the next block in order. */
 static int reader_drain(gzblock_reader *r) {
-    slot_t *slot = pool_slot(&r->pipeline.pool, r->pipeline.next_emit);
+    slot_t *slot = pipeline_wait(&r->pipeline, r->pipeline.next_emit);
 
-    pool_wait(&r->pipeline.pool, slot);
+
     if (slot->status == SEG_FULL && slot->in_used == slot->in_len && !slot->last) {
         r->pipeline.next_emit++;
         reader_block_out(r, slot->out, slot->out_len, slot->crc, slot);
