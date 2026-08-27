@@ -434,7 +434,7 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
                 pool_release(&r->pipeline.pool, ps);
             if (last)
                 return reader_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->pipeline.next_emit - 1);
-            if (r->pipeline.next_emit < r->pipeline.next_produce) {
+            if (pipeline_has_pending(&r->pipeline)) {
                 /* The next piece is already in the ring, wait for its worker and take it from there. */
                 ps = pipeline_wait(&r->pipeline, r->pipeline.next_emit);
                 piece = ps->in;
@@ -525,7 +525,7 @@ static int reader_blocks(gzblock_reader *r) {
         return -1;
     if (r->io.state != READER_BLOCKS)
         return 0; /* fell back to plain inflate */
-    if (r->pipeline.next_emit < r->pipeline.next_produce)
+    if (pipeline_has_pending(&r->pipeline))
         return reader_drain(r);
     return reader_fail(r, Z_BUF_ERROR, "unexpected end of file");
 }

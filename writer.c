@@ -118,7 +118,7 @@ static int writer_inline_feed(gzblock_writer *w, const uint8_t *buf, size_t len)
 static int writer_drain(gzblock_writer *w);
 
 static int writer_drain_all(gzblock_writer *w) {
-    while (w->pipeline.next_emit < w->pipeline.next_produce) {
+    while (pipeline_has_pending(&w->pipeline)) {
         if (writer_drain(w) != 0)
             return -1;
     }

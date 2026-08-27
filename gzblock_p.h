@@ -54,6 +54,10 @@ static inline void pipeline_submit(pipeline_t *pipeline, slot_t *slot) {
     pipeline->next_produce++;
 }
 
+static inline int pipeline_has_pending(const pipeline_t *pipeline) {
+    return pipeline->next_emit < pipeline->next_produce;
+}
+
 static inline slot_t *pipeline_wait(pipeline_t *pipeline, size_t index) {
     slot_t *slot = pool_slot(&pipeline->pool, index);
     pool_wait(&pipeline->pool, slot);
