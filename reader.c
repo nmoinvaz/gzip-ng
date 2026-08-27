@@ -304,20 +304,28 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
     return 0;
 }
 
+static int reader_collect_pending(gzblock_reader *r, buf_t *dst) {
+    size_t i;
+
+    for (i = r->pipeline.next_emit; i < r->pipeline.next_produce; i++) {
+        slot_t *slot = pipeline_wait(&r->pipeline, i);
+
+        if (buf_append(dst, slot->in, slot->in_len) != 0)
+            return reader_oom(r);
+        pool_release(&r->pipeline.pool, slot);
+    }
+    return 0;
+}
+
 /* Put the header, the segments cut so far, and the input in hand back together and stream the member
    through plain inflate instead. Only valid before any of its output was handed out. */
 static int reader_fallback(gzblock_reader *r) {
     buf_t all = {NULL, 0, 0, 0};
-    size_t i;
 
     if (buf_append(&all, r->scan.hdr.p, r->scan.hdr.len) != 0)
         return reader_oom(r);
-    for (i = r->pipeline.next_emit; i < r->pipeline.next_produce; i++) {
-        slot_t *slot = pipeline_wait(&r->pipeline, i);
-        if (buf_append(&all, slot->in, slot->in_len) != 0)
-            return reader_oom(r);
-        pool_release(&r->pipeline.pool, slot);
-    }
+    if (reader_collect_pending(r, &all) != 0)
+        return -1;
     if (buf_append(&all, buf_data(&r->io.buf), r->io.buf.len) != 0)
         return reader_oom(r);
     free(r->io.buf.p);
@@ -378,18 +386,13 @@ static int reader_produce(gzblock_reader *r) {
    back to the front of the input. slot, if not NULL, held rest and is released afterwards. */
 static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest_n, slot_t *slot) {
     buf_t all = {NULL, 0, 0, 0};
-    size_t i;
 
     if (buf_append(&all, rest, rest_n) != 0)
         return reader_oom(r);
     if (slot != NULL)
         pool_release(&r->pipeline.pool, slot);
-    for (i = r->pipeline.next_emit; i < r->pipeline.next_produce; i++) {
-        slot_t *s = pipeline_wait(&r->pipeline, i);
-        if (buf_append(&all, s->in, s->in_len) != 0)
-            return reader_oom(r);
-        pool_release(&r->pipeline.pool, s);
-    }
+    if (reader_collect_pending(r, &all) != 0)
+        return -1;
     if (buf_append(&all, buf_data(&r->io.buf), r->io.buf.len) != 0)
         return reader_oom(r);
     free(r->io.buf.p);
