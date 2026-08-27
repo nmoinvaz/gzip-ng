@@ -1,3 +1,7 @@
+/* gzng.h -- gzip-ng version strings
+ * For conditions of distribution and use, see LICENSE.md
+ */
+
 #ifndef GZNG_H_
 #define GZNG_H_
 

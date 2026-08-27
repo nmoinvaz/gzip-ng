@@ -1,3 +1,7 @@
+/* gzng.c -- gzip-ng version strings
+ * For conditions of distribution and use, see LICENSE.md
+ */
+
 #include "gzng.h"
 
 #include "zlib-ng.h"
