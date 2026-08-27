@@ -33,11 +33,7 @@ typedef struct {
     uint8_t *obuf; /* IO_CHUNK, output of z, or bytes passed through */
 } reader_inflate;
 
-struct gzblock_reader_s {
-    reader_io io;
-    reader_inflate stream;
-
-
+typedef struct {
     uint32_t block_size; /* block mode */
     int paired;          /* boundaries are marker pairs, lone markers are not candidates */
     int pair_seen;       /* a pair turned up in this member, so treat it as pair-delimited */
@@ -49,6 +45,13 @@ struct gzblock_reader_s {
     buf_t seg;           /* segment most recently cut out of buf */
     int seg_last;
     int seg_pair; /* the segment ends with a marker pair */
+} reader_scan;
+
+struct gzblock_reader_s {
+    reader_io io;
+    reader_inflate stream;
+    reader_scan scan;
+
     size_t next_produce, next_emit;
     pool_t pool;
     int pool_up;
@@ -167,14 +170,14 @@ static int reader_passthru(gzblock_reader *r) {
 
 /* Move the first n bytes of the input buffer into seg. */
 static int reader_cut(gzblock_reader *r, size_t n, int last, int pair) {
-    r->seg.len = 0;
-    if (buf_append(&r->seg, buf_data(&r->io.buf), n) != 0)
+    r->scan.seg.len = 0;
+    if (buf_append(&r->scan.seg, buf_data(&r->io.buf), n) != 0)
         return reader_oom(r);
-    r->seg_last = last;
-    r->seg_pair = pair;
+    r->scan.seg_last = last;
+    r->scan.seg_pair = pair;
     buf_drop(&r->io.buf, n);
-    r->scanned = 0;
-    r->coal = 0;
+    r->scan.scanned = 0;
+    r->scan.coal = 0;
     return 0;
 }
 
@@ -187,7 +190,7 @@ static int reader_next_segment(gzblock_reader *r) {
     for (;;) {
         size_t limit = b->len >= 3 ? b->len - 3 : 0;
         const uint8_t *bp = buf_data(b);
-        const uint8_t *hit = r->scanned < limit ? scan_marker(bp + r->scanned, bp + limit) : NULL;
+        const uint8_t *hit = r->scan.scanned < limit ? scan_marker(bp + r->scan.scanned, bp + limit) : NULL;
         if (hit != NULL) {
             size_t n = (size_t)(hit - bp) + 4;
             int empties = 0;
@@ -197,7 +200,7 @@ static int reader_next_segment(gzblock_reader *r) {
                 if (n + 5 > b->len) {
                     if (r->io.eof)
                         break;
-                    r->scanned = (size_t)(hit - bp);
+                    r->scan.scanned = (size_t)(hit - bp);
                     goto read_more;
                 }
                 if (memcmp(bp + n, "\0\0\0\xff\xff", 5) != 0)
@@ -206,30 +209,30 @@ static int reader_next_segment(gzblock_reader *r) {
                 empties++;
             }
             if (empties > 0)
-                r->pair_seen = 1;
-            if ((r->paired || r->pair_seen) && empties == 0) {
+                r->scan.pair_seen = 1;
+            if ((r->scan.paired || r->scan.pair_seen) && empties == 0) {
                 /* a lone marker, a flush inside a block or data that happens to match */
-                r->scanned = (size_t)(hit - bp) + 1;
+                r->scan.scanned = (size_t)(hit - bp) + 1;
                 continue;
             }
-            if (empties > 0 && n < r->block_size) {
+            if (empties > 0 && n < r->scan.block_size) {
                 /* A small pair-terminated chunk. One slot per chunk costs more in handoff than
                    inflation, so keep absorbing chunks until a block of input is in hand. */
-                r->coal = n;
-                r->scanned = n;
+                r->scan.coal = n;
+                r->scan.scanned = n;
                 continue;
             }
-            if (n > r->max_seg) {
-                if (r->coal != 0)
-                    return reader_cut(r, r->coal, 0, 1) != 0 ? -1 : 1;
+            if (n > r->scan.max_seg) {
+                if (r->scan.coal != 0)
+                    return reader_cut(r, r->scan.coal, 0, 1) != 0 ? -1 : 1;
                 return -2;
             }
             return reader_cut(r, n, 0, empties > 0) != 0 ? -1 : 1;
         }
-        r->scanned = limit;
-        if (b->len > r->max_seg + 3) {
-            if (r->coal != 0)
-                return reader_cut(r, r->coal, 0, 1) != 0 ? -1 : 1;
+        r->scan.scanned = limit;
+        if (b->len > r->scan.max_seg + 3) {
+            if (r->scan.coal != 0)
+                return reader_cut(r, r->scan.coal, 0, 1) != 0 ? -1 : 1;
             return -2;
         }
         if (r->io.eof) {
@@ -250,22 +253,22 @@ static int reader_next_segment(gzblock_reader *r) {
 /* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or -b
    supplies, a block size. */
 static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size, int paired) {
-    r->hdr.len = 0;
-    if (buf_append(&r->hdr, buf_data(&r->io.buf), hdr_len) != 0)
+    r->scan.hdr.len = 0;
+    if (buf_append(&r->scan.hdr, buf_data(&r->io.buf), hdr_len) != 0)
         return reader_oom(r);
     buf_drop(&r->io.buf, hdr_len);
 
-    if (r->pool_up && r->block_size != block_size) {
+    if (r->pool_up && r->scan.block_size != block_size) {
         pool_stop(&r->pool);
         pool_free(&r->pool);
         r->pool_up = 0;
         free(r->tmp);
         r->tmp = NULL;
     }
-    r->block_size = block_size;
+    r->scan.block_size = block_size;
     /* A pair-terminated block may be any size and coalescing gathers several, so this is a
        memory bound rather than a property of the format. */
-    r->max_seg = (size_t)block_size * 4 + 1024;
+    r->scan.max_seg = (size_t)block_size * 4 + 1024;
     if (!r->pool_up) {
         r->pool.codec.init = gzblock_codec_init;
         r->pool.codec.end = gzblock_codec_end;
@@ -287,11 +290,11 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
             return reader_oom(r);
         r->mz_init = 1;
     }
-    r->paired = paired;
-    r->scanned = 0;
-    r->coal = 0;
-    r->pair_seen = 0;
-    r->cut_all = 0;
+    r->scan.paired = paired;
+    r->scan.scanned = 0;
+    r->scan.coal = 0;
+    r->scan.pair_seen = 0;
+    r->scan.cut_all = 0;
     r->next_produce = r->next_emit = 0;
     r->crc = 0;
     r->total = 0;
@@ -305,7 +308,7 @@ static int reader_fallback(gzblock_reader *r) {
     buf_t all = {NULL, 0, 0, 0};
     size_t i;
 
-    if (buf_append(&all, r->hdr.p, r->hdr.len) != 0)
+    if (buf_append(&all, r->scan.hdr.p, r->scan.hdr.len) != 0)
         return reader_oom(r);
     for (i = r->next_emit; i < r->next_produce; i++) {
         slot_t *slot = pool_slot(&r->pool, i);
@@ -318,16 +321,16 @@ static int reader_fallback(gzblock_reader *r) {
         return reader_oom(r);
     free(r->io.buf.p);
     r->io.buf = all;
-    r->hdr.len = 0;
+    r->scan.hdr.len = 0;
     r->next_produce = r->next_emit = 0;
-    r->scanned = 0;
-    r->cut_all = 0;
+    r->scan.scanned = 0;
+    r->scan.cut_all = 0;
     return reader_start_stream(r);
 }
 
 /* Keep the pool fed, cutting segments into free slots until the ring is full or the input is done. */
 static int reader_produce(gzblock_reader *r) {
-    while (!r->cut_all) {
+    while (!r->scan.cut_all) {
         slot_t *slot = pool_slot(&r->pool, r->next_produce);
         buf_t swap;
         int rc;
@@ -336,7 +339,7 @@ static int reader_produce(gzblock_reader *r) {
             break;
         rc = reader_next_segment(r);
         if (rc == 0) {
-            r->cut_all = 1;
+            r->scan.cut_all = 1;
             break;
         }
         if (rc == -1)
@@ -345,8 +348,8 @@ static int reader_produce(gzblock_reader *r) {
             /* The blocks are larger than assumed, which happens when the probe's guess was low.
                A pair-terminated block is valid at any size, so raise the bound and retry rather
                than fail the member. */
-            if (r->pair_seen && r->max_seg < GZBLOCK_MAX_BLOCK) {
-                r->max_seg = MIN(r->max_seg * 2, (size_t)GZBLOCK_MAX_BLOCK);
+            if (r->scan.pair_seen && r->scan.max_seg < GZBLOCK_MAX_BLOCK) {
+                r->scan.max_seg = MIN(r->scan.max_seg * 2, (size_t)GZBLOCK_MAX_BLOCK);
                 continue;
             }
             if (r->next_produce == 0 && r->next_emit == 0)
@@ -356,14 +359,14 @@ static int reader_produce(gzblock_reader *r) {
         /* Swap buffers rather than copy, the slot keeps the segment and seg reuses the old one. */
         swap.p = slot->in;
         swap.capacity = slot->in_cap;
-        slot->in = r->seg.p;
-        slot->in_cap = r->seg.capacity;
-        slot->in_len = r->seg.len;
-        slot->last = r->seg_last;
-        slot->pair = r->seg_pair;
-        r->seg.p = swap.p;
-        r->seg.capacity = swap.capacity;
-        r->seg.len = 0;
+        slot->in = r->scan.seg.p;
+        slot->in_cap = r->scan.seg.capacity;
+        slot->in_len = r->scan.seg.len;
+        slot->last = r->scan.seg_last;
+        slot->pair = r->scan.seg_pair;
+        r->scan.seg.p = swap.p;
+        r->scan.seg.capacity = swap.capacity;
+        r->scan.seg.len = 0;
         pool_submit(&r->pool, slot);
         r->next_produce++;
     }
@@ -392,8 +395,8 @@ static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest
         return reader_oom(r);
     free(r->io.buf.p);
     r->io.buf = all;
-    r->scanned = 0;
-    r->cut_all = 0;
+    r->scan.scanned = 0;
+    r->scan.cut_all = 0;
     r->next_produce = r->next_emit = 0;
     r->io.state = READER_MEMBER_END;
     return 0;
@@ -419,7 +422,7 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
     int last = first->last, pair = first->pair, status;
     slot_t *ps = first;
 
-    blockdec_begin(&m, &r->mz, r->tmp, r->block_size);
+    blockdec_begin(&m, &r->mz, r->tmp, r->scan.block_size);
     for (;;) {
         m.accept_partial = pair;
         status = blockdec_feed(&m, piece, piece_len, &used);
@@ -447,10 +450,10 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
                                        rc == 0 ? "unexpected end of file" : "block %zu is larger than the block size",
                                        r->next_emit);
                 ps = NULL;
-                piece = r->seg.p;
-                piece_len = r->seg.len;
-                last = r->seg_last;
-                pair = r->seg_pair;
+                piece = r->scan.seg.p;
+                piece_len = r->scan.seg.len;
+                last = r->scan.seg_last;
+                pair = r->scan.seg_pair;
                 r->next_produce++;
             }
             continue;
@@ -745,8 +748,8 @@ void gzblock_reader_close(gzblock_reader *r) {
         zng_inflateEnd(&r->mz);
     free(r->tmp);
     free(r->stream.obuf);
-    free(r->seg.p);
-    free(r->hdr.p);
+    free(r->scan.seg.p);
+    free(r->scan.hdr.p);
     free(r->io.buf.p);
     free(r);
 }
