@@ -255,9 +255,7 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     out_cap = zng_deflateBound(&bound, block_size) + 32;
     zng_deflateEnd(&bound);
 
-    w->pipeline.pool.codec.init = gzblock_codec_init;
-    w->pipeline.pool.codec.end = gzblock_codec_end;
-    w->pipeline.pool.codec.run = gzblock_codec_run;
+    pipeline_bind_codec(&w->pipeline);
     w->pipeline.pool.mode = POOL_DEFLATE;
     w->pipeline.pool.block_size = block_size;
     w->pipeline.pool.level = level;

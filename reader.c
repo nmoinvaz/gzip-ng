@@ -270,9 +270,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
        memory bound rather than a property of the format. */
     r->scan.max_seg = (size_t)block_size * 4 + 1024;
     if (!r->pipeline.pool_up) {
-        r->pipeline.pool.codec.init = gzblock_codec_init;
-        r->pipeline.pool.codec.end = gzblock_codec_end;
-        r->pipeline.pool.codec.run = gzblock_codec_run;
+        pipeline_bind_codec(&r->pipeline);
         r->pipeline.pool.mode = POOL_INFLATE;
         r->pipeline.pool.block_size = block_size;
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */

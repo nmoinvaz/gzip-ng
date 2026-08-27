@@ -27,6 +27,23 @@ typedef struct {
     int pool_up;
 } pipeline_t;
 
+/* The deflate and inflate codec, which the reader and writer hand to their pool. */
+int gzblock_codec_init(pool_t *pool, zng_stream *z);
+void gzblock_codec_end(pool_t *pool, zng_stream *z);
+void gzblock_codec_run(pool_t *pool, zng_stream *z, slot_t *slot);
+
+static inline void pipeline_bind_codec(pipeline_t *pipeline) {
+    pipeline->pool.codec.init = gzblock_codec_init;
+    pipeline->pool.codec.end = gzblock_codec_end;
+    pipeline->pool.codec.run = gzblock_codec_run;
+}
+
+static inline slot_t *pipeline_wait(pipeline_t *pipeline, size_t index) {
+    slot_t *slot = pool_slot(&pipeline->pool, index);
+    pool_wait(&pipeline->pool, slot);
+    return slot;
+}
+
 static inline void pipeline_reset(pipeline_t *pipeline) {
     pipeline->next_produce = pipeline->next_emit = 0;
 }
@@ -37,10 +54,5 @@ static inline void pipeline_free(pipeline_t *pipeline) {
     pool_free(&pipeline->pool);
     pipeline->pool_up = 0;
 }
-
-/* The deflate and inflate codec, which the reader and writer hand to their pool. */
-int gzblock_codec_init(pool_t *pool, zng_stream *z);
-void gzblock_codec_end(pool_t *pool, zng_stream *z);
-void gzblock_codec_run(pool_t *pool, zng_stream *z, slot_t *slot);
 
 #endif /* GZBLOCK_P_H_ */
