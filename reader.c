@@ -53,16 +53,20 @@ typedef struct {
     int pool_up;
 } reader_pipeline;
 
+typedef struct {
+    zng_stream z; /* for repairing false splits on this thread */
+    size_t tmp_cap;
+    int z_init;
+    uint8_t *tmp; /* repaired and final blocks, block_size until one needs more */
+} reader_repair_state;
+
 struct gzblock_reader_s {
     reader_io io;
     reader_inflate stream;
     reader_scan scan;
 
     reader_pipeline blocks;
-    zng_stream mz; /* for repairing false splits on this thread */
-    size_t tmp_cap;
-    int mz_init;
-    uint8_t *tmp; /* repaired and final blocks, block_size until one needs more */
+    reader_repair_state repair;
     uint32_t crc; /* running crc and length of the member's output */
     size_t total;
 };
@@ -266,8 +270,8 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         pool_stop(&r->blocks.pool);
         pool_free(&r->blocks.pool);
         r->blocks.pool_up = 0;
-        free(r->tmp);
-        r->tmp = NULL;
+        free(r->repair.tmp);
+        r->repair.tmp = NULL;
     }
     r->scan.block_size = block_size;
     /* A pair-terminated block may be any size and coalescing gathers several, so this is a
@@ -280,19 +284,19 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         r->blocks.pool.mode = POOL_INFLATE;
         r->blocks.pool.block_size = block_size;
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */
-        r->tmp = (uint8_t *)malloc(block_size);
-        r->tmp_cap = block_size;
-        if (r->tmp == NULL || pool_alloc(&r->blocks.pool, r->io.nthreads, 0, block_size) != 0)
+        r->repair.tmp = (uint8_t *)malloc(block_size);
+        r->repair.tmp_cap = block_size;
+        if (r->repair.tmp == NULL || pool_alloc(&r->blocks.pool, r->io.nthreads, 0, block_size) != 0)
             return reader_oom(r);
         if (pool_start(&r->blocks.pool, r->io.nthreads) != 0)
             return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
         r->blocks.pool_up = 1;
     }
-    if (!r->mz_init) {
-        memset(&r->mz, 0, sizeof(r->mz));
-        if (zng_inflateInit2(&r->mz, -MAX_WBITS) != Z_OK)
+    if (!r->repair.z_init) {
+        memset(&r->repair.z, 0, sizeof(r->repair.z));
+        if (zng_inflateInit2(&r->repair.z, -MAX_WBITS) != Z_OK)
             return reader_oom(r);
-        r->mz_init = 1;
+        r->repair.z_init = 1;
     }
     r->scan.paired = paired;
     r->scan.scanned = 0;
@@ -426,7 +430,7 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
     int last = first->last, pair = first->pair, status;
     slot_t *ps = first;
 
-    blockdec_begin(&m, &r->mz, r->tmp, r->scan.block_size);
+    blockdec_begin(&m, &r->repair.z, r->repair.tmp, r->scan.block_size);
     for (;;) {
         m.accept_partial = pair;
         status = blockdec_feed(&m, piece, piece_len, &used);
@@ -463,13 +467,13 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
             continue;
         }
         if (status == SEG_END) {
-            reader_block_out(r, r->tmp, (size_t)r->mz.total_out,
-                             (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
+            reader_block_out(r, r->repair.tmp, (size_t)r->repair.z.total_out,
+                             (uint32_t)zng_crc32_z(0, r->repair.tmp, (size_t)r->repair.z.total_out), NULL);
             return reader_member_end(r, piece + used, piece_len - used, ps);
         }
         if (status == SEG_FULL && used == piece_len && !last) {
-            reader_block_out(r, r->tmp, (size_t)r->mz.total_out,
-                             (uint32_t)zng_crc32_z(0, r->tmp, (size_t)r->mz.total_out), NULL);
+            reader_block_out(r, r->repair.tmp, (size_t)r->repair.z.total_out,
+                             (uint32_t)zng_crc32_z(0, r->repair.tmp, (size_t)r->repair.z.total_out), NULL);
             if (ps != NULL)
                 pool_release(&r->blocks.pool, ps);
             return 0;
@@ -500,15 +504,15 @@ static int reader_drain(gzblock_reader *r) {
     }
     if (slot->status == SEG_END) {
         /* The final block. Its output goes out from tmp so the slot can be recycled right away. */
-        if (slot->out_len > r->tmp_cap) {
-            uint8_t *grown = (uint8_t *)realloc(r->tmp, slot->out_len);
+        if (slot->out_len > r->repair.tmp_cap) {
+            uint8_t *grown = (uint8_t *)realloc(r->repair.tmp, slot->out_len);
             if (grown == NULL)
                 return reader_oom(r);
-            r->tmp = grown;
-            r->tmp_cap = slot->out_len;
+            r->repair.tmp = grown;
+            r->repair.tmp_cap = slot->out_len;
         }
-        memcpy(r->tmp, slot->out, slot->out_len);
-        reader_block_out(r, r->tmp, slot->out_len, slot->crc, NULL);
+        memcpy(r->repair.tmp, slot->out, slot->out_len);
+        reader_block_out(r, r->repair.tmp, slot->out_len, slot->crc, NULL);
         r->blocks.next_emit++;
         return reader_member_end(r, slot->in + slot->in_used, slot->in_len - slot->in_used, slot);
     }
@@ -748,9 +752,9 @@ void gzblock_reader_close(gzblock_reader *r) {
     pool_free(&r->blocks.pool);
     if (r->stream.z_init)
         zng_inflateEnd(&r->stream.z);
-    if (r->mz_init)
-        zng_inflateEnd(&r->mz);
-    free(r->tmp);
+    if (r->repair.z_init)
+        zng_inflateEnd(&r->repair.z);
+    free(r->repair.tmp);
     free(r->stream.obuf);
     free(r->scan.seg.p);
     free(r->scan.hdr.p);
