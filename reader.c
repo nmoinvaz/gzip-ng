@@ -27,12 +27,16 @@ typedef struct {
     slot_t *out_slot; /* slot to release once out_p is consumed, or NULL */
 } reader_io;
 
-struct gzblock_reader_s {
-    reader_io io;
-
+typedef struct {
     zng_stream z; /* plain inflate */
     int z_init;
     uint8_t *obuf; /* IO_CHUNK, output of z, or bytes passed through */
+} reader_inflate;
+
+struct gzblock_reader_s {
+    reader_io io;
+    reader_inflate stream;
+
 
     uint32_t block_size; /* block mode */
     int paired;          /* boundaries are marker pairs, lone markers are not candidates */
@@ -92,13 +96,13 @@ static void reader_handout(gzblock_reader *r, const uint8_t *p, size_t n, slot_t
 
 /* Plain inflate of a member, starting with whatever is in buf. */
 static int reader_start_stream(gzblock_reader *r) {
-    if (!r->z_init) {
-        memset(&r->z, 0, sizeof(r->z));
-        if (zng_inflateInit2(&r->z, MAX_WBITS + 16) != Z_OK)
+    if (!r->stream.z_init) {
+        memset(&r->stream.z, 0, sizeof(r->stream.z));
+        if (zng_inflateInit2(&r->stream.z, MAX_WBITS + 16) != Z_OK)
             return reader_oom(r);
-        r->z_init = 1;
+        r->stream.z_init = 1;
     } else {
-        zng_inflateReset(&r->z);
+        zng_inflateReset(&r->stream.z);
     }
     r->io.state = READER_STREAM;
     return 0;
@@ -115,15 +119,15 @@ static int reader_stream(gzblock_reader *r) {
             return reader_fail(r, Z_BUF_ERROR, "unexpected end of file");
     }
     feed = clamp_u32(r->io.buf.len);
-    r->z.next_in = (z_const uint8_t *)buf_data(&r->io.buf);
-    r->z.avail_in = (uint32_t)feed;
-    r->z.next_out = r->obuf;
-    r->z.avail_out = IO_CHUNK;
-    err = zng_inflate(&r->z, Z_NO_FLUSH);
-    buf_drop(&r->io.buf, feed - r->z.avail_in);
+    r->stream.z.next_in = (z_const uint8_t *)buf_data(&r->io.buf);
+    r->stream.z.avail_in = (uint32_t)feed;
+    r->stream.z.next_out = r->stream.obuf;
+    r->stream.z.avail_out = IO_CHUNK;
+    err = zng_inflate(&r->stream.z, Z_NO_FLUSH);
+    buf_drop(&r->io.buf, feed - r->stream.z.avail_in);
     if (err != Z_OK && err != Z_STREAM_END)
-        return reader_fail(r, Z_DATA_ERROR, "inflate failed: %s", r->z.msg ? r->z.msg : "data error");
-    reader_handout(r, r->obuf, IO_CHUNK - r->z.avail_out, NULL);
+        return reader_fail(r, Z_DATA_ERROR, "inflate failed: %s", r->stream.z.msg ? r->stream.z.msg : "data error");
+    reader_handout(r, r->stream.obuf, IO_CHUNK - r->stream.z.avail_out, NULL);
     if (err == Z_STREAM_END) {
         r->io.members++;
         r->io.state = READER_HEADER;
@@ -136,16 +140,16 @@ static int reader_passthru(gzblock_reader *r) {
     size_t n;
     if (r->io.buf.len != 0) {
         n = MIN(r->io.buf.len, IO_CHUNK);
-        memcpy(r->obuf, buf_data(&r->io.buf), n);
+        memcpy(r->stream.obuf, buf_data(&r->io.buf), n);
         buf_drop(&r->io.buf, n);
-        reader_handout(r, r->obuf, n, NULL);
+        reader_handout(r, r->stream.obuf, n, NULL);
         return 0;
     }
     if (r->io.eof) {
         r->io.state = READER_END;
         return 0;
     }
-    n = r->io.read(r->io.ctx, r->obuf, IO_CHUNK);
+    n = r->io.read(r->io.ctx, r->stream.obuf, IO_CHUNK);
     if (n == (size_t)-1)
         return reader_fail(r, Z_ERRNO, "read error");
     if (n == 0) {
@@ -153,7 +157,7 @@ static int reader_passthru(gzblock_reader *r) {
         r->io.state = READER_END;
         return 0;
     }
-    reader_handout(r, r->obuf, n, NULL);
+    reader_handout(r, r->stream.obuf, n, NULL);
     return 0;
 }
 
@@ -639,8 +643,8 @@ gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8
     r->io.ctx = ctx;
     r->io.block_hint = block_size > GZBLOCK_MAX_BLOCK ? 0 : block_size;
     r->io.nthreads = nthreads > 0 ? nthreads : pool_default_threads();
-    r->obuf = (uint8_t *)malloc(IO_CHUNK);
-    if (r->obuf == NULL || (head_len != 0 && buf_append(&r->io.buf, head, head_len) != 0)) {
+    r->stream.obuf = (uint8_t *)malloc(IO_CHUNK);
+    if (r->stream.obuf == NULL || (head_len != 0 && buf_append(&r->io.buf, head, head_len) != 0)) {
         gzblock_reader_close(r);
         return NULL;
     }
@@ -735,12 +739,12 @@ void gzblock_reader_close(gzblock_reader *r) {
     if (r->pool_up)
         pool_stop(&r->pool);
     pool_free(&r->pool);
-    if (r->z_init)
-        zng_inflateEnd(&r->z);
+    if (r->stream.z_init)
+        zng_inflateEnd(&r->stream.z);
     if (r->mz_init)
         zng_inflateEnd(&r->mz);
     free(r->tmp);
-    free(r->obuf);
+    free(r->stream.obuf);
     free(r->seg.p);
     free(r->hdr.p);
     free(r->io.buf.p);
