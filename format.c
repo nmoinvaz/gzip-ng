@@ -27,11 +27,7 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     buf[8] =
         (uint8_t)(hdr->level == 9 ? 2
                                   : (hdr->strategy >= Z_HUFFMAN_ONLY || (hdr->level >= 0 && hdr->level < 2) ? 4 : 0));
-#ifdef _WIN32
-    buf[9] = 0;
-#else
-    buf[9] = 3; /* Unix */
-#endif
+    buf[9] = OS_CODE;
     if (name_len != 0) {
         memcpy(buf + n, hdr->name, name_len + 1);
         n += name_len + 1;
