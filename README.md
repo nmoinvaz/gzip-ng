@@ -1,16 +1,12 @@
 # gzip-ng
 
-A gzip replacement built on [zlib-ng](https://github.com/zlib-ng/zlib-ng), with parallel compression into independent deflate blocks and parallel decompression of block-structured files, including pigz -i and pigz --rsyncable -i output.
-
-The files it writes are ordinary gzip files with nothing added to the header. A reader finds the block boundaries by looking for them, so `gzip-ng -p 8 file` produces something any gzip reads and this one reads back in parallel with no flags.
-
-The block engine is ported and the CLI covers the minigzip switch surface, the gzip drop-in surface comes next.
+A gzip replacement built on [zlib-ng](https://github.com/zlib-ng/zlib-ng), with parallel compression into independent deflate blocks and parallel decompression of block-structured files, including `pigz -i` and `pigz --rsyncable -i` output.
 
 ## Goals
 
 - Drop-in for GNU and BSD gzip, flag for flag, distro-safe defaults.
 - Decompression parallel by default, output byte-identical at any thread count.
-- Compression serial by default, parallel independent blocks whenever threads or a block size are asked for.
+- Compression serial by default, parallel independent blocks whenever threads or a block size are used.
 - zlib license.
 
 ## Build
@@ -31,15 +27,6 @@ zlib-ng and Google Test are fetched automatically when not found.
 | GZNG_ENABLE_BENCHMARKS| Build the benchmarks using Google Benchmark                 | OFF     |
 | GZNG_THREADS          | Compress and decompress blocks on a thread pool             | ON      |
 | GZNG_SIMD             | Scan for block boundaries with NEON or SSE2                 | ON      |
-
-Dependencies are found on the system first and fetched only when missing. Each fetch takes a tag,
-so a build can pin what it compiles against.
-
-| CMake            | Description                                     | Default  |
-|:-----------------|:------------------------------------------------|----------|
-| ZLIBNG_TAG       | Tag of zlib-ng to fetch when none is installed   | 2.3.3    |
-| GTEST_TAG        | Tag of Google Test to fetch when none is found   | v1.18.0  |
-| GBENCHMARK_TAG   | Tag of Google Benchmark to fetch when none found | v1.9.5   |
 
 ## Usage
 
@@ -109,7 +96,7 @@ header | block 1 … 00 00 FF FF 00 00 00 FF FF | block 2 … 00 00 FF FF 00 00 
 Engine benchmarks use Google Benchmark, off by default:
 
 ```
-cmake -B build-bench -DCMAKE_BUILD_TYPE=Release -DGZNG_ENABLE_BENCHMARKS=ON
+cmake -B build-bench -D CMAKE_BUILD_TYPE=Release -D GZNG_ENABLE_BENCHMARKS=ON
 cmake --build build-bench
 build-bench/test/benchmarks/benchmark_gzng
 ```
@@ -118,7 +105,9 @@ Comparing whole binaries is a different job, fork and exec noise belongs to tool
 
 ### Results
 
-Apple M5, 10 cores. 512 MiB of mixed source, build output, and text, 4.8 to 1 under `gzip -6`. zlib-ng 2.3.3, pigz 2.8, gzip 1.14, level 6, hyperfine mean of 3.
+* Apple M5, 10 cores.
+* 512 MiB of mixed source, build output, and text, 4.8 to 1 under `gzip -6`.
+* zlib-ng 2.3.3, pigz 2.8, gzip 1.14, level 6, `hyperfine` mean of 3.
 
 | Compress | Wall | MiB/s | Output | Of input |
 |---|---|---|---|---|
@@ -130,8 +119,8 @@ Apple M5, 10 cores. 512 MiB of mixed source, build output, and text, 4.8 to 1 un
 
 | Decompress | Input | Wall | MiB/s |
 |---|---|---|---|
-| `gzip-ng -p 10` | its own block output | 0.07 s | 7570 |
-| `pigz` | its own output | 0.44 s | 1170 |
-| `gzip-ng` | plain gzip | 0.45 s | 1130 |
-| `minigzip` | plain gzip | 0.47 s | 1090 |
-| `gzip` | plain gzip | 1.06 s | 480 |
+| `gzip-ng -p 10` | from `gzip-ng -p 10` | 0.07 s | 7570 |
+| `pigz` | from `pigz -p 10` | 0.44 s | 1170 |
+| `gzip-ng` | from `gzip-ng` | 0.45 s | 1130 |
+| `minigzip` | from `minigzip` | 0.47 s | 1090 |
+| `gzip` | from `gzip -6` | 1.06 s | 480 |
