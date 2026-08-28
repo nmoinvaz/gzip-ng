@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "format.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,9 +30,6 @@ extern "C" {
    the reader allocate, two slots of input and output at this size stay within the ring budget. */
 #define GZBLOCK_MAX_BLOCK (256u << 20)
 
-/* Longest file name stored in or read from a header, including the terminator. */
-#define GZBLOCK_NAME_MAX 256
-
 /* I/O callbacks. read returns the bytes read, 0 at end of input, (size_t)-1 on error. write returns
    the bytes written, anything short of len is an error. */
 typedef size_t (*gzblock_read_fn)(void *ctx, uint8_t *buf, size_t len);
@@ -47,7 +46,8 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
    before the first write. The reader needs nothing special, pairs already carry any size. */
 int gzblock_writer_rsyncable(gzblock_writer *w, int on);
 
-/* Record a modification time and file name for the header, before the first write. */
+/* Record a modification time and file name for the header, before the first write. A name of
+   GZ_NAME_MAX bytes or longer is left out. */
 int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name);
 /* 0, or -1 on error. */
 int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len);

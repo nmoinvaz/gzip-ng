@@ -8,8 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "gzblock.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,8 +15,11 @@ extern "C" {
 #define GZ_HEADER_LEN  10 /* the fixed bytes, before any optional field */
 #define GZ_TRAILER_LEN 8  /* crc32 and size, the member ending */
 
+/* Longest file name stored in or read from a header, including the terminator. */
+#define GZ_NAME_MAX 256
+
 /* Longest header format_header_build() can produce, the fixed ten bytes and the stored name. */
-#define FORMAT_HEADER_MAX (GZ_HEADER_LEN + GZBLOCK_NAME_MAX)
+#define FORMAT_HEADER_MAX (GZ_HEADER_LEN + GZ_NAME_MAX)
 
 /* Whether buf starts with the gzip magic, which two bytes decide. */
 int format_is_gzip(const uint8_t *buf, size_t len);

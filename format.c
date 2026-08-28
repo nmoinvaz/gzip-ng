@@ -18,7 +18,7 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     size_t n = GZ_HEADER_LEN;
 
     /* A name that does not fit is omitted rather than truncated. */
-    if (name_len >= GZBLOCK_NAME_MAX)
+    if (name_len >= GZ_NAME_MAX)
         name_len = 0;
 
     memset(buf, 0, GZ_HEADER_LEN);

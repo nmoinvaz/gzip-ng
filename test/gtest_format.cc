@@ -43,7 +43,7 @@ TEST(format, a_bare_header_is_ten_bytes) {
 
 TEST(format, a_name_too_long_is_left_out) {
     uint8_t buf[FORMAT_HEADER_MAX];
-    std::string huge(GZBLOCK_NAME_MAX + 10, 'x');
+    std::string huge(GZ_NAME_MAX + 10, 'x');
     format_header h = basic();
     h.name = huge.c_str();
 

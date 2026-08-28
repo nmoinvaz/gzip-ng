@@ -145,7 +145,7 @@ static void store_meta(const gzng_options *opt, const char *in_path, const struc
    Returns -1 when the input is not gzip. */
 static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, char *out_path, size_t cap,
                         uint32_t *hdr_mtime) {
-    char stored[GZBLOCK_NAME_MAX];
+    char stored[GZ_NAME_MAX];
 
     if (gzng_read_meta(in, hdr_mtime, stored, sizeof(stored)) != 0) {
         warn(opt, "gzip-ng: %s: not in gzip format\n", in_path);
@@ -196,7 +196,7 @@ static void sync_dir(const char *out_path) {
    GZ_ERROR with the error reported. */
 static int test_file(const char *path, const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
-    char stored[GZBLOCK_NAME_MAX];
+    char stored[GZ_NAME_MAX];
     uint32_t mtime;
     FILE *in;
     int rc;
@@ -251,7 +251,7 @@ static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime, uint64_t 
 
 /* List one compressed file the way gzip --list does, accumulating totals. */
 static int list_file(const char *path, const gzng_options *opt, list_totals *totals) {
-    char stored[GZBLOCK_NAME_MAX], name_buf[4096];
+    char stored[GZ_NAME_MAX], name_buf[4096];
     const char *name = path;
     uint8_t tail[GZ_TRAILER_LEN];
     uint32_t mtime = 0, crc = 0;
