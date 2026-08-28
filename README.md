@@ -82,6 +82,29 @@ Compresses files in place, file to file.gz, removing the input unless kept. With
 
 Exit status is 0, 1 on errors, 2 on warnings, as gzip behaves.
 
+## How it works
+
+### Parallel compression
+
+- With `--processes` or `--blocksize` the input is cut into blocks, 128 KiB by default, and each block is deflated by a worker thread from an empty dictionary, so no block depends on another.
+- A block ends at the first byte past half the block size where the low bits of a rolling hash are zero, or at twice the block size.
+- Each block ends with a sync flush and a full flush, two empty stored blocks, the nine bytes `00 00 FF FF 00 00 00 FF FF`, the same shape `pigz --independent` writes.
+- The blocks are written in order as one ordinary gzip member, header, blocks back to back, and a trailer whose CRC is the blocks' CRCs combined.
+
+```
+header | block 1 … 00 00 FF FF 00 00 00 FF FF | block 2 … 00 00 FF FF 00 00 00 FF FF | … | last block | crc32 size
+```
+
+### Parallel decompression
+
+- The reader parses the gzip header and looks at the first megabyte of compressed data for a marker pair. One found means independent blocks and a parallel decode, none means plain serial inflate, as for any gzip file.
+- A scanner finds every `00 00 FF FF`, one empty stored block, with SIMD filtering for the zero pair the way `memchr` filters for a byte. A second empty stored block behind it makes a boundary.
+- Each segment between boundaries is inflated on its own by a worker into a slot the size of a block, with its CRC taken there, and the blocks are handed out in order.
+- `pigz --rsyncable --independent` ends a block at every rsync point, about every 4 KiB. The reader gathers those until about a block size is in hand before handing them to a worker, since a slot per 4 KiB costs more to hand off than to inflate.
+- Stored data can hold the marker pair by chance, so a boundary is trusted only when the segment inflates to a whole block. A segment that comes up short is inflated again on the calling thread across the segments after it, and a member with no block structure at all goes back through plain inflate.
+- The trailer's CRC and length are checked against what the blocks produced.
+- `pigz` output without `--independent` carries a dictionary between blocks and has no marker pairs, so it inflates serially, as `pigz -d` itself must.
+
 ## Benchmarks
 
 Engine benchmarks use Google Benchmark, off by default:
