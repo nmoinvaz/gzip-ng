@@ -22,9 +22,6 @@ int gzng_process_file(const char *path, const gzng_options *opt);
 /* Check one file's integrity without writing anything, the --test verdict. */
 int gzng_test_file(const char *path, const gzng_options *opt);
 
-/* Whether path ends in the .gz suffix. */
-int gzng_path_has_suffix(const char *path);
-
 #ifdef __cplusplus
 }
 #endif

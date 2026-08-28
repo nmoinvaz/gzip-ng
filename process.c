@@ -15,10 +15,9 @@
 
 #include "compress.h"
 #include "decompress.h"
+#include "gzfile.h"
 #include "gzblock.h"
 
-#define SUFFIX       ".gz"
-#define SUFFIX_LEN   3
 #define MAX_PATH_LEN 4096
 
 /* ===========================================================================
@@ -111,26 +110,21 @@ int gzng_process_stdio(const gzng_options *opt) {
  * Input and output paths
  */
 
-int gzng_path_has_suffix(const char *path) {
-    size_t n = strlen(path);
-    return n > SUFFIX_LEN && strcmp(path + n - SUFFIX_LEN, SUFFIX) == 0;
-}
-
 /* Compression turns file into file.gz, decompression file.gz into file, or file into file by
    reading file.gz. Returns -1 with errno set when the name will not fit. */
 static int derive_paths(const char *path, const gzng_options *opt, char *in_path, char *out_path, size_t cap) {
-    if (strlen(path) + SUFFIX_LEN >= cap) {
+    if (strlen(path) + GZ_SUFFIX_LEN >= cap) {
         errno = ENAMETOOLONG;
         return -1;
     }
     if (!opt->decompress) {
         snprintf(in_path, cap, "%s", path);
-        snprintf(out_path, cap, "%s" SUFFIX, path);
+        snprintf(out_path, cap, "%s" GZ_SUFFIX, path);
     } else if (gzng_path_has_suffix(path)) {
         snprintf(in_path, cap, "%s", path);
-        snprintf(out_path, cap, "%.*s", (int)(strlen(path) - SUFFIX_LEN), path);
+        snprintf(out_path, cap, "%.*s", (int)(strlen(path) - GZ_SUFFIX_LEN), path);
     } else {
-        snprintf(in_path, cap, "%s" SUFFIX, path);
+        snprintf(in_path, cap, "%s" GZ_SUFFIX, path);
         snprintf(out_path, cap, "%s", path);
     }
     return 0;

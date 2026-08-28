@@ -10,8 +10,8 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#include "decompress.h"
 #include "format.h"
+#include "gzfile.h"
 #include "gzblock.h"
 
 void gzng_list_begin(const gzng_options *opt) {
@@ -74,9 +74,9 @@ int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *total
         name = stored;
     } else {
         size_t len = strlen(path);
-        if (len > 3 && strcmp(path + len - 3, ".gz") == 0 && len - 3 < sizeof(name_buf)) {
-            memcpy(name_buf, path, len - 3);
-            name_buf[len - 3] = 0;
+        if (gzng_path_has_suffix(path) && len - GZ_SUFFIX_LEN < sizeof(name_buf)) {
+            memcpy(name_buf, path, len - GZ_SUFFIX_LEN);
+            name_buf[len - GZ_SUFFIX_LEN] = 0;
             name = name_buf;
         }
     }

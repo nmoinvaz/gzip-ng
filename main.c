@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "gzfile.h"
 #include "list.h"
 #include "options.h"
 #include "process.h"
