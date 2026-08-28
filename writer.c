@@ -15,7 +15,7 @@ struct gzblock_writer_s {
     size_t total_in;
     int hdr_written, finished, failed;
     uint32_t mtime;
-    char name[GZ_NAME_MAX];
+    char name[FORMAT_NAME_MAX];
     int rsyncable; /* end blocks at rolling hash hits so edits stay local */
     uint32_t rhash, rmask;
     size_t rmax; /* a block is cut on size alone only here */
@@ -278,7 +278,7 @@ int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
     w->mtime = mtime;
-    if (name != NULL && strlen(name) < GZ_NAME_MAX)
+    if (name != NULL && strlen(name) < FORMAT_NAME_MAX)
         memcpy(w->name, name, strlen(name) + 1);
     return 0;
 }
@@ -430,7 +430,7 @@ int gzblock_writer_flush(gzblock_writer *w) {
 }
 
 int gzblock_writer_finish(gzblock_writer *w) {
-    uint8_t trailer[GZ_TRAILER_LEN];
+    uint8_t trailer[FORMAT_TRAILER_LEN];
 
     if (w->failed)
         return -1;

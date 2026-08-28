@@ -47,7 +47,7 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
 int gzblock_writer_rsyncable(gzblock_writer *w, int on);
 
 /* Record a modification time and file name for the header, before the first write. A name of
-   GZ_NAME_MAX bytes or longer is left out. */
+   FORMAT_NAME_MAX bytes or longer is left out. */
 int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name);
 /* 0, or -1 on error. */
 int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len);

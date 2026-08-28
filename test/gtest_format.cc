@@ -43,7 +43,7 @@ TEST(format, a_bare_header_is_ten_bytes) {
 
 TEST(format, a_name_too_long_is_left_out) {
     uint8_t buf[FORMAT_HEADER_MAX];
-    std::string huge(GZ_NAME_MAX + 10, 'x');
+    std::string huge(FORMAT_NAME_MAX + 10, 'x');
     format_header h = basic();
     h.name = huge.c_str();
 
@@ -116,7 +116,7 @@ TEST(format, values_are_stored_little_endian) {
 }
 
 TEST(format, trailer_round_trips) {
-    uint8_t buf[GZ_TRAILER_LEN];
+    uint8_t buf[FORMAT_TRAILER_LEN];
     uint32_t crc = 0, total = 0;
 
     format_trailer_build(buf, 0xdeadbeefu, 0x100000007ull);
