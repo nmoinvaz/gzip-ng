@@ -119,7 +119,7 @@ Comparing whole binaries is a different job, fork and exec noise belongs to tool
 
 ### Results
 
-Apple M5, 4 performance and 6 efficiency cores, macOS 26. The input is 512 MiB of mixed content, source trees, build output, and a word list, which `gzip -6` compresses 4.8 to 1. gzip-ng and minigzip are built on zlib-ng 2.3.3, pigz is 2.8 and gzip is 1.14. Level 6 throughout, hyperfine, mean of 3 runs after a warmup.
+Apple M5, 10 cores. 512 MiB of mixed source, build output, and text, 4.8 to 1 under `gzip -6`. zlib-ng 2.3.3, pigz 2.8, gzip 1.14, level 6, hyperfine mean of 3.
 
 | Compress | Wall | MiB/s | Output | Of input |
 |---|---|---|---|---|
@@ -137,7 +137,7 @@ Apple M5, 4 performance and 6 efficiency cores, macOS 26. The input is 512 MiB o
 | `minigzip` | plain gzip | 0.47 s | 1090 |
 | `gzip` | plain gzip | 1.06 s | 480 |
 
-Serial, gzip-ng matches minigzip, the same deflate under a gzip front end. Parallel, independent blocks cost 1.9% of output at the default block size against the plain stream, and the rest of the gap to pigz is the dictionary pigz carries from one block into the next, which is also why pigz cannot decompress in parallel and gzip-ng can.
+Serial, gzip-ng is minigzip with a gzip front end. Parallel, independent blocks cost 1.9% of output, and the rest of the gap to pigz is the dictionary it carries between blocks, which is also what keeps its decompression serial.
 
 ## Project notes
 
