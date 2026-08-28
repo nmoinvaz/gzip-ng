@@ -367,8 +367,7 @@ static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_p
     return GZ_OK;
 }
 
-/* Process one file, never a directory. Returns GZ_OK, GZ_ERROR, or GZ_WARNING, the last two
-   reported. */
+/* Process one file. */
 static int process_file(const char *path, const gzng_options *opt) {
     char in_path[GZ_PATH_MAX], out_path[GZ_PATH_MAX];
     uint64_t total_in = 0, total_out = 0;
