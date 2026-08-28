@@ -36,9 +36,10 @@ static void warn(const gzng_options *opt, const char *fmt, const char *arg) {
 }
 
 /* The gzip -v report, the reduction for compression, the expansion basis for decompression. */
-static void report(const gzng_options *opt, const char *name, const char *outname, uint64_t in_len, uint64_t out_len) {
-    uint64_t basis = opt->decompress ? out_len : in_len;
-    uint64_t other = opt->decompress ? in_len : out_len;
+static void report(const gzng_options *opt, const char *name, const char *outname, uint64_t total_in,
+                   uint64_t total_out) {
+    uint64_t basis = opt->decompress ? total_out : total_in;
+    uint64_t other = opt->decompress ? total_in : total_out;
     double pct = basis != 0 ? 100.0 * (1.0 - (double)other / (double)basis) : 0.0;
 
     if (!opt->verbose || opt->quiet)
@@ -67,20 +68,20 @@ static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
     return ferror(in) ? -1 : 0;
 }
 
-static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name, uint64_t *in_len,
-                      uint64_t *out_len) {
+static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
+                      uint64_t *total_in, uint64_t *total_out) {
     if (opt->decompress)
-        return gzng_decompress_stream(in, out, opt, in_len, out_len);
+        return gzng_decompress_stream(in, out, opt, total_in, total_out);
     if (opt->transparent) {
         uint64_t n = 0;
         int rc = copy_stream(in, out, &n);
-        if (in_len != NULL)
-            *in_len = n;
-        if (out_len != NULL)
-            *out_len = n;
+        if (total_in != NULL)
+            *total_in = n;
+        if (total_out != NULL)
+            *total_out = n;
         return rc;
     }
-    return gzng_compress_stream(in, out, opt, mtime, name, in_len, out_len);
+    return gzng_compress_stream(in, out, opt, mtime, name, total_in, total_out);
 }
 
 /* Compressed bytes belong in a file or a pipe, gzip refuses a terminal without -f. */
@@ -93,16 +94,16 @@ static int tty_guard(const gzng_options *opt) {
 }
 
 int gzng_process_stdio(const gzng_options *opt) {
-    uint64_t in_len = 0, out_len = 0;
+    uint64_t total_in = 0, total_out = 0;
 
     if (tty_guard(opt) != 0)
         return 1;
     errno = 0;
-    if (run_stream(stdin, opt->test_mode ? NULL : stdout, opt, 0, NULL, &in_len, &out_len) != 0) {
+    if (run_stream(stdin, opt->test_mode ? NULL : stdout, opt, 0, NULL, &total_in, &total_out) != 0) {
         fail("stdin");
         return 1;
     }
-    report(opt, "stdin", NULL, in_len, out_len);
+    report(opt, "stdin", NULL, total_in, total_out);
     return 0;
 }
 
@@ -216,7 +217,7 @@ static void sync_dir(const char *out_path) {
  */
 
 static int test_file(const char *path, const gzng_options *opt) {
-    uint64_t in_len = 0, out_len = 0;
+    uint64_t total_in = 0, total_out = 0;
     char stored[GZBLOCK_NAME_MAX];
     uint32_t mtime;
     FILE *in;
@@ -234,7 +235,7 @@ static int test_file(const char *path, const gzng_options *opt) {
         fclose(in);
         return 1;
     }
-    rc = gzng_decompress_stream(in, NULL, opt, &in_len, &out_len) != 0 ? 1 : 0;
+    rc = gzng_decompress_stream(in, NULL, opt, &total_in, &total_out) != 0 ? 1 : 0;
     fclose(in);
     if (rc == 0 && opt->verbose && !opt->quiet)
         fprintf(stderr, "%s:\t OK\n", path);
@@ -293,23 +294,23 @@ static int process_dir(const char *path, const gzng_options *opt) {
 /* With -c the input file is left in place. */
 static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_path, uint32_t store_mtime,
                              const char *store_name) {
-    uint64_t in_len = 0, out_len = 0;
+    uint64_t total_in = 0, total_out = 0;
     int rc;
 
     if (tty_guard(opt) != 0)
         return 1;
-    rc = run_stream(in, stdout, opt, store_mtime, store_name, &in_len, &out_len);
+    rc = run_stream(in, stdout, opt, store_mtime, store_name, &total_in, &total_out);
     if (rc != 0 || fflush(stdout) != 0) {
         fail(in_path);
         return 1;
     }
-    report(opt, in_path, NULL, in_len, out_len);
+    report(opt, in_path, NULL, total_in, total_out);
     return 0;
 }
 
 int gzng_process_path(const char *path, const gzng_options *opt) {
     char in_path[MAX_PATH_LEN], out_path[MAX_PATH_LEN];
-    uint64_t in_len = 0, out_len = 0;
+    uint64_t total_in = 0, total_out = 0;
     uint32_t store_mtime = 0, hdr_mtime = 0;
     const char *store_name = NULL;
     struct stat ist;
@@ -362,7 +363,7 @@ int gzng_process_path(const char *path, const gzng_options *opt) {
         fclose(in);
         return 1;
     }
-    rc = run_stream(in, out, opt, store_mtime, store_name, &in_len, &out_len);
+    rc = run_stream(in, out, opt, store_mtime, store_name, &total_in, &total_out);
     fclose(in);
     /* --synchronous flushes the output before the input is unlinked. */
     if (rc == 0 && opt->synchronous && (fflush(out) != 0 || fsync(fileno(out)) != 0))
@@ -378,6 +379,6 @@ int gzng_process_path(const char *path, const gzng_options *opt) {
         sync_dir(out_path);
     if (!opt->keep)
         unlink(in_path);
-    report(opt, in_path, out_path, in_len, out_len);
+    report(opt, in_path, out_path, total_in, total_out);
     return 0;
 }

@@ -52,9 +52,9 @@ static size_t file_read(void *ctx, uint8_t *buf, size_t len) {
     return n;
 }
 
-int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt, uint64_t *in_len, uint64_t *out_len) {
+int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt, uint64_t *total_in, uint64_t *total_out) {
     rsource src = {in, 0};
-    uint64_t total_out = 0;
+    uint64_t total = 0;
     gzblock_reader *r = gzblock_reader_open(file_read, &src, NULL, 0, opt->block_size, opt->threads);
 
     if (r == NULL)
@@ -69,16 +69,16 @@ int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt, uint64_
         }
         if (n == 0)
             break;
-        total_out += n;
+        total += n;
         if (out != NULL && fwrite(p, 1, n, out) != n) {
             gzblock_reader_close(r);
             return -1;
         }
     }
     gzblock_reader_close(r);
-    if (in_len != NULL)
-        *in_len = src.in;
-    if (out_len != NULL)
-        *out_len = total_out;
+    if (total_in != NULL)
+        *total_in = src.in;
+    if (total_out != NULL)
+        *total_out = total;
     return 0;
 }

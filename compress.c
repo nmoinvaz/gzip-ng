@@ -28,9 +28,9 @@ static size_t file_write(void *ctx, const uint8_t *buf, size_t len) {
 
 /* Compress through the block engine, independent blocks sealed with marker pairs. */
 static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
-                                 uint64_t *in_len, uint64_t *out_len) {
+                                 uint64_t *total_in, uint64_t *total_out) {
     wsink sink = {out, 0};
-    uint64_t total_in = 0;
+    uint64_t total = 0;
     gzblock_writer *w =
         gzblock_writer_open(file_write, &sink, opt->level, opt->strategy, opt->block_size, opt->threads);
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
@@ -47,7 +47,7 @@ static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt, u
         size_t n = fread(buf, 1, CHUNK, in);
         if (n == 0)
             break;
-        total_in += n;
+        total += n;
         if (gzblock_writer_write(w, buf, n) != 0)
             goto engine_error;
     }
@@ -63,10 +63,10 @@ done:
     if (w != NULL)
         gzblock_writer_close(w);
     free(buf);
-    if (in_len != NULL)
-        *in_len = total_in;
-    if (out_len != NULL)
-        *out_len = sink.out;
+    if (total_in != NULL)
+        *total_in = total;
+    if (total_out != NULL)
+        *total_out = sink.out;
     return rc;
 }
 
@@ -114,7 +114,7 @@ static size_t next_span(int rsyncable, uint32_t *hash, uint32_t mask, const uint
 }
 
 int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
-                         uint64_t *in_len, uint64_t *out_len) {
+                         uint64_t *total_in, uint64_t *total_out) {
     zng_gz_header head;
 
     /* Threads need blocks to work on, so -p implies one. Without either this stays a single
@@ -123,7 +123,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
         gzng_options blocked = *opt;
         if (blocked.block_size == 0)
             blocked.block_size = GZNG_DEFAULT_BLOCK;
-        return block_compress_stream(in, out, &blocked, mtime, name, in_len, out_len);
+        return block_compress_stream(in, out, &blocked, mtime, name, total_in, total_out);
     }
 
     zng_stream strm;
@@ -172,10 +172,10 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     }
     rc = 0;
 done:
-    if (in_len != NULL)
-        *in_len = (uint64_t)strm.total_in;
-    if (out_len != NULL)
-        *out_len = (uint64_t)strm.total_out;
+    if (total_in != NULL)
+        *total_in = (uint64_t)strm.total_in;
+    if (total_out != NULL)
+        *total_out = (uint64_t)strm.total_out;
     zng_deflateEnd(&strm);
     free(bufs);
     return rc;

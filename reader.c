@@ -63,7 +63,7 @@ struct gzblock_reader_s {
     pipeline_t pipeline;
     reader_repair_state repair;
     uint32_t crc; /* running crc and length of the member's output */
-    size_t total;
+    size_t total_out;
 };
 
 /* ===========================================================================
@@ -301,7 +301,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
     r->scan.cut_all = 0;
     pipeline_reset(&r->pipeline);
     r->crc = 0;
-    r->total = 0;
+    r->total_out = 0;
     r->io.state = READER_BLOCKS;
     return 0;
 }
@@ -409,7 +409,7 @@ static int reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t rest
 /* Hand out a finished block's output and account for it. */
 static void reader_block_out(gzblock_reader *r, const uint8_t *out, size_t out_len, uint32_t crc, slot_t *slot) {
     r->crc = (uint32_t)zng_crc32_combine(r->crc, crc, (z_off64_t)out_len);
-    r->total += out_len;
+    r->total_out += out_len;
     reader_handout(r, out, out_len, slot);
 }
 
@@ -548,7 +548,7 @@ static int reader_member_end_step(gzblock_reader *r) {
     format_trailer_parse(buf_data(&r->io.buf), &want_crc, &want_size);
     if (r->crc != want_crc)
         return reader_fail(r, Z_DATA_ERROR, "crc mismatch in the gzip trailer");
-    if (want_size != (uint32_t)r->total)
+    if (want_size != (uint32_t)r->total_out)
         return reader_fail(r, Z_DATA_ERROR, "length mismatch in the gzip trailer");
     buf_drop(&r->io.buf, GZ_TRAILER);
     r->io.members++;

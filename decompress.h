@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 /* Decompress in to out. Returns 0, or -1 with the error reported to stderr. */
-int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt, uint64_t *in_len, uint64_t *out_len);
+int gzng_decompress_stream(FILE *in, FILE *out, const gzng_options *opt, uint64_t *total_in, uint64_t *total_out);
 
 /* Read the modification time and stored name from a gzip header, rewinding the stream.
    Returns 0 with the fields filled, name empty when absent, or -1 when not seekable gzip. */

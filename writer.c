@@ -12,7 +12,7 @@ struct gzblock_writer_s {
     pipeline_t pipeline;
     slot_t *cur; /* slot being filled */
     uint32_t crc;
-    size_t total;
+    size_t total_in;
     int hdr_written, finished, failed;
     uint32_t meta_mtime;
     char meta_name[GZBLOCK_NAME_MAX];
@@ -97,7 +97,7 @@ static int writer_inline_end(gzblock_writer *w, int last) {
     if (!last && writer_inline_out(w, Z_FULL_FLUSH) != 0)
         return -1;
     w->crc = (uint32_t)zng_crc32_combine(w->crc, w->inline_crc, (z_off64_t)w->inline_fill);
-    w->total += w->inline_fill;
+    w->total_in += w->inline_fill;
     w->inline_active = 0;
     return 0;
 }
@@ -194,7 +194,7 @@ static int writer_drain(gzblock_writer *w) {
     if (writer_header(w) != 0 || writer_out(w, slot->out, slot->out_len) != 0)
         return -1;
     w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
-    w->total += slot->in_len;
+    w->total_in += slot->in_len;
     pool_release(&w->pipeline.pool, slot);
     w->pipeline.next_emit++;
     return 0;
@@ -385,7 +385,7 @@ int gzblock_writer_finish(gzblock_writer *w) {
         if (writer_drain_all(w) != 0)
             return -1;
     }
-    format_trailer_build(trailer, w->crc, (uint64_t)w->total);
+    format_trailer_build(trailer, w->crc, (uint64_t)w->total_in);
     if (writer_out(w, trailer, sizeof(trailer)) != 0)
         return -1;
     w->finished = 1;
