@@ -103,7 +103,6 @@ header | block 1 … 00 00 FF FF 00 00 00 FF FF | block 2 … 00 00 FF FF 00 00 
 - `pigz --rsyncable --independent` ends a block at every rsync point, about every 4 KiB. The reader gathers those until about a block size is in hand before handing them to a worker, since a slot per 4 KiB costs more to hand off than to inflate.
 - Stored data can hold the marker pair by chance, so a boundary is trusted only when the segment inflates to a whole block. A segment that comes up short is inflated again on the calling thread across the segments after it, and a member with no block structure at all goes back through plain inflate.
 - The trailer's CRC and length are checked against what the blocks produced.
-- `pigz` output without `--independent` carries a dictionary between blocks and has no marker pairs, so it inflates serially, as `pigz -d` itself must.
 
 ## Benchmarks
 
