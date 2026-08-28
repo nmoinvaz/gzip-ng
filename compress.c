@@ -16,23 +16,23 @@
 #define CHUNK (256 * 1024)
 
 typedef struct {
-    FILE *f;
-    uint64_t out;
-} wsink;
+    FILE *out;
+    uint64_t total_out;
+} gzblock_writer_ctx;
 
 static size_t file_write(void *ctx, const uint8_t *buf, size_t len) {
-    wsink *s = (wsink *)ctx;
-    s->out += len;
-    return fwrite(buf, 1, len, s->f);
+    gzblock_writer_ctx *writer_ctx = (gzblock_writer_ctx *)ctx;
+    writer_ctx->total_out += len;
+    return fwrite(buf, 1, len, writer_ctx->out);
 }
 
 /* Compress through the block engine, independent blocks sealed with marker pairs. */
 static int32_t block_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strategy, uint32_t block_size,
                                      int32_t threads, uint32_t mtime, const char *name, uint64_t *total_in,
                                      uint64_t *total_out) {
-    wsink sink = {out, 0};
+    gzblock_writer_ctx writer_ctx = {out, 0};
     uint64_t total = 0;
-    gzblock_writer *w = gzblock_writer_open(file_write, &sink, level, strategy, block_size, threads);
+    gzblock_writer *w = gzblock_writer_open(file_write, &writer_ctx, level, strategy, block_size, threads);
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
     int32_t rc = -1;
 
@@ -66,7 +66,7 @@ done:
     if (total_in != NULL)
         *total_in = total;
     if (total_out != NULL)
-        *total_out = sink.out;
+        *total_out = writer_ctx.total_out;
     return rc;
 }
 
@@ -120,8 +120,10 @@ int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strateg
 
     zng_stream strm;
     uint8_t *buffers = (uint8_t *)malloc(2 * CHUNK);
-    uint8_t *in_buf = buffers, *out_buf = buffers ? buffers + CHUNK : NULL;
-    uint32_t rsync_hash = 0, rsync_mask = rolling_mask(RSYNC_SPAN);
+    uint8_t *in_buf = buffers;
+    uint8_t *out_buf = buffers ? buffers + CHUNK : NULL;
+    uint32_t rsync_hash = 0;
+    uint32_t rsync_mask = rolling_mask(RSYNC_SPAN);
     int32_t rc = -1;
 
     if (buffers == NULL)
