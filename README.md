@@ -135,8 +135,3 @@ Apple M5, 10 cores. 512 MiB of mixed source, build output, and text, 4.8 to 1 un
 | `gzip-ng` | plain gzip | 0.45 s | 1130 |
 | `minigzip` | plain gzip | 0.47 s | 1090 |
 | `gzip` | plain gzip | 1.06 s | 480 |
-
-## Project notes
-
-- Plan and progress: https://gist.github.com/nmoinvaz/4f88555bdf30d0d0850f062525a12738
-- Engine experiment and benchmarks: https://gist.github.com/nmoinvaz/fbcb47d4c1b903c709953d8c7fae3cfc
