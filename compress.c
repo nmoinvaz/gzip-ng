@@ -8,9 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "format.h"
 #include "gzblock.h"
 #include "rolling.h"
-#include "util.h"
 #include "zlib-ng.h"
 
 #define CHUNK (256 * 1024)

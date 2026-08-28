@@ -13,12 +13,6 @@
 #define MIN(a, b) ((a) > (b) ? (b) : (a))
 #define MAX(a, b) ((a) < (b) ? (b) : (a))
 
-#ifdef _WIN32
-#  define OS_CODE 0
-#else
-#  define OS_CODE 3
-#endif
-
 /* Reverse the bytes in a value, the compiler's own where it has one. */
 #if defined(_MSC_VER)
 #  include <stdlib.h>

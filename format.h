@@ -15,6 +15,13 @@ extern "C" {
 #define FORMAT_HEADER_LEN  10 /* the fixed bytes, before any optional field */
 #define FORMAT_TRAILER_LEN 8  /* crc32 and size, the member ending */
 
+/* The header's OS byte, RFC 1952's code for the platform the member was made on. */
+#ifdef _WIN32
+#  define OS_CODE 0
+#else
+#  define OS_CODE 3
+#endif
+
 /* Longest file name stored in or read from a header, including the terminator. */
 #define FORMAT_NAME_MAX 256
 
