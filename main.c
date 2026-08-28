@@ -264,8 +264,8 @@ static void list_begin(const gzng_options *opt) {
     fprintf(stdout, "  compressed uncompressed  ratio uncompressed_name\n");
 }
 
-static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime, uint64_t compressed, uint64_t uncompressed,
-                const char *name) {
+static void list_row(const gzng_options *opt, uint32_t crc, uint32_t mtime, uint64_t compressed, uint64_t uncompressed,
+                     const char *name) {
     double pct = uncompressed != 0 ? 100.0 * (1.0 - (double)compressed / (double)uncompressed) : 0.0;
 
     if (opt->verbose) {
@@ -309,7 +309,7 @@ static int list_file(FILE *in, const char *path, const char *name, const struct 
     }
     if (opt->name_mode == 1 && stored[0] != 0)
         name = stored;
-    row(opt, crc, mtime, (uint64_t)st->st_size, uncompressed, name);
+    list_row(opt, crc, mtime, (uint64_t)st->st_size, uncompressed, name);
     totals->compressed += (uint64_t)st->st_size;
     totals->uncompressed += uncompressed;
     totals->files++;
@@ -322,7 +322,7 @@ static void list_end(const gzng_options *opt, const list_totals *totals) {
         return;
     if (opt->verbose)
         fprintf(stdout, "                              ");
-    row(opt, 0, 0, totals->compressed, totals->uncompressed, "(totals)");
+    list_row(opt, 0, 0, totals->compressed, totals->uncompressed, "(totals)");
 }
 
 /* ===========================================================================
