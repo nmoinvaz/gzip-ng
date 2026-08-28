@@ -95,6 +95,15 @@ int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *use
     return status;
 }
 
+/* The output buffer moved to out and grew to size, so the block is no longer full. */
+void decoder_grow(decoder *dec, uint8_t *out, size_t size) {
+    zng_stream *strm = dec->strm;
+
+    strm->next_out = out + (size_t)strm->total_out;
+    strm->avail_out = (uint32_t)(size - (size_t)strm->total_out);
+    dec->want_marker = 0;
+}
+
 const char *decoder_status_name(int32_t status) {
     switch (status) {
     case DECODER_SEGMENT_FULL:

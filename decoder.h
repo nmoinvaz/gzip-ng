@@ -32,6 +32,7 @@ typedef struct {
 
 void decoder_init(decoder *dec, zng_stream *strm, uint8_t *out, uint32_t block_size);
 int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *used);
+void decoder_grow(decoder *dec, uint8_t *out, size_t size);
 const char *decoder_status_name(int32_t status);
 
 #ifdef __cplusplus

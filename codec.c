@@ -28,11 +28,9 @@ static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
                 status = DECODER_SEGMENT_ERROR;
                 break;
             }
-            strm->next_out = grown + (size_t)strm->total_out;
-            strm->avail_out += (uint32_t)(size - slot->out_size);
             slot->out = grown;
             slot->out_size = size;
-            dec.want_marker = 0; /* output is no longer full, back to normal decoding */
+            decoder_grow(&dec, grown, size);
             continue;
         }
         break;
