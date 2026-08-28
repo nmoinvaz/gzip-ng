@@ -412,6 +412,13 @@ static void reader_block_out(gzblock_reader *r, const uint8_t *out, size_t out_l
     reader_handout(r, out, out_len, slot);
 }
 
+static void reader_repair_out(gzblock_reader *r) {
+    size_t out_len = (size_t)r->repair.z.total_out;
+    uint32_t crc = (uint32_t)zng_crc32_z(0, r->repair.tmp, out_len);
+
+    reader_block_out(r, r->repair.tmp, out_len, crc, NULL);
+}
+
 /* ===========================================================================
  * False marker repair and fallback
  */
@@ -461,13 +468,11 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
             continue;
         }
         if (status == SEG_END) {
-            reader_block_out(r, r->repair.tmp, (size_t)r->repair.z.total_out,
-                             (uint32_t)zng_crc32_z(0, r->repair.tmp, (size_t)r->repair.z.total_out), NULL);
+            reader_repair_out(r);
             return reader_member_end(r, piece + used, piece_len - used, ps);
         }
         if (status == SEG_FULL && used == piece_len && !last) {
-            reader_block_out(r, r->repair.tmp, (size_t)r->repair.z.total_out,
-                             (uint32_t)zng_crc32_z(0, r->repair.tmp, (size_t)r->repair.z.total_out), NULL);
+            reader_repair_out(r);
             if (ps != NULL)
                 pool_release(&r->pipeline.pool, ps);
             return 0;
