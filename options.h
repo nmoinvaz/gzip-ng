@@ -13,26 +13,26 @@ extern "C" {
 #endif
 
 typedef struct {
-    int decompress;      /* -d */
-    int stdout_mode;     /* -c */
-    int keep;            /* -k */
-    int force;           /* -f, overwrite outputs, write compressed data to a terminal */
-    int recursive;       /* -r, descend into directories */
-    int verbose;         /* -v, report each file processed */
-    int quiet;           /* -q, suppress warnings */
-    int name_mode;       /* -1 default, 0 with -n, 1 with -N */
-    int time_mode;       /* -1 default, 0 with -n or -m, 1 with -N or -M */
-    int list;            /* -l, list instead of decompressing */
-    int test_mode;       /* -t, check integrity without writing */
+    int decompress;      /* --decompress */
+    int stdout_mode;     /* --stdout */
+    int keep;            /* --keep */
+    int force;           /* --force, overwrite outputs, write compressed data to a terminal */
+    int recursive;       /* --recursive, descend into directories */
+    int verbose;         /* --verbose, report each file processed */
+    int quiet;           /* --quiet, suppress warnings */
+    int name_mode;       /* -1 default, 0 with --no-name, 1 with --name */
+    int time_mode;       /* -1 default, 0 with --no-name or --no-time, 1 with --name or --time */
+    int list;            /* --list, list instead of decompressing */
+    int test_mode;       /* --test, check integrity without writing */
     int rsyncable;       /* --rsyncable, rsync friendly output */
     int synchronous;     /* --synchronous, fsync outputs before removing inputs */
     int level;           /* -0 to -9 */
     int strategy;        /* deflate strategy options */
     int transparent;     /* -T, copy without compressing */
     int text_mode;       /* -A, no effect where text and binary io agree */
-    uint32_t block_size; /* -b, 0 writes one plain deflate stream */
-    int threads;         /* -p, 0 picks the number of CPUs */
-    int threads_given;   /* -p was asked for, so threads of 0 means every CPU and not the default */
+    uint32_t block_size; /* --blocksize, 0 writes one plain deflate stream */
+    int threads;         /* --processes, 0 picks the number of CPUs */
+    int threads_given;   /* --processes was given, threads of 0 means every CPU, not the default */
 } gzng_options;
 
 void gzng_options_init(gzng_options *opt);

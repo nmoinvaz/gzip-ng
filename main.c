@@ -19,12 +19,12 @@ static int worse(int rc, int r) {
     return r == 1 || (r == 2 && rc == 0) ? r : rc;
 }
 
-/* One file, listed with -l or processed. */
+/* One file, listed with --list or processed. */
 static int run_file(const char *path, const gzng_options *opt, gzng_totals *totals) {
     return opt->list ? gzng_list_file(path, opt, totals) : gzng_process_file(path, opt);
 }
 
-/* Walk a directory for the files -r picks, the way gzip -r does. */
+/* Walk a directory for the files --recursive picks, the way gzip --recursive does. */
 static int run_dir(const char *path, const gzng_options *opt, gzng_totals *totals) {
     char sub[MAX_PATH_LEN];
     DIR *dir = opendir(path);
@@ -55,7 +55,7 @@ static int run_dir(const char *path, const gzng_options *opt, gzng_totals *total
     return rc;
 }
 
-/* One argument, a file, or a directory walked under -r and a warning without. */
+/* One argument, a file, or a directory walked under --recursive and a warning without. */
 static int run_path(const char *path, const gzng_options *opt, gzng_totals *totals) {
     struct stat st;
 

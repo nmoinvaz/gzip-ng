@@ -1,4 +1,4 @@
-/* list.c -- the gzip -l listing
+/* list.c -- the gzip listing
  * For conditions of distribution and use, see LICENSE.md
  */
 

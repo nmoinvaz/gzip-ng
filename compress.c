@@ -74,7 +74,7 @@ done:
 /* How far apart --rsyncable puts its sync points in a plain stream, the spacing gzip and pigz
    both use. These are Z_SYNC_FLUSH points that let rsync resynchronise after an edit. They do
    not reset the dictionary and they do not start a block, so they cost a little ratio and
-   nothing else. Block boundaries are a separate matter, spaced by -b. */
+   nothing else. Block boundaries are a separate matter, spaced by --blocksize. */
 #define RSYNC_SPAN 4096
 
 /* Push one span of input through deflate and write everything it produces. */
@@ -120,8 +120,8 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
                          uint64_t *total_in, uint64_t *total_out) {
     zng_gz_header head;
 
-    /* Threads need blocks to work on, so -p implies one. Without either this stays a single
-       deflate stream. */
+    /* Threads need blocks to work on, so --processes implies one. Without either this stays a
+       single deflate stream. */
     if (opt->block_size != 0 || (opt->threads_given && opt->threads != 1)) {
         gzng_options blocked = *opt;
         if (blocked.block_size == 0)

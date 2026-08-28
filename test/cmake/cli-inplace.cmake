@@ -1,6 +1,6 @@
 # cli-inplace.cmake -- In-place file semantics that the stream harness does not cover, the input
-#   is removed unless -k, -c keeps it, -T copies through untouched, and threads do not change
-#   the compressed bytes.
+#   is removed unless --keep, --stdout keeps it, -T copies through untouched, and threads do not
+#   change the compressed bytes.
 
 file(REMOVE_RECURSE ${WORKDIR})
 file(MAKE_DIRECTORY ${WORKDIR})
@@ -23,7 +23,7 @@ if(NOT rc EQUAL 0)
     message(FATAL_ERROR "roundtrip changed the data")
 endif()
 
-# -k keeps the input, -c keeps it too.
+# --keep keeps the input, --stdout keeps it too.
 file(WRITE ${WORKDIR}/k.txt "${DATA}")
 execute_process(COMMAND ${EXE} -k ${WORKDIR}/k.txt RESULT_VARIABLE rc)
 if(NOT rc EQUAL 0 OR NOT EXISTS ${WORKDIR}/k.txt OR NOT EXISTS ${WORKDIR}/k.txt.gz)
@@ -51,7 +51,7 @@ if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
     message(FATAL_ERROR "thread count changed the compressed bytes")
 endif()
 
-# Without -f an existing output is refused with a warning, -f overwrites it.
+# Without --force an existing output is refused with a warning, --force overwrites it.
 file(WRITE ${WORKDIR}/o.txt "${DATA}")
 file(WRITE ${WORKDIR}/o.txt.gz "junk")
 execute_process(COMMAND ${EXE} -k ${WORKDIR}/o.txt RESULT_VARIABLE rc)
@@ -67,7 +67,7 @@ if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
     message(FATAL_ERROR "-f overwrite roundtrip failed")
 endif()
 
-# -r walks directories, compressing then restoring, a bare directory is only a warning.
+# --recursive walks directories, compressing then restoring, a bare directory is only a warning.
 file(MAKE_DIRECTORY ${WORKDIR}/tree/sub)
 file(WRITE ${WORKDIR}/tree/a.txt "${DATA}")
 file(WRITE ${WORKDIR}/tree/sub/b.txt "${DATA}")
@@ -87,7 +87,7 @@ if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR EXISTS ${WORKDIR}/tree/a.txt.gz)
     message(FATAL_ERROR "-d -r walk failed")
 endif()
 
-# The stored name comes back with -N, and -n stores nothing.
+# The stored name comes back with --name, and --no-name stores nothing.
 file(WRITE ${WORKDIR}/named.txt "${DATA}")
 execute_process(COMMAND ${EXE} -k ${WORKDIR}/named.txt RESULT_VARIABLE rc)
 file(RENAME ${WORKDIR}/named.txt.gz ${WORKDIR}/moved.gz)
@@ -104,7 +104,7 @@ if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT EXISTS ${WORKDIR}/plain)
     message(FATAL_ERROR "-n left a name in the header")
 endif()
 
-# -l reports the trailer size and the derived name.
+# --list reports the trailer size and the derived name.
 string(LENGTH "${DATA}" DATA_LEN)
 file(WRITE ${WORKDIR}/listed.txt "${DATA}")
 execute_process(COMMAND ${EXE} -k ${WORKDIR}/listed.txt RESULT_VARIABLE rc)
@@ -115,7 +115,7 @@ if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR size_at EQUAL -1 OR name_at EQUAL -1)
     message(FATAL_ERROR "-l listing was wrong: ${listing}")
 endif()
 
-# -t checks integrity without writing anything.
+# --test checks integrity without writing anything.
 execute_process(COMMAND ${EXE} -t ${WORKDIR}/listed.txt.gz RESULT_VARIABLE rc)
 file(WRITE ${WORKDIR}/junk.gz "this is not gzip data at all")
 execute_process(COMMAND ${EXE} -t ${WORKDIR}/junk.gz RESULT_VARIABLE rc2 ERROR_QUIET)
@@ -133,7 +133,7 @@ if(NOT rc EQUAL 0 OR NOT rc2 EQUAL 0 OR NOT rc3 EQUAL 0)
     message(FATAL_ERROR "--synchronous roundtrip failed")
 endif()
 
-# -c stores the name too, gzip does, so the header carries it either way.
+# --stdout stores the name too, gzip does, so the header carries it either way.
 file(WRITE ${WORKDIR}/keptname.txt "${DATA}")
 execute_process(COMMAND ${EXE} -c ${WORKDIR}/keptname.txt OUTPUT_FILE ${WORKDIR}/fromc.gz RESULT_VARIABLE rc)
 file(READ ${WORKDIR}/fromc.gz HEADBYTES HEX LIMIT 64)
@@ -142,7 +142,7 @@ if(NOT rc EQUAL 0 OR name_at EQUAL -1)
     message(FATAL_ERROR "-c did not store the file name")
 endif()
 
-# -m keeps the name and zeroes the time, so the same content compresses to the same bytes.
+# --no-time keeps the name and zeroes the time, so the same content compresses to the same bytes.
 file(WRITE ${WORKDIR}/t1/same.txt "${DATA}")
 file(WRITE ${WORKDIR}/t2/same.txt "${DATA}")
 execute_process(COMMAND ${EXE} -m -c ${WORKDIR}/t1/same.txt OUTPUT_FILE ${WORKDIR}/m1.gz RESULT_VARIABLE rc)
@@ -175,7 +175,7 @@ if(tpair_at EQUAL -1)
 endif()
 
 # Every path writes the same header. Left to itself zlib-ng stamps a platform OS code that
-# RFC 1952 does not define, so -n on a plain stream once disagreed with block output.
+# RFC 1952 does not define, so --no-name on a plain stream once disagreed with block output.
 file(WRITE ${WORKDIR}/os.txt "${DATA}")
 foreach(variant "-n" "-n;-b;64K" "-n;-p;2")
     execute_process(COMMAND ${EXE} ${variant} -c ${WORKDIR}/os.txt OUTPUT_FILE ${WORKDIR}/os.gz RESULT_VARIABLE rc)
@@ -186,8 +186,8 @@ foreach(variant "-n" "-n;-b;64K" "-n;-p;2")
     endif()
 endforeach()
 
-# -t reaches a directory the same way the other modes do, walking it under -r and reporting it
-# as a warning without.
+# --test reaches a directory the same way the other modes do, walking it under --recursive and
+# reporting it as a warning without.
 file(MAKE_DIRECTORY ${WORKDIR}/ttree/sub)
 file(WRITE ${WORKDIR}/ttree/one.txt "${DATA}")
 file(WRITE ${WORKDIR}/ttree/sub/two.txt "${DATA}")
@@ -201,7 +201,7 @@ if(NOT rc3 EQUAL 2)
     message(FATAL_ERROR "-t on a directory without -r should warn, got ${rc3}")
 endif()
 
-# -l walks a directory under -r too, listing every suffixed file in it.
+# --list walks a directory under --recursive too, listing every suffixed file in it.
 execute_process(COMMAND ${EXE} -l -r ${WORKDIR}/ttree OUTPUT_VARIABLE rlisting RESULT_VARIABLE rc)
 string(FIND "${rlisting}" "ttree/one.txt" one_at)
 string(FIND "${rlisting}" "ttree/sub/two.txt" two_at)

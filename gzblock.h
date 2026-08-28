@@ -17,8 +17,8 @@ extern "C" {
    --independent writes, so a block inflates on its own and a boundary is hard to fake. Nothing in
    the header says any of this, the reader finds the boundaries by looking for them, and a pair is
    what tells it a boundary from a flush inside a block or a chance pattern in stored data. Any
-   deflate stream built the same way decodes here, pigz -i output included, and streams with
-   single full flush markers are read by scanning for those.
+   deflate stream built the same way decodes here, pigz --independent output included, and
+   streams with single full flush markers are read by scanning for those.
 
    A pool of workers runs deflate or inflate over a ring of slots, filled in order and drained in
    order, so output order is slot order and memory is bounded by the ring. Errors are reported

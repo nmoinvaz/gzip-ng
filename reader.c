@@ -254,8 +254,8 @@ static int reader_next_segment(gzblock_reader *r) {
  * The block pipeline
  */
 
-/* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or -b
-   supplies, a block size. */
+/* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or
+   --blocksize supplies, a block size. */
 static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size, int paired) {
     r->scan.hdr.len = 0;
     if (buf_append(&r->scan.hdr, buf_data(&r->io.buf), hdr_len) != 0)

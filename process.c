@@ -34,7 +34,8 @@ static void warn(const gzng_options *opt, const char *fmt, const char *arg) {
         fprintf(stderr, fmt, arg);
 }
 
-/* The gzip -v report, the reduction for compression, the expansion basis for decompression. */
+/* The gzip --verbose report, the reduction for compression, the expansion basis for
+   decompression. */
 static void report(const gzng_options *opt, const char *name, const char *outname, uint64_t total_in,
                    uint64_t total_out) {
     uint64_t basis = opt->decompress ? total_out : total_in;
@@ -83,7 +84,7 @@ static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mti
     return gzng_compress_stream(in, out, opt, mtime, name, total_in, total_out);
 }
 
-/* Compressed bytes belong in a file or a pipe, gzip refuses a terminal without -f. */
+/* Compressed bytes belong in a file or a pipe, gzip refuses a terminal without --force. */
 static int tty_guard(const gzng_options *opt) {
     if (!opt->decompress && !opt->transparent && !opt->force && isatty(fileno(stdout))) {
         fprintf(stderr, "gzip-ng: compressed data not written to a terminal, use -f to force\n");
@@ -135,7 +136,7 @@ static int derive_paths(const char *path, const gzng_options *opt, char *in_path
     return 0;
 }
 
-/* The output name for -N, the stored name placed in the input's directory. */
+/* The output name for --name, the stored name placed in the input's directory. */
 static void stored_out_path(char *out_path, size_t cap, const char *in_path, const char *stored) {
     const char *slash = strrchr(in_path, '/');
     const char *base = strrchr(stored, '/');
@@ -153,7 +154,8 @@ static void stored_out_path(char *out_path, size_t cap, const char *in_path, con
  * Header fields and file attributes
  */
 
-/* The name and time to record in the header, subject to -n, -N, -m, and -M. */
+/* The name and time to record in the header, subject to --no-name, --name, --no-time, and
+   --time. */
 static void store_meta(const gzng_options *opt, const char *in_path, const struct stat *ist, uint32_t *mtime,
                        const char **name) {
     if (opt->name_mode != 0) {
@@ -164,7 +166,7 @@ static void store_meta(const gzng_options *opt, const char *in_path, const struc
         *mtime = (uint32_t)ist->st_mtime;
 }
 
-/* Read the stored name and time. With -N the stored name decides the output path.
+/* Read the stored name and time. With --name the stored name decides the output path.
    Returns -1 when the input is not gzip. */
 static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, char *out_path, size_t cap,
                         uint32_t *hdr_mtime) {
@@ -181,7 +183,7 @@ static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, 
     return 0;
 }
 
-/* gzip carries the input file's mode and times onto the output, and -N on decompression prefers
+/* gzip carries the input file's mode and times onto the output, and --name on decompression prefers
    the time stored in the header. */
 static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t hdr_mtime) {
     struct timeval tv[2];
@@ -245,7 +247,7 @@ static int test_file(const char *path, const gzng_options *opt) {
  * Processing a file
  */
 
-/* With -c the input file is left in place. */
+/* With --stdout the input file is left in place. */
 static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_path, uint32_t store_mtime,
                              const char *store_name) {
     uint64_t total_in = 0, total_out = 0;

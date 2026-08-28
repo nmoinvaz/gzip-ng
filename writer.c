@@ -50,7 +50,7 @@ static int writer_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
     return 0;
 }
 
-/* An ordinary gzip header, carrying only the name and time -N and -M ask for. Nothing in it
+/* An ordinary gzip header, carrying only the name and time --name and --time ask for. Nothing in it
    marks the member as cut into blocks, a reader finds that out by scanning. */
 static int writer_header(gzblock_writer *w) {
     uint8_t buf[FORMAT_HEADER_MAX];

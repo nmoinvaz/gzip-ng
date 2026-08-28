@@ -52,8 +52,8 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
         exhausted = (strm->avail_in == 0 && left == 0);
 
         if (d->want_marker) {
-            /* Only empty stored blocks may follow a full block, one from a full flush, two when pigz -i
-               wrote it. */
+            /* Only empty stored blocks may follow a full block, one from a full flush, two when
+               pigz --independent wrote it. */
             if (!boundary && strm->avail_in == 0) {
                 if (exhausted) {
                     status = SEG_SHORT; /* the marker continues in the next piece */

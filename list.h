@@ -1,4 +1,4 @@
-/* list.h -- the gzip -l listing
+/* list.h -- the gzip listing
  * For conditions of distribution and use, see LICENSE.md
  */
 
@@ -19,7 +19,7 @@ typedef struct {
     int files;
 } gzng_totals;
 
-/* List one compressed file the way gzip -l does, accumulating totals.
+/* List one compressed file the way gzip --list does, accumulating totals.
    Returns 0, or 1 with the error reported. */
 int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *totals);
 
