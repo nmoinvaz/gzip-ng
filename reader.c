@@ -8,6 +8,7 @@
 #include "scanner.h"
 
 enum { READER_HEADER, READER_PASSTHRU, READER_STREAM, READER_BLOCKS, READER_MEMBER_END, READER_END, READER_ERROR };
+enum { READER_SEGMENT_ERROR = -1, READER_SEGMENT_TOO_LARGE = -2, READER_SEGMENT_DONE = 0, READER_SEGMENT_FOUND = 1 };
 
 typedef struct {
     gzblock_read_fn read;
@@ -347,13 +348,13 @@ static int reader_produce(gzblock_reader *r) {
         if (slot->state != SLOT_FREE)
             break;
         rc = reader_next_segment(r);
-        if (rc == 0) {
+        if (rc == READER_SEGMENT_DONE) {
             r->scan.cut_all = 1;
             break;
         }
-        if (rc == -1)
+        if (rc == READER_SEGMENT_ERROR)
             return -1;
-        if (rc == -2) {
+        if (rc == READER_SEGMENT_TOO_LARGE) {
             /* The blocks are larger than assumed, which happens when the probe's guess was low.
                A pair-terminated block is valid at any size, so raise the bound and retry rather
                than fail the member. */
@@ -444,11 +445,11 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
             } else {
                 /* Not cut yet, take it straight from the input, it never needs a slot. */
                 int rc = reader_next_segment(r);
-                if (rc == -1)
+                if (rc == READER_SEGMENT_ERROR)
                     return -1;
-                if (rc != 1)
-                    return reader_fail(r, rc == 0 ? Z_BUF_ERROR : Z_DATA_ERROR,
-                                       rc == 0 ? "unexpected end of file" : "block %zu is larger than the block size",
+                if (rc != READER_SEGMENT_FOUND)
+                    return reader_fail(r, rc == READER_SEGMENT_DONE ? Z_BUF_ERROR : Z_DATA_ERROR,
+                                       rc == READER_SEGMENT_DONE ? "unexpected end of file" : "block %zu is larger than the block size",
                                        r->pipeline.next_emit);
                 ps = NULL;
                 piece = r->scan.seg.p;
