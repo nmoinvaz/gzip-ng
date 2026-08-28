@@ -160,7 +160,7 @@ static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
 static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
                       uint64_t *total_in, uint64_t *total_out) {
     if (opt->decompress)
-        return gzng_decompress_stream(in, out, opt, total_in, total_out);
+        return gzng_decompress_stream(in, out, opt, NULL, 0, total_in, total_out);
     if (opt->transparent) {
         uint64_t n = 0;
         int rc = copy_stream(in, out, &n);
@@ -171,6 +171,17 @@ static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mti
         return rc;
     }
     return gzng_compress_stream(in, out, opt, mtime, name, total_in, total_out);
+}
+
+/* Under --test the first two bytes decide, since the reader passes anything but gzip through.
+   They go into head for the reader to take first. Returns -1 with a warning naming the input when
+   they are not gzip's. */
+static int test_peek(FILE *in, const char *name, const gzng_options *opt, uint8_t head[2], size_t *head_len) {
+    *head_len = fread(head, 1, 2, in);
+    if (format_is_gzip(head, *head_len))
+        return 0;
+    warn(opt, "gzip-ng: %s: not in gzip format\n", name);
+    return -1;
 }
 
 /* Compressed bytes belong in a file or a pipe, gzip refuses a terminal without --force. */
@@ -185,11 +196,21 @@ static int tty_guard(const gzng_options *opt) {
 /* Filter stdin to stdout. Returns GZ_OK, or GZ_ERROR with the error reported. */
 static int process_stdio(const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
+    int rc;
 
     if (tty_guard(opt) != GZ_OK)
         return GZ_ERROR;
     errno = 0;
-    if (run_stream(stdin, opt->test_mode ? NULL : stdout, opt, 0, NULL, &total_in, &total_out) != 0) {
+    if (opt->test_mode) {
+        uint8_t head[2];
+        size_t head_len;
+        if (test_peek(stdin, "stdin", opt, head, &head_len) != 0)
+            return GZ_ERROR;
+        rc = gzng_decompress_stream(stdin, NULL, opt, head, head_len, &total_in, &total_out);
+    } else {
+        rc = run_stream(stdin, stdout, opt, 0, NULL, &total_in, &total_out);
+    }
+    if (rc != 0) {
         fail("stdin");
         return GZ_ERROR;
     }
@@ -239,12 +260,16 @@ static void sync_dir(const char *out_path) {
    GZ_ERROR with the error reported. */
 static int test_file(FILE *in, const char *path, const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
-    int rc;
+    uint8_t head[2];
+    size_t head_len;
 
-    rc = gzng_decompress_stream(in, NULL, opt, &total_in, &total_out) != 0 ? GZ_ERROR : GZ_OK;
-    if (rc == GZ_OK && opt->verbose && !opt->quiet)
+    if (test_peek(in, path, opt, head, &head_len) != 0)
+        return GZ_ERROR;
+    if (gzng_decompress_stream(in, NULL, opt, head, head_len, &total_in, &total_out) != 0)
+        return GZ_ERROR;
+    if (opt->verbose && !opt->quiet)
         fprintf(stderr, "%s:\t OK\n", path);
-    return rc;
+    return GZ_OK;
 }
 
 /* ===========================================================================

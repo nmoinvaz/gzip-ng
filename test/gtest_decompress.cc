@@ -74,11 +74,13 @@ struct run_result {
     std::vector<uint8_t> output;
 };
 
-/* Decompress bytes through the stream function, into a file unless to_null. */
-run_result run(const std::vector<uint8_t> &input, const gzng_options &opt, bool to_null = false) {
+/* Decompress bytes through the stream function, into a file unless to_null, after any head bytes
+   handed over as already read. */
+run_result run(const std::vector<uint8_t> &input, const gzng_options &opt, bool to_null = false,
+               const std::vector<uint8_t> &head = {}) {
     run_result r = {0, 0, 0, {}};
     FILE *in = stream_of(input), *out = to_null ? nullptr : tmpfile();
-    r.rc = gzng_decompress_stream(in, out, &opt, &r.total_in, &r.total_out);
+    r.rc = gzng_decompress_stream(in, out, &opt, head.data(), head.size(), &r.total_in, &r.total_out);
     if (out != nullptr) {
         r.output = contents(out);
         fclose(out);
@@ -147,15 +149,15 @@ TEST(decompress, other_data_passes_through) {
     EXPECT_EQ(data, r.output) << "input that is not gzip comes out unchanged";
 }
 
-TEST(decompress, test_mode_refuses_other_data) {
+TEST(decompress, head_bytes_come_before_the_stream) {
     auto data = pattern(50000);
-    gzng_options opt = defaults();
-    opt.test_mode = 1;
+    auto packed = gzip(data);
+    std::vector<uint8_t> head(packed.begin(), packed.begin() + 2), rest(packed.begin() + 2, packed.end());
 
-    EXPECT_EQ(-1, run(data, opt, true).rc);
-    auto r = run(gzip(data), opt, true);
-    EXPECT_EQ(0, r.rc) << "gzip data still tests sound";
-    EXPECT_EQ(data.size(), r.total_out);
+    auto r = run(rest, defaults(), false, head);
+    ASSERT_EQ(0, r.rc);
+    EXPECT_EQ(data, r.output);
+    EXPECT_EQ(packed.size(), r.total_in) << "the head bytes count as input";
 }
 
 TEST(decompress, truncated_input_fails) {
