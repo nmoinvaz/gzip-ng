@@ -555,8 +555,6 @@ static int reader_member_end_step(gzblock_reader *r) {
     return 0;
 }
 
-/* Decide how to decode what comes next: a gzip member in block mode or plain, pass-through for data
-   that is not gzip, or the end. */
 /* ===========================================================================
  * Member headers and the boundary probe
  */
@@ -587,6 +585,8 @@ static int reader_probe(gzblock_reader *r, size_t hdr_len) {
     return 0;
 }
 
+/* Decide how to decode what comes next: a gzip member in block mode or plain, pass-through for data
+   that is not gzip, or the end. */
 static int reader_header(gzblock_reader *r) {
     size_t want = 1024, hdr_len;
     uint32_t hdr_block_size;
