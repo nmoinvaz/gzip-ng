@@ -1,4 +1,4 @@
-/* gzfile.c -- gzip files by name and by header
+/* gzfile.c -- the names of gzip files
  * For conditions of distribution and use, see LICENSE.md
  */
 
@@ -7,8 +7,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "format.h"
 
 int gzng_path_has_suffix(const char *path) {
     size_t n = strlen(path);
@@ -47,29 +45,4 @@ void gzng_path_from_stored(char *out_path, size_t cap, const char *in_path, cons
         snprintf(out_path, cap, "%.*s%s", (int)(slash - in_path + 1), in_path, base);
     else
         snprintf(out_path, cap, "%s", base);
-}
-
-int gzng_read_meta(const char *path, uint32_t *mtime, char *name, size_t name_len) {
-    uint8_t buf[4096];
-    format_header hdr;
-    FILE *in;
-    size_t got;
-
-    *mtime = 0;
-    if (name_len != 0)
-        name[0] = 0;
-    in = fopen(path, "rb");
-    if (in == NULL)
-        return -1;
-    got = fread(buf, 1, sizeof(buf), in);
-    fclose(in);
-    if (!format_is_gzip(buf, got))
-        return -1;
-    /* A header that outruns the buffer still yields the fields that fit in it. */
-    if (format_header_parse(buf, got, &hdr) == (size_t)-1)
-        return -1;
-    *mtime = hdr.mtime;
-    if (hdr.name != NULL && name_len != 0)
-        snprintf(name, name_len, "%s", hdr.name);
-    return 0;
 }
