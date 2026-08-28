@@ -1,28 +1,34 @@
 cmake_minimum_required(VERSION 3.16)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 project(gzip-ng VERSION 2.0.0 LANGUAGES C)
+
+include(CheckCCompilerFlag)
+include(CheckCSourceCompiles)
 
 option(GZNG_ENABLE_TESTS "Build gzip-ng tests" ON)
 option(GZNG_ENABLE_BENCHMARKS "Build gzip-ng benchmarks" OFF)
 option(GZNG_THREADS "Compress and decompress blocks on a thread pool" ON)
 option(GZNG_SIMD "Scan for block boundaries with NEON or SSE2" ON)
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-
-# A sanitizer applies to everything built from here on, the fetched zlib-ng included.
-include(CheckCCompilerFlag)
-include(CheckCSourceCompiles)
-include(cmake/detect-sanitizer.cmake)
 set(GZNG_SANITIZER None CACHE STRING "Build with a sanitizer, None, Address, Memory, Thread, or Undefined")
 set_property(CACHE GZNG_SANITIZER PROPERTY STRINGS "None" "Address" "Memory" "Thread" "Undefined")
-if(GZNG_SANITIZER STREQUAL "Address")
-    add_address_sanitizer()
-elseif(GZNG_SANITIZER STREQUAL "Memory")
-    add_memory_sanitizer()
-elseif(GZNG_SANITIZER STREQUAL "Thread")
-    add_thread_sanitizer()
-elseif(GZNG_SANITIZER STREQUAL "Undefined")
-    add_undefined_sanitizer()
+
+# A sanitizer applies to everything built from here on, the fetched zlib-ng included.
+if(DEFINED GZNG_SANITIZER)
+    include(cmake/detect-sanitizer.cmake)
+
+    if(GZNG_SANITIZER STREQUAL "Address")
+        add_address_sanitizer()
+    elseif(GZNG_SANITIZER STREQUAL "Memory")
+        add_memory_sanitizer()
+    elseif(GZNG_SANITIZER STREQUAL "Thread")
+        add_thread_sanitizer()
+    elseif(GZNG_SANITIZER STREQUAL "Undefined")
+        add_undefined_sanitizer()
+    endif()
 endif()
 
 # zlib-ng, found on the system or fetched and built with the native zng_ API.
