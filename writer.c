@@ -305,14 +305,19 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
         if (w->rsyncable) {
             /* A hash hit after the minimum fill ends the block there, so boundaries follow the
                content and an edit re-aligns at the next hit instead of shifting every block. */
-            size_t k;
-            for (k = 0; k < take; k++) {
-                ROLLING_ADD(w->rhash, buf[k]);
-                if (w->cur->in_len + k + 1 >= w->rmin && ROLLING_HIT(w->rhash, w->rmask)) {
+            size_t fill = w->cur->in_len, warm = w->rmin > 32 ? w->rmin - 32 : 0, k = 0;
+            uint32_t hash = w->rhash, mask = w->rmask;
+            /* The hash forgets a byte after 32 shifts, so bytes before that cannot end the block. */
+            if (fill < warm)
+                k = MIN(warm - fill, take);
+            for (; k < take; k++) {
+                ROLLING_ADD(hash, buf[k]);
+                if (fill + k + 1 >= w->rmin && ROLLING_HIT(hash, mask)) {
                     take = k + 1;
                     break;
                 }
             }
+            w->rhash = hash;
         }
         memcpy(w->cur->in + w->cur->in_len, buf, take);
         w->cur->in_len += take;
