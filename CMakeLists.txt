@@ -48,7 +48,6 @@ add_library(gzng
     gzng.c
     rolling.c
     rolling.h
-    options.c
     pool.c
     pool.h
     pool_p.h
@@ -57,7 +56,6 @@ add_library(gzng
     scanner.c
     scanner.h
     util.h
-    options.h
     gzng.h)
 target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 if(BUILD_SHARED_LIBS)
@@ -80,7 +78,11 @@ if(NOT GZNG_SIMD)
     target_compile_definitions(gzng PRIVATE GZBLOCK_NO_SIMD)
 endif()
 
-add_executable(gzip-ng main.c)
+add_executable(gzip-ng main.c options.c options.h)
+if(BUILD_SHARED_LIBS)
+    # The format helpers are not part of the exported API, so the command builds its own copy.
+    target_sources(gzip-ng PRIVATE format.c)
+endif()
 target_link_libraries(gzip-ng PRIVATE gzng)
 
 if(GZNG_ENABLE_TESTS)

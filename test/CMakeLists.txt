@@ -31,8 +31,13 @@ add_executable(gtest_gzng
     gtest_decompress.cc
     gtest_format.cc
     gtest_gzng.cc
-    gtest_options.cc)
+    gtest_options.cc
+    ${CMAKE_SOURCE_DIR}/options.c)
 target_link_libraries(gtest_gzng PRIVATE gzng GTest::Main)
+if(BUILD_SHARED_LIBS)
+    # The format helpers are not part of the exported API, so the tests build their own copy.
+    target_sources(gtest_gzng PRIVATE ${CMAKE_SOURCE_DIR}/format.c)
+endif()
 add_test(NAME gtest_gzng COMMAND gtest_gzng)
 
 # Test data

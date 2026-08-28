@@ -24,15 +24,3 @@ EXPORTS
 ; streams
     gzng_compress_stream
     gzng_decompress_stream
-; command line options
-    gzng_options_init
-    gzng_options_personas
-    gzng_options_parse
-    gzng_usage
-    gzng_parse_size
-; gzip header and trailer bytes
-    format_is_gzip
-    format_header_build
-    format_header_parse
-    format_trailer_build
-    format_trailer_parse
