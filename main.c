@@ -203,13 +203,13 @@ static int process_stdio(const gzng_options *opt) {
 
 /* gzip carries the input file's mode and times onto the output, and --name on decompression prefers
    the time stored in the header. */
-static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t hdr_mtime) {
+static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t mtime) {
     struct timeval tv[2];
 
     chmod(out_path, ist->st_mode & 07777);
     tv[0].tv_sec = ist->st_atime;
     tv[0].tv_usec = 0;
-    tv[1].tv_sec = hdr_mtime != 0 ? (time_t)hdr_mtime : ist->st_mtime;
+    tv[1].tv_sec = mtime != 0 ? (time_t)mtime : ist->st_mtime;
     tv[1].tv_usec = 0;
     utimes(out_path, tv);
 }
