@@ -226,8 +226,6 @@ static int writer_pool_size(gzblock_writer *w, size_t cap) {
 gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy, uint32_t block_size,
                                     int nthreads) {
     gzblock_writer *w;
-    zng_stream bound;
-    size_t out_cap;
 
     if (write == NULL || block_size == 0 || block_size > GZBLOCK_MAX_BLOCK)
         return NULL;
@@ -241,15 +239,6 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
     w->strategy = strategy;
     w->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
 
-    /* Room for a whole block's worst case plus the flush marker. */
-    memset(&bound, 0, sizeof(bound));
-    if (zng_deflateInit2(&bound, level, Z_DEFLATED, -MAX_WBITS, 8, strategy) != Z_OK) {
-        free(w);
-        return NULL;
-    }
-    out_cap = zng_deflateBound(&bound, block_size) + 32;
-    zng_deflateEnd(&bound);
-
     pipeline_bind_codec(&w->pipeline);
     w->pipeline.pool.mode = POOL_DEFLATE;
     w->pipeline.pool.block_size = block_size;
@@ -262,7 +251,6 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
         free(w);
         return NULL;
     }
-    (void)out_cap;
     return w;
 }
 
