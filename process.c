@@ -18,8 +18,6 @@
 #include "gzfile.h"
 #include "gzblock.h"
 
-#define MAX_PATH_LEN 4096
-
 /* ===========================================================================
  * Diagnostics
  */
@@ -107,44 +105,6 @@ int gzng_process_stdio(const gzng_options *opt) {
 }
 
 /* ===========================================================================
- * Input and output paths
- */
-
-/* Compression turns file into file.gz, decompression file.gz into file, or file into file by
-   reading file.gz. Returns -1 with errno set when the name will not fit. */
-static int derive_paths(const char *path, const gzng_options *opt, char *in_path, char *out_path, size_t cap) {
-    if (strlen(path) + GZ_SUFFIX_LEN >= cap) {
-        errno = ENAMETOOLONG;
-        return -1;
-    }
-    if (!opt->decompress) {
-        snprintf(in_path, cap, "%s", path);
-        snprintf(out_path, cap, "%s" GZ_SUFFIX, path);
-    } else if (gzng_path_has_suffix(path)) {
-        snprintf(in_path, cap, "%s", path);
-        snprintf(out_path, cap, "%.*s", (int)(strlen(path) - GZ_SUFFIX_LEN), path);
-    } else {
-        snprintf(in_path, cap, "%s" GZ_SUFFIX, path);
-        snprintf(out_path, cap, "%s", path);
-    }
-    return 0;
-}
-
-/* The output name for --name, the stored name placed in the input's directory. */
-static void stored_out_path(char *out_path, size_t cap, const char *in_path, const char *stored) {
-    const char *slash = strrchr(in_path, '/');
-    const char *base = strrchr(stored, '/');
-
-    base = base ? base + 1 : stored;
-    if (base[0] == 0)
-        return;
-    if (slash != NULL)
-        snprintf(out_path, cap, "%.*s%s", (int)(slash - in_path + 1), in_path, base);
-    else
-        snprintf(out_path, cap, "%s", base);
-}
-
-/* ===========================================================================
  * Header fields and file attributes
  */
 
@@ -171,7 +131,7 @@ static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, 
         return -1;
     }
     if (opt->name_mode == 1 && stored[0] != 0)
-        stored_out_path(out_path, cap, in_path, stored);
+        gzng_path_from_stored(out_path, cap, in_path, stored);
     if (opt->time_mode != 1)
         *hdr_mtime = 0;
     return 0;
@@ -193,7 +153,7 @@ static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t hd
 /* A new name is durable only once its directory is synced too. */
 static void sync_dir(const char *out_path) {
     const char *slash = strrchr(out_path, '/');
-    char dir_path[MAX_PATH_LEN];
+    char dir_path[GZ_PATH_MAX];
     int fd;
 
     if (slash != NULL)
@@ -259,7 +219,7 @@ static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_p
 }
 
 int gzng_process_file(const char *path, const gzng_options *opt) {
-    char in_path[MAX_PATH_LEN], out_path[MAX_PATH_LEN];
+    char in_path[GZ_PATH_MAX], out_path[GZ_PATH_MAX];
     uint64_t total_in = 0, total_out = 0;
     uint32_t mtime = 0;      /* to write when compressing, read when decompressing */
     const char *name = NULL; /* to write when compressing */
@@ -267,7 +227,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     FILE *in, *out;
     int have_ist, rc;
 
-    if (derive_paths(path, opt, in_path, out_path, sizeof(in_path)) != 0) {
+    if (gzng_path_derive(path, opt->decompress, in_path, out_path, sizeof(in_path)) != 0) {
         fail(path);
         return GZ_ERROR;
     }

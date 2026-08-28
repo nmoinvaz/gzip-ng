@@ -13,8 +13,6 @@
 #include "options.h"
 #include "process.h"
 
-#define MAX_PATH_LEN 4096
-
 /* The worse of two statuses, an error outranks a warning, which outranks success. */
 static int worse(int rc, int r) {
     return r == GZ_ERROR || (r == GZ_WARNING && rc == GZ_OK) ? r : rc;
@@ -31,7 +29,7 @@ static int run_file(const char *path, const gzng_options *opt, gzng_totals *tota
 
 /* Walk a directory for the files --recursive picks, the way gzip --recursive does. */
 static int run_dir(const char *path, const gzng_options *opt, gzng_totals *totals) {
-    char sub[MAX_PATH_LEN];
+    char sub[GZ_PATH_MAX];
     DIR *dir = opendir(path);
     struct dirent *e;
     /* Compression skips entries already suffixed, decompression and listing take only suffixed
