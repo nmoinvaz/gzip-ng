@@ -5,10 +5,10 @@
 #include "decoder.h"
 #include "util.h"
 
-void decoder_begin(decoder *d, zng_stream *strm, uint8_t *out, uint32_t block_size) {
-    d->strm = strm;
-    d->want_marker = 0;
-    d->accept_partial = 0;
+void decoder_begin(decoder *dec, zng_stream *strm, uint8_t *out, uint32_t block_size) {
+    dec->strm = strm;
+    dec->want_marker = 0;
+    dec->accept_partial = 0;
     zng_inflateReset(strm);
     strm->next_in = NULL;
     strm->avail_in = 0;
@@ -22,8 +22,8 @@ void decoder_begin(decoder *d, zng_stream *strm, uint8_t *out, uint32_t block_si
    invalid data. With accept_partial the input ends at a marker pair, which no chance pattern
    produces, so any clean output size ends the block and SEG_FULL comes back early. *used
    receives how much of this piece was consumed. */
-int32_t decoder_feed(decoder *d, const uint8_t *in, size_t in_len, size_t *used) {
-    zng_stream *strm = d->strm;
+int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *used) {
+    zng_stream *strm = dec->strm;
     size_t left = in_len, start_in = (size_t)strm->total_in;
     int32_t err, boundary, aligned, exhausted, status;
 
@@ -51,7 +51,7 @@ int32_t decoder_feed(decoder *d, const uint8_t *in, size_t in_len, size_t *used)
         aligned = (strm->data_type & 7) == 0;    /* and landed on a byte boundary */
         exhausted = (strm->avail_in == 0 && left == 0);
 
-        if (d->want_marker) {
+        if (dec->want_marker) {
             /* Only empty stored blocks may follow a full block, one from a full flush, two when
                pigz --independent wrote it. */
             if (!boundary && strm->avail_in == 0) {
@@ -75,7 +75,7 @@ int32_t decoder_feed(decoder *d, const uint8_t *in, size_t in_len, size_t *used)
             if (exhausted) {
                 /* A segment that ends at a marker pair is a block at whatever size it produced,
                    pairs do not occur by accident. Lone markers must land exactly on block_size. */
-                status = (d->accept_partial && boundary && aligned) ? SEG_FULL : SEG_SHORT;
+                status = (dec->accept_partial && boundary && aligned) ? SEG_FULL : SEG_SHORT;
                 break;
             }
             continue; /* more deflate blocks to go */
@@ -89,7 +89,7 @@ int32_t decoder_feed(decoder *d, const uint8_t *in, size_t in_len, size_t *used)
             status = aligned ? SEG_FULL : SEG_SHORT;
             break;
         }
-        d->want_marker = 1;
+        dec->want_marker = 1;
     }
     *used = (size_t)strm->total_in - start_in;
     return status;

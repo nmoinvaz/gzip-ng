@@ -435,16 +435,16 @@ static int32_t reader_block_status_error(gzblock_reader *r, int32_t status, int3
 /* A false marker split the block in first. Inflate it again from there on this thread, feeding the
    following pieces until the real block completes. */
 static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
-    decoder m;
+    decoder dec;
     const uint8_t *piece = first->in;
     size_t piece_len = first->in_len, used;
     int32_t last = first->last, pair = first->pair, status;
     slot_t *ps = first;
 
-    decoder_begin(&m, &r->repair.strm, r->repair.tmp, r->scan.block_size);
+    decoder_begin(&dec, &r->repair.strm, r->repair.tmp, r->scan.block_size);
     for (;;) {
-        m.accept_partial = pair;
-        status = decoder_feed(&m, piece, piece_len, &used);
+        dec.accept_partial = pair;
+        status = decoder_feed(&dec, piece, piece_len, &used);
         r->pipeline.next_emit++;
         if (status == SEG_SHORT) {
             if (ps != NULL)
