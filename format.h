@@ -29,9 +29,14 @@ typedef struct {
 /* Lay a member header into buf, at most FORMAT_HEADER_MAX bytes. Returns its length. */
 size_t format_header_build(uint8_t *buf, const format_header *hdr);
 
-/* Walk a member header, over any extra field, name, comment, and header crc it carries.
-   Returns its length, 0 if more bytes are needed, (size_t)-1 if this is not a gzip header. */
-size_t format_header_parse(const uint8_t *buf, size_t len);
+/* Whether buf starts with the gzip magic, which two bytes decide. */
+int format_is_gzip(const uint8_t *buf, size_t len);
+
+/* Walk a member header, over any extra field, name, comment, and header crc it carries. When
+   hdr is not NULL it receives the time and the stored name, the name pointing into buf, each as
+   soon as its bytes are in hand. Level and strategy are not recorded. Returns its length, 0 if
+   more bytes are needed, (size_t)-1 if this is not a gzip header. */
+size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr);
 
 /* The member trailer, crc32 of the uncompressed data and its length modulo 2^32, which is all
    gzip records however large the member was. */

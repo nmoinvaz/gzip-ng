@@ -595,7 +595,7 @@ static int reader_header(gzblock_reader *r) {
     for (;;) {
         if (reader_fill(r, want) != 0)
             return -1;
-        if (r->io.buf.len < 2 || buf_data(&r->io.buf)[0] != 0x1f || buf_data(&r->io.buf)[1] != 0x8b) {
+        if (!format_is_gzip(buf_data(&r->io.buf), r->io.buf.len)) {
             if (r->io.buf.len == 0 && r->io.eof)
                 r->io.state = READER_END;
             else if (r->io.members == 0)
@@ -604,7 +604,7 @@ static int reader_header(gzblock_reader *r) {
                 r->io.state = READER_END; /* trailing garbage after a member, ignored */
             return 0;
         }
-        hdr_len = format_header_parse(buf_data(&r->io.buf), r->io.buf.len);
+        hdr_len = format_header_parse(buf_data(&r->io.buf), r->io.buf.len, NULL);
         if (hdr_len == (size_t)-1)
             return reader_fail(r, Z_DATA_ERROR, "not in gzip format");
         if (hdr_len != 0)

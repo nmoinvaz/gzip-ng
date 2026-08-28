@@ -35,17 +35,25 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     return n;
 }
 
-size_t format_header_parse(const uint8_t *buf, size_t len) {
+int format_is_gzip(const uint8_t *buf, size_t len) {
+    return len >= 2 && buf[0] == 0x1f && buf[1] == 0x8b;
+}
+
+size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
     size_t pos = 10;
     uint8_t flags;
 
+    if (hdr != NULL)
+        memset(hdr, 0, sizeof(*hdr));
     if (len < 10)
         return 0;
-    if (buf[0] != 0x1f || buf[1] != 0x8b || buf[2] != 8)
+    if (!format_is_gzip(buf, len) || buf[2] != 8)
         return (size_t)-1;
     flags = buf[3];
     if (flags & 0xe0)
         return (size_t)-1;
+    if (hdr != NULL)
+        hdr->mtime = load_le32(buf + 4);
 
     if (flags & 4) { /* FEXTRA */
         size_t xlen, end;
@@ -59,10 +67,13 @@ size_t format_header_parse(const uint8_t *buf, size_t len) {
         pos = end;
     }
     if (flags & 8) { /* FNAME */
+        size_t start = pos;
         while (pos < len && buf[pos] != 0)
             pos++;
         if (pos >= len)
             return 0;
+        if (hdr != NULL)
+            hdr->name = (const char *)buf + start;
         pos++;
     }
     if (flags & 16) { /* FCOMMENT */

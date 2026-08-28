@@ -4,37 +4,25 @@
 
 #include "decompress.h"
 
+#include "format.h"
 #include "gzblock.h"
-#include "util.h"
-
-#include <string.h>
 
 int gzng_read_meta(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
     uint8_t buf[4096];
-    size_t got = fread(buf, 1, sizeof(buf), in), pos = 10;
+    size_t got = fread(buf, 1, sizeof(buf), in);
+    format_header hdr;
 
     *mtime = 0;
     if (name_len != 0)
         name[0] = 0;
-    if (fseek(in, 0, SEEK_SET) != 0)
+    if (fseek(in, 0, SEEK_SET) != 0 || !format_is_gzip(buf, got))
         return -1;
-    if (got < 10 || buf[0] != 0x1f || buf[1] != 0x8b || buf[2] != 8)
+    /* A header that outruns the buffer still yields the fields that fit in it. */
+    if (format_header_parse(buf, got, &hdr) == (size_t)-1)
         return -1;
-    *mtime = load_le32(buf + 4);
-    if (buf[3] & 4) { /* FEXTRA */
-        if (got < pos + 2)
-            return 0;
-        pos += 2 + load_le16(buf + pos);
-    }
-    if ((buf[3] & 8) && pos < got) { /* FNAME */
-        size_t i = 0;
-        while (pos + i < got && buf[pos + i] != 0 && i + 1 < name_len)
-            i++;
-        if (pos + i < got && buf[pos + i] == 0) {
-            memcpy(name, buf + pos, i);
-            name[i] = 0;
-        }
-    }
+    *mtime = hdr.mtime;
+    if (hdr.name != NULL && name_len != 0)
+        snprintf(name, name_len, "%s", hdr.name);
     return 0;
 }
 

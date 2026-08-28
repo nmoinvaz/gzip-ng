@@ -58,7 +58,7 @@ TEST(block_writer, header_is_an_ordinary_gzip_header) {
     auto data = sample_data(200000);
     auto packed = block_compress(data, 64 * 1024, 1);
     /* Nothing marks the member as cut into blocks, a reader finds that out by looking. */
-    EXPECT_EQ(10u, format_header_parse(packed.data(), packed.size()));
+    EXPECT_EQ(10u, format_header_parse(packed.data(), packed.size(), nullptr));
     EXPECT_EQ(0, packed[3] & 4) << "no extra field";
 }
 
