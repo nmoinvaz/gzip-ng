@@ -26,8 +26,8 @@ struct gzblock_writer_s {
     /* A block that has to be flushed part way continues on the calling thread as one deflate
        stream, so a flush does not shorten it. Blocks end at block_size, or at a rolling hash hit
        when the writer is rsyncable. */
-    zng_stream iz;
-    int iz_init, inline_active;
+    zng_stream strm;
+    int strm_init, inline_active;
     size_t inline_fill; /* input bytes of the inline block so far */
     uint32_t inline_crc;
     uint8_t *obuf; /* IO_CHUNK of output space for the inline stream */
@@ -78,15 +78,15 @@ static int writer_inline_out(gzblock_writer *w, int flush) {
     int err;
     do {
         size_t have;
-        w->iz.next_out = w->obuf;
-        w->iz.avail_out = IO_CHUNK;
-        err = zng_deflate(&w->iz, flush);
+        w->strm.next_out = w->obuf;
+        w->strm.avail_out = IO_CHUNK;
+        err = zng_deflate(&w->strm, flush);
         if (err == Z_STREAM_ERROR)
             return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
-        have = IO_CHUNK - w->iz.avail_out;
+        have = IO_CHUNK - w->strm.avail_out;
         if (have != 0 && writer_out(w, w->obuf, have) != 0)
             return -1;
-    } while (w->iz.avail_out == 0);
+    } while (w->strm.avail_out == 0);
     return 0;
 }
 
@@ -104,8 +104,8 @@ static int writer_inline_end(gzblock_writer *w, int last) {
 
 /* Feed len bytes, at most what is left of the block, to the inline stream. */
 static int writer_inline_feed(gzblock_writer *w, const uint8_t *buf, size_t len) {
-    w->iz.next_in = (z_const uint8_t *)buf;
-    w->iz.avail_in = (uint32_t)len;
+    w->strm.next_in = (z_const uint8_t *)buf;
+    w->strm.avail_in = (uint32_t)len;
     w->inline_crc = (uint32_t)zng_crc32_z(w->inline_crc, buf, len);
     w->inline_fill += len;
     if (writer_inline_out(w, Z_NO_FLUSH) != 0)
@@ -132,14 +132,14 @@ static int writer_inline_begin(gzblock_writer *w) {
         return -1;
     if (writer_header(w) != 0)
         return -1;
-    if (!w->iz_init) {
-        memset(&w->iz, 0, sizeof(w->iz));
-        if (zng_deflateInit2(&w->iz, w->level, Z_DEFLATED, -MAX_WBITS, 8, w->strategy) != Z_OK)
+    if (!w->strm_init) {
+        memset(&w->strm, 0, sizeof(w->strm));
+        if (zng_deflateInit2(&w->strm, w->level, Z_DEFLATED, -MAX_WBITS, 8, w->strategy) != Z_OK)
             return writer_fail(w, Z_MEM_ERROR, "out of memory");
-        w->iz_init = 1;
+        w->strm_init = 1;
     } else {
-        zng_deflateReset(&w->iz);
-        zng_deflateParams(&w->iz, w->level, w->strategy);
+        zng_deflateReset(&w->strm);
+        zng_deflateParams(&w->strm, w->level, w->strategy);
     }
     w->inline_active = 1;
     w->inline_fill = 0;
@@ -337,10 +337,10 @@ int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
         int err;
         for (;;) {
             size_t have;
-            w->iz.next_out = w->obuf;
-            w->iz.avail_out = IO_CHUNK;
-            err = zng_deflateParams(&w->iz, level, strategy);
-            have = IO_CHUNK - w->iz.avail_out;
+            w->strm.next_out = w->obuf;
+            w->strm.avail_out = IO_CHUNK;
+            err = zng_deflateParams(&w->strm, level, strategy);
+            have = IO_CHUNK - w->strm.avail_out;
             if (have != 0 && writer_out(w, w->obuf, have) != 0)
                 return -1;
             if (err != Z_BUF_ERROR)
@@ -404,8 +404,8 @@ void gzblock_writer_close(gzblock_writer *w) {
     if (w == NULL)
         return;
     pipeline_free(&w->pipeline);
-    if (w->iz_init)
-        zng_deflateEnd(&w->iz);
+    if (w->strm_init)
+        zng_deflateEnd(&w->strm);
     free(w->obuf);
     free(w);
 }

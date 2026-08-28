@@ -78,20 +78,20 @@ done:
 #define RSYNC_SPAN 4096
 
 /* Push one span of input through deflate and write everything it produces. */
-static int deflate_span(zng_stream *z, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int flush) {
+static int deflate_span(zng_stream *strm, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int flush) {
     int err;
 
-    z->next_in = (z_const uint8_t *)in;
-    z->avail_in = (uint32_t)len;
+    strm->next_in = (z_const uint8_t *)in;
+    strm->avail_in = (uint32_t)len;
     do {
-        z->next_out = obuf;
-        z->avail_out = CHUNK;
-        err = zng_deflate(z, flush);
+        strm->next_out = obuf;
+        strm->avail_out = CHUNK;
+        err = zng_deflate(strm, flush);
         if (err != Z_OK && err != Z_STREAM_END && err != Z_BUF_ERROR)
             return -1;
-        if (fwrite(obuf, 1, CHUNK - z->avail_out, out) != CHUNK - z->avail_out)
+        if (fwrite(obuf, 1, CHUNK - strm->avail_out, out) != CHUNK - strm->avail_out)
             return -1;
-    } while (z->avail_in != 0 || z->avail_out == 0);
+    } while (strm->avail_in != 0 || strm->avail_out == 0);
     return 0;
 }
 
@@ -126,7 +126,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
         return block_compress_stream(in, out, &blocked, mtime, name, in_len, out_len);
     }
 
-    zng_stream z;
+    zng_stream strm;
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
     uint8_t *ibuf = bufs, *obuf = bufs ? bufs + CHUNK : NULL;
     uint32_t hash = 0, mask = rolling_mask(RSYNC_SPAN);
@@ -134,8 +134,8 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
 
     if (bufs == NULL)
         return -1;
-    memset(&z, 0, sizeof(z));
-    if (zng_deflateInit2(&z, opt->level, Z_DEFLATED, MAX_WBITS + 16, 8, opt->strategy) != Z_OK) {
+    memset(&strm, 0, sizeof(strm));
+    if (zng_deflateInit2(&strm, opt->level, Z_DEFLATED, MAX_WBITS + 16, 8, opt->strategy) != Z_OK) {
         free(bufs);
         return -1;
     }
@@ -145,7 +145,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     head.time = mtime;
     head.name = (uint8_t *)(uintptr_t)name;
     head.os = OS_CODE;
-    zng_deflateSetHeader(&z, &head);
+    zng_deflateSetHeader(&strm, &head);
     for (;;) {
         size_t have = fread(ibuf, 1, CHUNK, in), pos = 0;
         int final;
@@ -164,7 +164,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
                 flush = Z_FINISH;
             else if (sync)
                 flush = Z_SYNC_FLUSH;
-            if (deflate_span(&z, out, obuf, ibuf + pos - span, span, flush) != 0)
+            if (deflate_span(&strm, out, obuf, ibuf + pos - span, span, flush) != 0)
                 goto done;
         } while (pos < have);
         if (final)
@@ -173,10 +173,10 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     rc = 0;
 done:
     if (in_len != NULL)
-        *in_len = (uint64_t)z.total_in;
+        *in_len = (uint64_t)strm.total_in;
     if (out_len != NULL)
-        *out_len = (uint64_t)z.total_out;
-    zng_deflateEnd(&z);
+        *out_len = (uint64_t)strm.total_out;
+    zng_deflateEnd(&strm);
     free(bufs);
     return rc;
 }

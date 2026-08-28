@@ -41,9 +41,9 @@ int pool_default_threads(void) {
 static unsigned __stdcall worker(void *arg) {
     pool_t *pool = (pool_t *)arg;
     struct pool_threads *th = pool->th;
-    zng_stream z;
+    zng_stream strm;
 
-    if (pool->codec.init(pool, &z) != Z_OK)
+    if (pool->codec.init(pool, &strm) != Z_OK)
         return 0;
     for (;;) {
         slot_t *slot;
@@ -59,14 +59,14 @@ static unsigned __stdcall worker(void *arg) {
         slot->state = SLOT_CLAIMED;
         LeaveCriticalSection(&th->mu);
 
-        pool->codec.run(pool, &z, slot);
+        pool->codec.run(pool, &strm, slot);
 
         EnterCriticalSection(&th->mu);
         slot->state = SLOT_DONE;
         WakeAllConditionVariable(&th->done_cv);
         LeaveCriticalSection(&th->mu);
     }
-    pool->codec.end(pool, &z);
+    pool->codec.end(pool, &strm);
     return 0;
 }
 

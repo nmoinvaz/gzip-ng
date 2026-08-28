@@ -40,9 +40,9 @@ struct pool_s;
 /* The codec the pool drives, handed in before pool_start(), one persistent stream per worker
    running one slot at a time. */
 typedef struct {
-    int (*init)(struct pool_s *pool, zng_stream *z);
-    void (*end)(struct pool_s *pool, zng_stream *z);
-    void (*run)(struct pool_s *pool, zng_stream *z, slot_t *slot);
+    int (*init)(struct pool_s *pool, zng_stream *strm);
+    void (*end)(struct pool_s *pool, zng_stream *strm);
+    void (*run)(struct pool_s *pool, zng_stream *strm, slot_t *slot);
 } pool_codec;
 
 typedef struct pool_s {
@@ -56,7 +56,7 @@ typedef struct pool_s {
     slot_t **queue; /* filled slots in fill order, at most nring */
     size_t qhead, qtail;
     int abort;
-    zng_stream z;            /* stream for working slots on the calling thread */
+    zng_stream strm;         /* stream for working slots on the calling thread */
     int inline_run;          /* no worker threads, slots are worked on demand */
     struct pool_threads *th; /* workers, mutex, and the two condition variables */
 } pool_t;

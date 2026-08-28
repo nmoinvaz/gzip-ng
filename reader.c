@@ -29,9 +29,9 @@ typedef struct {
 } reader_io;
 
 typedef struct {
-    zng_stream z; /* plain inflate */
-    int z_init;
-    uint8_t *obuf; /* IO_CHUNK, output of z, or bytes passed through */
+    zng_stream strm; /* plain inflate */
+    int strm_init;
+    uint8_t *obuf; /* IO_CHUNK, output of strm, or bytes passed through */
 } reader_inflate;
 
 typedef struct {
@@ -49,9 +49,9 @@ typedef struct {
 } reader_scan;
 
 typedef struct {
-    zng_stream z; /* for repairing false splits on this thread */
+    zng_stream strm; /* for repairing false splits on this thread */
     size_t tmp_cap;
-    int z_init;
+    int strm_init;
     uint8_t *tmp; /* repaired and final blocks, block_size until one needs more */
 } reader_repair_state;
 
@@ -102,13 +102,13 @@ static void reader_handout(gzblock_reader *r, const uint8_t *p, size_t n, slot_t
 
 /* Plain inflate of a member, starting with whatever is in buf. */
 static int reader_start_stream(gzblock_reader *r) {
-    if (!r->stream.z_init) {
-        memset(&r->stream.z, 0, sizeof(r->stream.z));
-        if (zng_inflateInit2(&r->stream.z, MAX_WBITS + 16) != Z_OK)
+    if (!r->stream.strm_init) {
+        memset(&r->stream.strm, 0, sizeof(r->stream.strm));
+        if (zng_inflateInit2(&r->stream.strm, MAX_WBITS + 16) != Z_OK)
             return reader_oom(r);
-        r->stream.z_init = 1;
+        r->stream.strm_init = 1;
     } else {
-        zng_inflateReset(&r->stream.z);
+        zng_inflateReset(&r->stream.strm);
     }
     r->io.state = READER_STREAM;
     return 0;
@@ -125,15 +125,16 @@ static int reader_stream(gzblock_reader *r) {
             return reader_fail(r, Z_BUF_ERROR, "unexpected end of file");
     }
     feed = clamp_u32(r->io.buf.len);
-    r->stream.z.next_in = (z_const uint8_t *)buf_data(&r->io.buf);
-    r->stream.z.avail_in = (uint32_t)feed;
-    r->stream.z.next_out = r->stream.obuf;
-    r->stream.z.avail_out = IO_CHUNK;
-    err = zng_inflate(&r->stream.z, Z_NO_FLUSH);
-    buf_drop(&r->io.buf, feed - r->stream.z.avail_in);
+    r->stream.strm.next_in = (z_const uint8_t *)buf_data(&r->io.buf);
+    r->stream.strm.avail_in = (uint32_t)feed;
+    r->stream.strm.next_out = r->stream.obuf;
+    r->stream.strm.avail_out = IO_CHUNK;
+    err = zng_inflate(&r->stream.strm, Z_NO_FLUSH);
+    buf_drop(&r->io.buf, feed - r->stream.strm.avail_in);
     if (err != Z_OK && err != Z_STREAM_END)
-        return reader_fail(r, Z_DATA_ERROR, "inflate failed: %s", r->stream.z.msg ? r->stream.z.msg : "data error");
-    reader_handout(r, r->stream.obuf, IO_CHUNK - r->stream.z.avail_out, NULL);
+        return reader_fail(r, Z_DATA_ERROR, "inflate failed: %s",
+                           r->stream.strm.msg ? r->stream.strm.msg : "data error");
+    reader_handout(r, r->stream.obuf, IO_CHUNK - r->stream.strm.avail_out, NULL);
     if (err == Z_STREAM_END) {
         r->io.members++;
         r->io.state = READER_HEADER;
@@ -287,11 +288,11 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
                 return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
         }
     }
-    if (!r->repair.z_init) {
-        memset(&r->repair.z, 0, sizeof(r->repair.z));
-        if (zng_inflateInit2(&r->repair.z, -MAX_WBITS) != Z_OK)
+    if (!r->repair.strm_init) {
+        memset(&r->repair.strm, 0, sizeof(r->repair.strm));
+        if (zng_inflateInit2(&r->repair.strm, -MAX_WBITS) != Z_OK)
             return reader_oom(r);
-        r->repair.z_init = 1;
+        r->repair.strm_init = 1;
     }
     r->scan.paired = paired;
     r->scan.scanned = 0;
@@ -413,7 +414,7 @@ static void reader_block_out(gzblock_reader *r, const uint8_t *out, size_t out_l
 }
 
 static void reader_repair_out(gzblock_reader *r) {
-    size_t out_len = (size_t)r->repair.z.total_out;
+    size_t out_len = (size_t)r->repair.strm.total_out;
     uint32_t crc = (uint32_t)zng_crc32_z(0, r->repair.tmp, out_len);
 
     reader_block_out(r, r->repair.tmp, out_len, crc, NULL);
@@ -440,7 +441,7 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
     int last = first->last, pair = first->pair, status;
     slot_t *ps = first;
 
-    blockdec_begin(&m, &r->repair.z, r->repair.tmp, r->scan.block_size);
+    blockdec_begin(&m, &r->repair.strm, r->repair.tmp, r->scan.block_size);
     for (;;) {
         m.accept_partial = pair;
         status = blockdec_feed(&m, piece, piece_len, &used);
@@ -747,10 +748,10 @@ void gzblock_reader_close(gzblock_reader *r) {
     if (r == NULL)
         return;
     pipeline_free(&r->pipeline);
-    if (r->stream.z_init)
-        zng_inflateEnd(&r->stream.z);
-    if (r->repair.z_init)
-        zng_inflateEnd(&r->repair.z);
+    if (r->stream.strm_init)
+        zng_inflateEnd(&r->stream.strm);
+    if (r->repair.strm_init)
+        zng_inflateEnd(&r->repair.strm);
     free(r->repair.tmp);
     free(r->stream.obuf);
     free(r->scan.seg.p);

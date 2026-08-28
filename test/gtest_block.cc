@@ -41,16 +41,16 @@ std::vector<uint8_t> block_compress(const std::vector<uint8_t> &data, uint32_t b
 
 std::vector<uint8_t> whole_inflate(const std::vector<uint8_t> &packed, size_t expect) {
     std::vector<uint8_t> out(expect + 64);
-    zng_stream z;
-    memset(&z, 0, sizeof(z));
-    EXPECT_EQ(Z_OK, zng_inflateInit2(&z, MAX_WBITS + 16));
-    z.next_in = packed.data();
-    z.avail_in = static_cast<uint32_t>(packed.size());
-    z.next_out = out.data();
-    z.avail_out = static_cast<uint32_t>(out.size());
-    EXPECT_EQ(Z_STREAM_END, zng_inflate(&z, Z_FINISH));
-    out.resize(z.total_out);
-    zng_inflateEnd(&z);
+    zng_stream strm;
+    memset(&strm, 0, sizeof(strm));
+    EXPECT_EQ(Z_OK, zng_inflateInit2(&strm, MAX_WBITS + 16));
+    strm.next_in = packed.data();
+    strm.avail_in = static_cast<uint32_t>(packed.size());
+    strm.next_out = out.data();
+    strm.avail_out = static_cast<uint32_t>(out.size());
+    EXPECT_EQ(Z_STREAM_END, zng_inflate(&strm, Z_FINISH));
+    out.resize(strm.total_out);
+    zng_inflateEnd(&strm);
     return out;
 }
 
@@ -149,16 +149,16 @@ TEST(block_reader, zero_copy_handout) {
 TEST(block_reader, plain_gzip_streams_through) {
     auto data = sample_data(400000);
     std::vector<uint8_t> packed(zng_compressBound(data.size()) + 32);
-    zng_stream z;
-    memset(&z, 0, sizeof(z));
-    ASSERT_EQ(Z_OK, zng_deflateInit2(&z, 6, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY));
-    z.next_in = data.data();
-    z.avail_in = static_cast<uint32_t>(data.size());
-    z.next_out = packed.data();
-    z.avail_out = static_cast<uint32_t>(packed.size());
-    ASSERT_EQ(Z_STREAM_END, zng_deflate(&z, Z_FINISH));
-    packed.resize(z.total_out);
-    zng_deflateEnd(&z);
+    zng_stream strm;
+    memset(&strm, 0, sizeof(strm));
+    ASSERT_EQ(Z_OK, zng_deflateInit2(&strm, 6, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY));
+    strm.next_in = data.data();
+    strm.avail_in = static_cast<uint32_t>(data.size());
+    strm.next_out = packed.data();
+    strm.avail_out = static_cast<uint32_t>(packed.size());
+    ASSERT_EQ(Z_STREAM_END, zng_deflate(&strm, Z_FINISH));
+    packed.resize(strm.total_out);
+    zng_deflateEnd(&strm);
     EXPECT_EQ(data, block_read(packed, 0));
 }
 

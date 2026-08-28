@@ -28,9 +28,9 @@ typedef struct {
 } pipeline_t;
 
 /* The deflate and inflate codec, which the reader and writer hand to their pool. */
-int gzblock_codec_init(pool_t *pool, zng_stream *z);
-void gzblock_codec_end(pool_t *pool, zng_stream *z);
-void gzblock_codec_run(pool_t *pool, zng_stream *z, slot_t *slot);
+int gzblock_codec_init(pool_t *pool, zng_stream *strm);
+void gzblock_codec_end(pool_t *pool, zng_stream *strm);
+void gzblock_codec_run(pool_t *pool, zng_stream *strm, slot_t *slot);
 
 static inline void pipeline_bind_codec(pipeline_t *pipeline) {
     pipeline->pool.codec.init = gzblock_codec_init;

@@ -35,9 +35,9 @@ int pool_default_threads(void) {
 static void *worker(void *arg) {
     pool_t *pool = (pool_t *)arg;
     struct pool_threads *th = pool->th;
-    zng_stream z;
+    zng_stream strm;
 
-    if (pool->codec.init(pool, &z) != Z_OK)
+    if (pool->codec.init(pool, &strm) != Z_OK)
         return NULL;
     for (;;) {
         slot_t *slot;
@@ -53,14 +53,14 @@ static void *worker(void *arg) {
         slot->state = SLOT_CLAIMED;
         pthread_mutex_unlock(&th->mu);
 
-        pool->codec.run(pool, &z, slot);
+        pool->codec.run(pool, &strm, slot);
 
         pthread_mutex_lock(&th->mu);
         slot->state = SLOT_DONE;
         pthread_cond_broadcast(&th->done_cv);
         pthread_mutex_unlock(&th->mu);
     }
-    pool->codec.end(pool, &z);
+    pool->codec.end(pool, &strm);
     return NULL;
 }
 

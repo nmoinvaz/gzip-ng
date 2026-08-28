@@ -43,16 +43,16 @@ TEST(compress, stream_roundtrips_through_inflate) {
     fclose(out);
 
     std::vector<uint8_t> restored(data.size() + 64);
-    zng_stream z;
-    memset(&z, 0, sizeof(z));
-    ASSERT_EQ(Z_OK, zng_inflateInit2(&z, MAX_WBITS + 16));
-    z.next_in = packed.data();
-    z.avail_in = static_cast<uint32_t>(packed.size());
-    z.next_out = restored.data();
-    z.avail_out = static_cast<uint32_t>(restored.size());
-    ASSERT_EQ(Z_STREAM_END, zng_inflate(&z, Z_FINISH));
-    restored.resize(z.total_out);
-    zng_inflateEnd(&z);
+    zng_stream strm;
+    memset(&strm, 0, sizeof(strm));
+    ASSERT_EQ(Z_OK, zng_inflateInit2(&strm, MAX_WBITS + 16));
+    strm.next_in = packed.data();
+    strm.avail_in = static_cast<uint32_t>(packed.size());
+    strm.next_out = restored.data();
+    strm.avail_out = static_cast<uint32_t>(restored.size());
+    ASSERT_EQ(Z_STREAM_END, zng_inflate(&strm, Z_FINISH));
+    restored.resize(strm.total_out);
+    zng_inflateEnd(&strm);
     EXPECT_EQ(data, restored);
 }
 
