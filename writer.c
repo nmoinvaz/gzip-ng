@@ -335,21 +335,19 @@ int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
         return -1;
     if (w->inline_active) {
         int err;
-        {
-            for (;;) {
-                size_t have;
-                w->iz.next_out = w->obuf;
-                w->iz.avail_out = IO_CHUNK;
-                err = zng_deflateParams(&w->iz, level, strategy);
-                have = IO_CHUNK - w->iz.avail_out;
-                if (have != 0 && writer_out(w, w->obuf, have) != 0)
-                    return -1;
-                if (err != Z_BUF_ERROR)
-                    break;
-            }
-            if (err != Z_OK)
-                return writer_fail(w, Z_STREAM_ERROR, "deflateParams failed");
+        for (;;) {
+            size_t have;
+            w->iz.next_out = w->obuf;
+            w->iz.avail_out = IO_CHUNK;
+            err = zng_deflateParams(&w->iz, level, strategy);
+            have = IO_CHUNK - w->iz.avail_out;
+            if (have != 0 && writer_out(w, w->obuf, have) != 0)
+                return -1;
+            if (err != Z_BUF_ERROR)
+                break;
         }
+        if (err != Z_OK)
+            return writer_fail(w, Z_STREAM_ERROR, "deflateParams failed");
     }
     w->level = level;
     w->strategy = strategy;
