@@ -23,8 +23,8 @@
 
 typedef struct {
     pool_t pool;
-    size_t next_produce;
-    size_t next_emit;
+    size_t next_submit;
+    size_t next_drain;
     int32_t started;
 } pipeline_t;
 
@@ -41,11 +41,11 @@ static inline int32_t pipeline_start(pipeline_t *pipeline, int32_t nthreads, siz
 
 static inline void pipeline_submit(pipeline_t *pipeline, slot_t *slot) {
     pool_submit(&pipeline->pool, slot);
-    pipeline->next_produce++;
+    pipeline->next_submit++;
 }
 
 static inline int32_t pipeline_has_pending(const pipeline_t *pipeline) {
-    return pipeline->next_emit < pipeline->next_produce;
+    return pipeline->next_drain < pipeline->next_submit;
 }
 
 static inline slot_t *pipeline_wait(pipeline_t *pipeline, size_t index) {
@@ -55,7 +55,7 @@ static inline slot_t *pipeline_wait(pipeline_t *pipeline, size_t index) {
 }
 
 static inline void pipeline_reset(pipeline_t *pipeline) {
-    pipeline->next_produce = pipeline->next_emit = 0;
+    pipeline->next_submit = pipeline->next_drain = 0;
 }
 
 static inline void pipeline_free(pipeline_t *pipeline) {

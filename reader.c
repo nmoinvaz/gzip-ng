@@ -308,7 +308,7 @@ static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t b
 static int32_t reader_collect_pending(gzblock_reader *r, buf_t *dst) {
     size_t i;
 
-    for (i = r->pipeline.next_emit; i < r->pipeline.next_produce; i++) {
+    for (i = r->pipeline.next_drain; i < r->pipeline.next_submit; i++) {
         slot_t *slot = pipeline_wait(&r->pipeline, i);
 
         if (buf_append(dst, slot->in, slot->in_len) != 0)
@@ -341,7 +341,7 @@ static int32_t reader_fallback(gzblock_reader *r) {
 /* Keep the pool fed, cutting segments into free slots until the ring is full or the input is done. */
 static int32_t reader_produce(gzblock_reader *r) {
     while (!r->scan.cut_all) {
-        slot_t *slot = pool_slot(&r->pipeline.pool, r->pipeline.next_produce);
+        slot_t *slot = pool_slot(&r->pipeline.pool, r->pipeline.next_submit);
         buf_t swap;
         int32_t rc;
 
@@ -362,9 +362,9 @@ static int32_t reader_produce(gzblock_reader *r) {
                 r->scan.max_seg = MIN(r->scan.max_seg * 2, (size_t)GZBLOCK_MAX_BLOCK);
                 continue;
             }
-            if (r->pipeline.next_produce == 0 && r->pipeline.next_emit == 0)
+            if (r->pipeline.next_submit == 0 && r->pipeline.next_drain == 0)
                 return reader_fallback(r); /* no block structure at this size */
-            return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->pipeline.next_produce);
+            return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->pipeline.next_submit);
         }
         /* Swap buffers rather than copy, the slot keeps the segment and seg reuses the old one. */
         swap.p = slot->in;
@@ -444,15 +444,15 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
     for (;;) {
         dec.accept_partial = pair;
         status = decoder_feed(&dec, piece, piece_len, &used);
-        r->pipeline.next_emit++;
+        r->pipeline.next_drain++;
         if (status == SEG_SHORT) {
             if (ps != NULL)
                 pool_release(&r->pipeline.pool, ps);
             if (last)
-                return reader_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->pipeline.next_emit - 1);
+                return reader_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->pipeline.next_drain - 1);
             if (pipeline_has_pending(&r->pipeline)) {
                 /* The next piece is already in the ring, wait for its worker and take it from there. */
-                ps = pipeline_wait(&r->pipeline, r->pipeline.next_emit);
+                ps = pipeline_wait(&r->pipeline, r->pipeline.next_drain);
                 piece = ps->in;
                 piece_len = ps->in_len;
                 last = ps->last;
@@ -466,13 +466,13 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
                     return reader_fail(r, rc == READER_SEGMENT_DONE ? Z_BUF_ERROR : Z_DATA_ERROR,
                                        rc == READER_SEGMENT_DONE ? "unexpected end of file"
                                                                  : "block %zu is larger than the block size",
-                                       r->pipeline.next_emit);
+                                       r->pipeline.next_drain);
                 ps = NULL;
                 piece = r->scan.seg.p;
                 piece_len = r->scan.seg.len;
                 last = r->scan.seg_last;
                 pair = r->scan.seg_pair;
-                r->pipeline.next_produce++;
+                r->pipeline.next_submit++;
             }
             continue;
         }
@@ -488,7 +488,7 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
         }
         if (ps != NULL)
             pool_release(&r->pipeline.pool, ps);
-        return reader_block_status_error(r, status, last, r->pipeline.next_emit - 1);
+        return reader_block_status_error(r, status, last, r->pipeline.next_drain - 1);
     }
 }
 
@@ -498,10 +498,10 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
 
 /* Hand out the next block in order. */
 static int32_t reader_drain(gzblock_reader *r) {
-    slot_t *slot = pipeline_wait(&r->pipeline, r->pipeline.next_emit);
+    slot_t *slot = pipeline_wait(&r->pipeline, r->pipeline.next_drain);
 
     if (slot->status == SEG_FULL && slot->in_used == slot->in_len && !slot->last) {
-        r->pipeline.next_emit++;
+        r->pipeline.next_drain++;
         reader_block_out(r, slot->out, slot->out_len, slot->crc, slot);
         return 0;
     }
@@ -516,14 +516,14 @@ static int32_t reader_drain(gzblock_reader *r) {
         }
         memcpy(r->repair.tmp, slot->out, slot->out_len);
         reader_block_out(r, r->repair.tmp, slot->out_len, slot->crc, NULL);
-        r->pipeline.next_emit++;
+        r->pipeline.next_drain++;
         return reader_member_end(r, slot->in + slot->in_used, slot->in_len - slot->in_used, slot);
     }
-    if (slot->status == SEG_OVERFLOW && r->pipeline.next_emit == 0)
+    if (slot->status == SEG_OVERFLOW && r->pipeline.next_drain == 0)
         return reader_fallback(r);
     if (slot->status == SEG_SHORT && !slot->last)
         return reader_repair(r, slot);
-    return reader_block_status_error(r, slot->status, slot->last, r->pipeline.next_emit);
+    return reader_block_status_error(r, slot->status, slot->last, r->pipeline.next_drain);
 }
 
 static int32_t reader_blocks(gzblock_reader *r) {

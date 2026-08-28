@@ -169,7 +169,7 @@ static int32_t writer_inline_migrate(gzblock_writer *w) {
 /* Take the next free slot to fill, draining finished ones to make room. */
 static int32_t writer_acquire(gzblock_writer *w) {
     slot_t *slot;
-    while ((slot = pool_slot(&w->pipeline.pool, w->pipeline.next_produce))->state != SLOT_FREE) {
+    while ((slot = pool_slot(&w->pipeline.pool, w->pipeline.next_submit))->state != SLOT_FREE) {
         if (writer_drain(w) != 0)
             return -1;
     }
@@ -188,7 +188,7 @@ static void writer_submit(gzblock_writer *w, int32_t last) {
 
 /* Write out the next compressed block in order. */
 static int32_t writer_drain(gzblock_writer *w) {
-    slot_t *slot = pipeline_wait(&w->pipeline, w->pipeline.next_emit);
+    slot_t *slot = pipeline_wait(&w->pipeline, w->pipeline.next_drain);
     if (slot->status != 0)
         return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
     if (writer_header(w) != 0 || writer_out(w, slot->out, slot->out_len) != 0)
@@ -196,7 +196,7 @@ static int32_t writer_drain(gzblock_writer *w) {
     w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
     w->total_in += slot->in_len;
     pool_release(&w->pipeline.pool, slot);
-    w->pipeline.next_emit++;
+    w->pipeline.next_drain++;
     return 0;
 }
 
