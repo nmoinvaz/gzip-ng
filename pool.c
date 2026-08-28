@@ -16,30 +16,30 @@ slot_t *pool_slot(pool_t *pool, size_t i) {
     return &pool->ring[i % pool->nring];
 }
 
-/* Allocate the ring, nthreads * 4 slots of in_cap + out_cap bytes, within RING_BYTES. */
-int pool_alloc(pool_t *pool, int nthreads, size_t in_cap, size_t out_cap) {
+/* Allocate the ring, nthreads * 4 slots of in_size + out_size bytes, within RING_BYTES. */
+int pool_alloc(pool_t *pool, int nthreads, size_t in_size, size_t out_size) {
     size_t i;
 #ifdef GZBLOCK_THREADS
     pool->nring = nthreads <= 1 ? 1 : (size_t)nthreads * 4;
-    while (pool->nring > 2 && (unsigned long long)pool->nring * (in_cap + out_cap) > RING_BYTES)
+    while (pool->nring > 2 && (unsigned long long)pool->nring * (in_size + out_size) > RING_BYTES)
         pool->nring /= 2;
 #else
     (void)nthreads;
     pool->nring = 1;
 #endif
-    pool->out_cap = out_cap;
+    pool->out_size = out_size;
     pool->ring = (slot_t *)calloc(pool->nring, sizeof(slot_t));
     pool->queue = (slot_t **)calloc(pool->nring, sizeof(slot_t *));
     if (pool->ring == NULL || pool->queue == NULL)
         return -1;
     for (i = 0; i < pool->nring; i++) {
-        pool->ring[i].out = (uint8_t *)malloc(out_cap);
-        pool->ring[i].out_cap = out_cap;
+        pool->ring[i].out = (uint8_t *)malloc(out_size);
+        pool->ring[i].out_size = out_size;
         if (pool->ring[i].out == NULL)
             return -1;
-        if (in_cap != 0) {
-            pool->ring[i].in = (uint8_t *)malloc(in_cap);
-            pool->ring[i].in_cap = in_cap;
+        if (in_size != 0) {
+            pool->ring[i].in = (uint8_t *)malloc(in_size);
+            pool->ring[i].in_size = in_size;
             if (pool->ring[i].in == NULL)
                 return -1;
         }

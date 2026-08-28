@@ -23,11 +23,11 @@ enum { POOL_INFLATE, POOL_DEFLATE };
 
 typedef struct {
     uint8_t *in; /* input block or compressed segment, owned by the slot */
-    size_t in_len, in_cap;
+    size_t in_len, in_size;
     int last; /* final piece of the input */
     int pair; /* the segment ends with a marker pair, a boundary in its own right */
     uint8_t *out;
-    size_t out_cap;      /* grows past block_size for pair-terminated and final segments */
+    size_t out_size;     /* grows past block_size for pair-terminated and final segments */
     int level, strategy; /* deflate settings for this block */
     int status;          /* SEG_* for inflate, 0 or -1 for deflate */
     size_t out_len, in_used;
@@ -50,7 +50,7 @@ typedef struct pool_s {
     int mode; /* POOL_INFLATE or POOL_DEFLATE */
     uint32_t block_size;
     int level, strategy; /* deflate settings */
-    size_t out_cap;      /* bytes in each slot's out buffer */
+    size_t out_size;     /* bytes in each slot's out buffer */
     slot_t *ring;
     size_t nring;
     slot_t **queue; /* filled slots in fill order, at most nring */
@@ -64,7 +64,7 @@ typedef struct pool_s {
 int pool_default_threads(void);
 
 slot_t *pool_slot(pool_t *pool, size_t i);
-int pool_alloc(pool_t *pool, int nthreads, size_t in_cap, size_t out_cap);
+int pool_alloc(pool_t *pool, int nthreads, size_t in_size, size_t out_size);
 void pool_free(pool_t *pool);
 int pool_start(pool_t *pool, int nthreads);
 void pool_stop(pool_t *pool);

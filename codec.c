@@ -10,27 +10,27 @@ static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
     int status;
 
     /* Strict blocks must fill exactly block_size, so a reused larger buffer is capped for them. */
-    blockdec_begin(&d, strm, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_cap : block_size);
+    blockdec_begin(&d, strm, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_size : block_size);
     d.accept_partial = slot->pair;
     for (;;) {
         status = blockdec_feed(&d, slot->in + offset, slot->in_len - offset, &used);
         offset += used;
         /* Pair-terminated and final segments may hold several coalesced chunks, so their output
            grows on demand. Their validity never rested on the size, growing stays safe. */
-        if (status == SEG_OVERFLOW && (slot->pair || slot->last) && slot->out_cap < GZBLOCK_MAX_BLOCK) {
-            size_t ncap = slot->out_cap * 2;
+        if (status == SEG_OVERFLOW && (slot->pair || slot->last) && slot->out_size < GZBLOCK_MAX_BLOCK) {
+            size_t size = slot->out_size * 2;
             uint8_t *grown;
-            if (ncap > GZBLOCK_MAX_BLOCK)
-                ncap = GZBLOCK_MAX_BLOCK;
-            grown = (uint8_t *)realloc(slot->out, ncap);
+            if (size > GZBLOCK_MAX_BLOCK)
+                size = GZBLOCK_MAX_BLOCK;
+            grown = (uint8_t *)realloc(slot->out, size);
             if (grown == NULL) {
                 status = SEG_ERROR;
                 break;
             }
             strm->next_out = grown + (size_t)strm->total_out;
-            strm->avail_out += (uint32_t)(ncap - slot->out_cap);
+            strm->avail_out += (uint32_t)(size - slot->out_size);
             slot->out = grown;
-            slot->out_cap = ncap;
+            slot->out_size = size;
             d.want_marker = 0; /* output is no longer full, back to normal decoding */
             continue;
         }
@@ -44,18 +44,18 @@ static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
 
 /* Deflate one block on a fresh raw stream. A full flush ends it on a byte boundary with the empty
    stored block marker, the last block ends the deflate stream instead. */
-static void run_block(zng_stream *strm, slot_t *slot, size_t out_cap) {
+static void run_block(zng_stream *strm, slot_t *slot, size_t out_size) {
     int err;
     zng_deflateReset(strm);
     zng_deflateParams(strm, slot->level, slot->strategy);
     strm->next_in = (z_const uint8_t *)slot->in;
     strm->avail_in = (uint32_t)slot->in_len;
     strm->next_out = slot->out;
-    strm->avail_out = (uint32_t)out_cap;
+    strm->avail_out = (uint32_t)out_size;
     err = zng_deflate(strm, slot->last ? Z_FINISH : Z_SYNC_FLUSH);
     if (!slot->last && err == Z_OK)
         err = zng_deflate(strm, Z_FULL_FLUSH); /* the second marker makes it a boundary */
-    slot->out_len = out_cap - strm->avail_out;
+    slot->out_len = out_size - strm->avail_out;
     slot->in_used = slot->in_len - strm->avail_in;
     slot->status = slot->last ? (err == Z_STREAM_END ? 0 : -1)
                               : (err == Z_OK && strm->avail_in == 0 && strm->avail_out != 0 ? 0 : -1);
@@ -78,7 +78,7 @@ void gzblock_codec_end(pool_t *pool, zng_stream *strm) {
 
 void gzblock_codec_run(pool_t *pool, zng_stream *strm, slot_t *slot) {
     if (pool->mode == POOL_DEFLATE)
-        run_block(strm, slot, pool->out_cap);
+        run_block(strm, slot, pool->out_size);
     else
         run_segment(strm, slot, pool->block_size);
 }

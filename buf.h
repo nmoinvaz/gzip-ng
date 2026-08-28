@@ -18,7 +18,7 @@ typedef size_t (*buf_read_fn)(void *ctx, uint8_t *buf, size_t len);
    bytes move only when the space behind the offset is needed for a refill or an append. */
 typedef struct {
     uint8_t *p;
-    size_t len, capacity;
+    size_t len, size;
     size_t offset;
 } buf_t;
 

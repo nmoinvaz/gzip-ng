@@ -38,8 +38,8 @@ static inline void pipeline_bind_codec(pipeline_t *pipeline) {
     pipeline->pool.codec.run = gzblock_codec_run;
 }
 
-static inline int pipeline_start(pipeline_t *pipeline, int nthreads, size_t in_cap, size_t out_cap) {
-    if (pool_alloc(&pipeline->pool, nthreads, in_cap, out_cap) != 0)
+static inline int pipeline_start(pipeline_t *pipeline, int nthreads, size_t in_size, size_t out_size) {
+    if (pool_alloc(&pipeline->pool, nthreads, in_size, out_size) != 0)
         return -1;
     if (pool_start(&pipeline->pool, nthreads) != 0) {
         pool_free(&pipeline->pool);

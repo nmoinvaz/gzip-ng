@@ -16,18 +16,18 @@ static void buf_compact(buf_t *buf) {
 }
 
 int buf_reserve(buf_t *buf, size_t need) {
-    if (buf->offset + need > buf->capacity)
+    if (buf->offset + need > buf->size)
         buf_compact(buf);
-    if (need > buf->capacity) {
-        size_t ncap = buf->capacity ? buf->capacity : (1 << 16);
+    if (need > buf->size) {
+        size_t size = buf->size ? buf->size : (1 << 16);
         uint8_t *grown;
-        while (ncap < need)
-            ncap *= 2;
-        grown = (uint8_t *)realloc(buf->p, ncap);
+        while (size < need)
+            size *= 2;
+        grown = (uint8_t *)realloc(buf->p, size);
         if (grown == NULL)
             return -1;
         buf->p = grown;
-        buf->capacity = ncap;
+        buf->size = size;
     }
     return 0;
 }
@@ -52,13 +52,13 @@ void buf_drop(buf_t *buf, size_t n) {
 int buf_fill(buf_t *buf, buf_read_fn read, void *ctx, size_t want, int *eof) {
     while (buf->len < want && !*eof) {
         size_t got;
-        if (buf->offset + buf->len == buf->capacity) {
+        if (buf->offset + buf->len == buf->size) {
             if (buf->offset != 0)
                 buf_compact(buf);
-            else if (buf_reserve(buf, buf->capacity + 1) != 0)
+            else if (buf_reserve(buf, buf->size + 1) != 0)
                 return -1;
         }
-        got = read(ctx, buf_data(buf) + buf->len, buf->capacity - buf->offset - buf->len);
+        got = read(ctx, buf_data(buf) + buf->len, buf->size - buf->offset - buf->len);
         if (got == (size_t)-1)
             return -1;
         if (got == 0) {

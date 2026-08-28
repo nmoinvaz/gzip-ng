@@ -204,21 +204,21 @@ static int writer_drain(gzblock_writer *w) {
  * The writer object
  */
 
-/* Size the ring for blocks of up to cap input bytes and start the workers. Called again when
+/* Size the ring for blocks of up to in_size input bytes and start the workers. Called again when
    --rsyncable widens the limit, which happens before any block is submitted. */
-static int writer_pool_size(gzblock_writer *w, size_t cap) {
+static int writer_pool_size(gzblock_writer *w, size_t in_size) {
     zng_stream bound;
-    size_t out_cap;
+    size_t out_size;
 
     memset(&bound, 0, sizeof(bound));
     if (zng_deflateInit2(&bound, w->level, Z_DEFLATED, -MAX_WBITS, 8, w->strategy) != Z_OK)
         return -1;
-    out_cap = zng_deflateBound(&bound, cap) + 32;
+    out_size = zng_deflateBound(&bound, in_size) + 32;
     zng_deflateEnd(&bound);
 
     if (w->pipeline.pool_up)
         pipeline_free(&w->pipeline);
-    if (pipeline_start(&w->pipeline, w->nthreads, cap, out_cap) != 0)
+    if (pipeline_start(&w->pipeline, w->nthreads, in_size, out_size) != 0)
         return -1;
     return 0;
 }

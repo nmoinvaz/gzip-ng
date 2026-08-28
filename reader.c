@@ -50,7 +50,7 @@ typedef struct {
 
 typedef struct {
     zng_stream strm; /* for repairing false splits on this thread */
-    size_t tmp_cap;
+    size_t tmp_size;
     int strm_init;
     uint8_t *tmp; /* repaired and final blocks, block_size until one needs more */
 } reader_repair_state;
@@ -277,7 +277,7 @@ static int reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block
         r->pipeline.pool.block_size = block_size;
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */
         r->repair.tmp = (uint8_t *)malloc(block_size);
-        r->repair.tmp_cap = block_size;
+        r->repair.tmp_size = block_size;
         if (r->repair.tmp == NULL)
             return reader_oom(r);
         {
@@ -369,14 +369,14 @@ static int reader_produce(gzblock_reader *r) {
         }
         /* Swap buffers rather than copy, the slot keeps the segment and seg reuses the old one. */
         swap.p = slot->in;
-        swap.capacity = slot->in_cap;
+        swap.size = slot->in_size;
         slot->in = r->scan.seg.p;
-        slot->in_cap = r->scan.seg.capacity;
+        slot->in_size = r->scan.seg.size;
         slot->in_len = r->scan.seg.len;
         slot->last = r->scan.seg_last;
         slot->pair = r->scan.seg_pair;
         r->scan.seg.p = swap.p;
-        r->scan.seg.capacity = swap.capacity;
+        r->scan.seg.size = swap.size;
         r->scan.seg.len = 0;
         pipeline_submit(&r->pipeline, slot);
     }
@@ -508,12 +508,12 @@ static int reader_drain(gzblock_reader *r) {
     }
     if (slot->status == SEG_END) {
         /* The final block. Its output goes out from tmp so the slot can be recycled right away. */
-        if (slot->out_len > r->repair.tmp_cap) {
+        if (slot->out_len > r->repair.tmp_size) {
             uint8_t *grown = (uint8_t *)realloc(r->repair.tmp, slot->out_len);
             if (grown == NULL)
                 return reader_oom(r);
             r->repair.tmp = grown;
-            r->repair.tmp_cap = slot->out_len;
+            r->repair.tmp_size = slot->out_len;
         }
         memcpy(r->repair.tmp, slot->out, slot->out_len);
         reader_block_out(r, r->repair.tmp, slot->out_len, slot->crc, NULL);
