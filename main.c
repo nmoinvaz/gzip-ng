@@ -14,9 +14,9 @@
 
 #include "compress.h"
 #include "decompress.h"
+#include "format.h"
 #include "gzblock.h"
 #include "gzfile.h"
-#include "list.h"
 #include "options.h"
 
 /* ===========================================================================
@@ -202,6 +202,100 @@ static int test_file(const char *path, const gzng_options *opt) {
 }
 
 /* ===========================================================================
+ * Listing
+ */
+
+typedef struct {
+    uint64_t compressed;
+    uint64_t uncompressed;
+    int files;
+} list_totals;
+
+/* The header row of the listing. */
+static void list_begin(const gzng_options *opt) {
+    if (opt->verbose)
+        fprintf(stdout, "method  crc      date   time  ");
+    fprintf(stdout, "  compressed uncompressed  ratio uncompressed_name\n");
+}
+
+static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime, uint64_t compressed, uint64_t uncompressed,
+                const char *name) {
+    double pct = uncompressed != 0 ? 100.0 * (1.0 - (double)compressed / (double)uncompressed) : 0.0;
+
+    if (opt->verbose) {
+        char when[24] = "";
+        time_t t = (time_t)mtime;
+        if (mtime != 0)
+            strftime(when, sizeof(when), "%b %e %H:%M", localtime(&t));
+        fprintf(stdout, "defla %08x %-12s  ", crc, when);
+    }
+    fprintf(stdout, "%12llu %12llu %5.1f%% %s\n", (unsigned long long)compressed, (unsigned long long)uncompressed, pct,
+            name);
+}
+
+/* List one compressed file the way gzip --list does, accumulating totals. */
+static int list_file(const char *path, const gzng_options *opt, list_totals *totals) {
+    char stored[GZBLOCK_NAME_MAX], name_buf[4096];
+    const char *name = path;
+    uint8_t tail[GZ_TRAILER];
+    uint32_t mtime = 0, crc = 0;
+    uint64_t uncompressed;
+    struct stat st;
+    size_t n;
+    FILE *in;
+
+    errno = 0;
+    in = fopen(path, "rb");
+    if (in == NULL || fstat(fileno(in), &st) != 0 || st.st_size < 18) {
+        fprintf(stderr, "gzip-ng: %s: %s\n", path, errno ? strerror(errno) : "too short to be gzip");
+        if (in != NULL)
+            fclose(in);
+        return GZ_ERROR;
+    }
+    if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
+        fprintf(stderr, "gzip-ng: %s: not in gzip format\n", path);
+        fclose(in);
+        return GZ_ERROR;
+    }
+    /* The trailer of the last member, the same 32-bit size gzip reports. */
+    fseek(in, -GZ_TRAILER, SEEK_END);
+    n = fread(tail, 1, sizeof(tail), in);
+    fclose(in);
+    if (n != 8)
+        return GZ_ERROR;
+    {
+        uint32_t size32;
+        format_trailer_parse(tail, &crc, &size32);
+        uncompressed = size32;
+    }
+
+    if (opt->name_mode == 1 && stored[0] != 0) {
+        name = stored;
+    } else {
+        size_t len = strlen(path);
+        if (gzng_path_has_suffix(path) && len - GZ_SUFFIX_LEN < sizeof(name_buf)) {
+            memcpy(name_buf, path, len - GZ_SUFFIX_LEN);
+            name_buf[len - GZ_SUFFIX_LEN] = 0;
+            name = name_buf;
+        }
+    }
+    row(opt, crc, mtime, (uint64_t)st.st_size, uncompressed, name);
+    totals->compressed += (uint64_t)st.st_size;
+    totals->uncompressed += uncompressed;
+    totals->files++;
+    return GZ_OK;
+}
+
+/* The totals row, once more than one file was listed. */
+static void list_end(const gzng_options *opt, const list_totals *totals) {
+    if (totals->files < 2)
+        return;
+    if (opt->verbose)
+        fprintf(stdout, "                              ");
+    row(opt, 0, 0, totals->compressed, totals->uncompressed, "(totals)");
+}
+
+/* ===========================================================================
  * Processing a file
  */
 
@@ -300,16 +394,16 @@ static int worse(int rc, int r) {
 }
 
 /* One file, listed with --list, checked with --test, or processed. */
-static int run_file(const char *path, const gzng_options *opt, gzng_totals *totals) {
+static int run_file(const char *path, const gzng_options *opt, list_totals *totals) {
     if (opt->list)
-        return gzng_list_file(path, opt, totals);
+        return list_file(path, opt, totals);
     if (opt->test_mode)
         return test_file(path, opt);
     return process_file(path, opt);
 }
 
 /* Walk a directory for the files --recursive picks, the way gzip --recursive does. */
-static int run_dir(const char *path, const gzng_options *opt, gzng_totals *totals) {
+static int run_dir(const char *path, const gzng_options *opt, list_totals *totals) {
     char sub[GZ_PATH_MAX];
     DIR *dir = opendir(path);
     struct dirent *e;
@@ -340,7 +434,7 @@ static int run_dir(const char *path, const gzng_options *opt, gzng_totals *total
 }
 
 /* One argument, a file, or a directory walked under --recursive and a warning without. */
-static int run_path(const char *path, const gzng_options *opt, gzng_totals *totals) {
+static int run_path(const char *path, const gzng_options *opt, list_totals *totals) {
     struct stat st;
 
     if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
@@ -355,7 +449,7 @@ static int run_path(const char *path, const gzng_options *opt, gzng_totals *tota
 
 int main(int argc, char **argv) {
     gzng_options opt;
-    gzng_totals totals = {0, 0, 0};
+    list_totals totals = {0, 0, 0};
     int nfiles = 0, rc = GZ_OK, ret;
 
     gzng_options_init(&opt);
@@ -373,12 +467,12 @@ int main(int argc, char **argv) {
         return process_stdio(&opt);
     }
     if (opt.list)
-        gzng_list_begin(&opt);
+        list_begin(&opt);
     for (int i = 1; i <= nfiles; i++) {
         int r = strcmp(argv[i], "-") == 0 && !opt.list ? process_stdio(&opt) : run_path(argv[i], &opt, &totals);
         rc = worse(rc, r);
     }
     if (opt.list)
-        gzng_list_end(&opt, &totals);
+        list_end(&opt, &totals);
     return rc;
 }

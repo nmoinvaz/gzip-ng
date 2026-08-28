@@ -47,8 +47,6 @@ add_library(gzng STATIC
     gzfile.c
     gzfile.h
     gzng.c
-    list.c
-    list.h
     rolling.c
     rolling.h
     options.c
