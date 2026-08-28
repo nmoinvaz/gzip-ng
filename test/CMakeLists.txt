@@ -28,6 +28,7 @@ endif()
 add_executable(gtest_gzng
     gtest_block.cc
     gtest_compress.cc
+    gtest_decompress.cc
     gtest_format.cc
     gtest_gzng.cc
     gtest_options.cc)
