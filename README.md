@@ -27,6 +27,7 @@ zlib-ng and Google Test are fetched automatically when not found.
 | GZNG_ENABLE_BENCHMARKS| Build the benchmarks using Google Benchmark                 | OFF     |
 | GZNG_THREADS          | Compress and decompress blocks on a thread pool             | ON      |
 | GZNG_SIMD             | Scan for block boundaries with NEON or SSE2                 | ON      |
+| GZNG_SANITIZER        | Build with a sanitizer, Address, Memory, Thread, or Undefined | None    |
 
 ## Usage
 
