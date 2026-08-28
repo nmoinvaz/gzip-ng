@@ -3,6 +3,7 @@
  */
 
 #include "gzblock_p.h"
+#include "pool_p.h"
 
 static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
     decoder dec;
@@ -62,21 +63,21 @@ static void run_block(zng_stream *strm, slot_t *slot, size_t out_size) {
     slot->crc = (uint32_t)zng_crc32_z(0, slot->in, slot->in_len);
 }
 
-int32_t gzblock_codec_init(pool_t *pool, zng_stream *strm) {
+int32_t codec_init(pool_t *pool, zng_stream *strm) {
     memset(strm, 0, sizeof(*strm));
     if (pool->mode == POOL_DEFLATE)
         return zng_deflateInit2(strm, pool->level, Z_DEFLATED, -MAX_WBITS, 8, pool->strategy);
     return zng_inflateInit2(strm, -MAX_WBITS);
 }
 
-void gzblock_codec_end(pool_t *pool, zng_stream *strm) {
+void codec_end(pool_t *pool, zng_stream *strm) {
     if (pool->mode == POOL_DEFLATE)
         zng_deflateEnd(strm);
     else
         zng_inflateEnd(strm);
 }
 
-void gzblock_codec_run(pool_t *pool, zng_stream *strm, slot_t *slot) {
+void codec_run(pool_t *pool, zng_stream *strm, slot_t *slot) {
     if (pool->mode == POOL_DEFLATE)
         run_block(strm, slot, pool->out_size);
     else

@@ -43,7 +43,7 @@ static unsigned __stdcall worker(void *arg) {
     struct pool_threads *thread = pool->thread;
     zng_stream strm;
 
-    if (pool->codec.init(pool, &strm) != Z_OK)
+    if (codec_init(pool, &strm) != Z_OK)
         return 0;
     for (;;) {
         slot_t *slot;
@@ -59,14 +59,14 @@ static unsigned __stdcall worker(void *arg) {
         slot->state = SLOT_CLAIMED;
         LeaveCriticalSection(&thread->mutex);
 
-        pool->codec.run(pool, &strm, slot);
+        codec_run(pool, &strm, slot);
 
         EnterCriticalSection(&thread->mutex);
         slot->state = SLOT_DONE;
         WakeAllConditionVariable(&thread->done_cv);
         LeaveCriticalSection(&thread->mutex);
     }
-    pool->codec.end(pool, &strm);
+    codec_end(pool, &strm);
     return 0;
 }
 

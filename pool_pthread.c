@@ -37,7 +37,7 @@ static void *worker(void *arg) {
     struct pool_threads *thread = pool->thread;
     zng_stream strm;
 
-    if (pool->codec.init(pool, &strm) != Z_OK)
+    if (codec_init(pool, &strm) != Z_OK)
         return NULL;
     for (;;) {
         slot_t *slot;
@@ -53,14 +53,14 @@ static void *worker(void *arg) {
         slot->state = SLOT_CLAIMED;
         pthread_mutex_unlock(&thread->mutex);
 
-        pool->codec.run(pool, &strm, slot);
+        codec_run(pool, &strm, slot);
 
         pthread_mutex_lock(&thread->mutex);
         slot->state = SLOT_DONE;
         pthread_cond_broadcast(&thread->done_cv);
         pthread_mutex_unlock(&thread->mutex);
     }
-    pool->codec.end(pool, &strm);
+    codec_end(pool, &strm);
     return NULL;
 }
 

@@ -67,16 +67,16 @@ void pool_free(pool_t *pool) {
 /* Without worker threads the slots are worked on demand by the calling thread. */
 int32_t pool_start_inline(pool_t *pool) {
     pool->inline_run = 1;
-    return pool->codec.init(pool, &pool->strm) == Z_OK ? 0 : -1;
+    return codec_init(pool, &pool->strm) == Z_OK ? 0 : -1;
 }
 
 void pool_stop_inline(pool_t *pool) {
-    pool->codec.end(pool, &pool->strm);
+    codec_end(pool, &pool->strm);
 }
 
 void pool_wait_inline(pool_t *pool, slot_t *slot) {
     if (slot->state == SLOT_FILLED)
-        pool->codec.run(pool, &pool->strm, slot);
+        codec_run(pool, &pool->strm, slot);
     slot->state = SLOT_DONE;
 }
 

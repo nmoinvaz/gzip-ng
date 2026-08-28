@@ -239,7 +239,6 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
     w->strategy = strategy;
     w->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
 
-    pipeline_bind_codec(&w->pipeline);
     w->pipeline.pool.mode = POOL_DEFLATE;
     w->pipeline.pool.block_size = block_size;
     w->pipeline.pool.level = level;

@@ -35,18 +35,7 @@ typedef struct {
     int32_t state;
 } slot_t;
 
-struct pool_s;
-
-/* The codec the pool drives, handed in before pool_start(), one persistent stream per worker
-   running one slot at a time. */
-typedef struct {
-    int32_t (*init)(struct pool_s *pool, zng_stream *strm);
-    void (*end)(struct pool_s *pool, zng_stream *strm);
-    void (*run)(struct pool_s *pool, zng_stream *strm, slot_t *slot);
-} pool_codec;
-
 typedef struct pool_s {
-    pool_codec codec;
     int32_t mode; /* POOL_INFLATE or POOL_DEFLATE */
     uint32_t block_size;
     int32_t level, strategy; /* deflate settings */
