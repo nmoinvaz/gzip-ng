@@ -217,7 +217,7 @@ static void sync_dir(const char *out_path) {
  * Integrity testing
  */
 
-static int test_file(const char *path, const gzng_options *opt) {
+int gzng_test_file(const char *path, const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
     char stored[GZBLOCK_NAME_MAX];
     uint32_t mtime;
@@ -273,8 +273,6 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     FILE *in, *out;
     int have_ist, rc;
 
-    if (opt->test_mode)
-        return test_file(path, opt);
     if (derive_paths(path, opt, in_path, out_path, sizeof(in_path)) != 0) {
         fail(path);
         return 1;

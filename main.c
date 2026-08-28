@@ -19,9 +19,13 @@ static int worse(int rc, int r) {
     return r == 1 || (r == 2 && rc == 0) ? r : rc;
 }
 
-/* One file, listed with --list or processed. */
+/* One file, listed with --list, checked with --test, or processed. */
 static int run_file(const char *path, const gzng_options *opt, gzng_totals *totals) {
-    return opt->list ? gzng_list_file(path, opt, totals) : gzng_process_file(path, opt);
+    if (opt->list)
+        return gzng_list_file(path, opt, totals);
+    if (opt->test_mode)
+        return gzng_test_file(path, opt);
+    return gzng_process_file(path, opt);
 }
 
 /* Walk a directory for the files --recursive picks, the way gzip --recursive does. */

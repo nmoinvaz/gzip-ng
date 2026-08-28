@@ -20,6 +20,10 @@ int gzng_process_stdio(const gzng_options *opt);
    way. */
 int gzng_process_file(const char *path, const gzng_options *opt);
 
+/* Check one file's integrity without writing anything, the --test verdict. Returns 0, or 1 with
+   the error reported. */
+int gzng_test_file(const char *path, const gzng_options *opt);
+
 /* Whether path ends in the .gz suffix. */
 int gzng_path_has_suffix(const char *path);
 
