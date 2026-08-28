@@ -2,15 +2,76 @@
  * For conditions of distribution and use, see LICENSE.md
  */
 
+#include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "list.h"
 #include "options.h"
 #include "process.h"
 
+#define MAX_PATH_LEN 4096
+
+/* gzip's convention, 1 for errors beats 2 for warnings beats 0. */
+static int worse(int rc, int r) {
+    return r == 1 || (r == 2 && rc == 0) ? r : rc;
+}
+
+/* One file, listed with -l or processed. */
+static int run_file(const char *path, const gzng_options *opt, gzng_totals *totals) {
+    return opt->list ? gzng_list_file(path, opt, totals) : gzng_process_file(path, opt);
+}
+
+/* Walk a directory for the files -r picks, the way gzip -r does. */
+static int run_dir(const char *path, const gzng_options *opt, gzng_totals *totals) {
+    char sub[MAX_PATH_LEN];
+    DIR *dir = opendir(path);
+    struct dirent *e;
+    /* Compression skips entries already suffixed, decompression and listing take only suffixed
+       entries, the way gzip --recursive chooses files. */
+    int want_suffix = opt->decompress || opt->list;
+    int rc = 0;
+
+    if (dir == NULL) {
+        fprintf(stderr, "gzip-ng: %s: %s\n", path, strerror(errno));
+        return 1;
+    }
+    while ((e = readdir(dir)) != NULL) {
+        struct stat st;
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+            continue;
+        if (snprintf(sub, sizeof(sub), "%s/%s", path, e->d_name) >= (int)sizeof(sub))
+            continue;
+        if (lstat(sub, &st) != 0)
+            continue;
+        if (S_ISDIR(st.st_mode))
+            rc = worse(rc, run_dir(sub, opt, totals));
+        else if (S_ISREG(st.st_mode) && gzng_path_has_suffix(sub) == want_suffix)
+            rc = worse(rc, run_file(sub, opt, totals));
+    }
+    closedir(dir);
+    return rc;
+}
+
+/* One argument, a file, or a directory walked under -r and a warning without. */
+static int run_path(const char *path, const gzng_options *opt, gzng_totals *totals) {
+    struct stat st;
+
+    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+        if (opt->recursive)
+            return run_dir(path, opt, totals);
+        if (!opt->quiet)
+            fprintf(stderr, "gzip-ng: %s is a directory, ignored\n", path);
+        return 2;
+    }
+    return run_file(path, opt, totals);
+}
+
 int main(int argc, char **argv) {
     gzng_options opt;
+    gzng_totals totals = {0, 0, 0};
     int nfiles = 0, rc = 0, ret;
 
     gzng_options_init(&opt);
@@ -20,26 +81,20 @@ int main(int argc, char **argv) {
         return 0;
     if (ret < 0)
         return 1;
-    if (opt.list) {
-        gzng_totals totals = {0, 0, 0};
-        if (nfiles == 0) {
+    if (nfiles == 0) {
+        if (opt.list) {
             fprintf(stderr, "gzip-ng: -l needs file arguments\n");
             return 1;
         }
-        gzng_list_begin(&opt);
-        for (int i = 1; i <= nfiles; i++)
-            if (gzng_list_file(argv[i], &opt, &totals) != 0)
-                rc = 1;
-        gzng_list_end(&opt, &totals);
-        return rc;
-    }
-    if (nfiles == 0)
         return gzng_process_stdio(&opt);
-    for (int i = 1; i <= nfiles; i++) {
-        int r = strcmp(argv[i], "-") == 0 ? gzng_process_stdio(&opt) : gzng_process_path(argv[i], &opt);
-        /* gzip's convention, 1 for errors beats 2 for warnings beats 0 */
-        if (r == 1 || (r == 2 && rc == 0))
-            rc = r;
     }
+    if (opt.list)
+        gzng_list_begin(&opt);
+    for (int i = 1; i <= nfiles; i++) {
+        int r = strcmp(argv[i], "-") == 0 && !opt.list ? gzng_process_stdio(&opt) : run_path(argv[i], &opt, &totals);
+        rc = worse(rc, r);
+    }
+    if (opt.list)
+        gzng_list_end(&opt, &totals);
     return rc;
 }

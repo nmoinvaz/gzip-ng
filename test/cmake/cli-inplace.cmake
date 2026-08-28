@@ -200,3 +200,11 @@ endif()
 if(NOT rc3 EQUAL 2)
     message(FATAL_ERROR "-t on a directory without -r should warn, got ${rc3}")
 endif()
+
+# -l walks a directory under -r too, listing every suffixed file in it.
+execute_process(COMMAND ${EXE} -l -r ${WORKDIR}/ttree OUTPUT_VARIABLE rlisting RESULT_VARIABLE rc)
+string(FIND "${rlisting}" "ttree/one.txt" one_at)
+string(FIND "${rlisting}" "ttree/sub/two.txt" two_at)
+if(NOT rc EQUAL 0 OR one_at EQUAL -1 OR two_at EQUAL -1)
+    message(FATAL_ERROR "-l -r did not list the directory: ${rlisting}")
+endif()

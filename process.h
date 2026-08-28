@@ -16,9 +16,12 @@ extern "C" {
 /* Filter stdin to stdout. Returns 0, 1 on error, with the error reported. */
 int gzng_process_stdio(const gzng_options *opt);
 
-/* Process one path, a file or, with -r, a directory. Returns 0, 1 on error, 2 on a warning,
-   reported either way. */
-int gzng_process_path(const char *path, const gzng_options *opt);
+/* Process one file, never a directory. Returns 0, 1 on error, 2 on a warning, reported either
+   way. */
+int gzng_process_file(const char *path, const gzng_options *opt);
+
+/* Whether path ends in the .gz suffix. */
+int gzng_path_has_suffix(const char *path);
 
 #ifdef __cplusplus
 }

@@ -4,7 +4,6 @@
 
 #include "process.h"
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -111,7 +110,7 @@ int gzng_process_stdio(const gzng_options *opt) {
  * Input and output paths
  */
 
-static int has_suffix(const char *path) {
+int gzng_path_has_suffix(const char *path) {
     size_t n = strlen(path);
     return n > SUFFIX_LEN && strcmp(path + n - SUFFIX_LEN, SUFFIX) == 0;
 }
@@ -126,7 +125,7 @@ static int derive_paths(const char *path, const gzng_options *opt, char *in_path
     if (!opt->decompress) {
         snprintf(in_path, cap, "%s", path);
         snprintf(out_path, cap, "%s" SUFFIX, path);
-    } else if (has_suffix(path)) {
+    } else if (gzng_path_has_suffix(path)) {
         snprintf(in_path, cap, "%s", path);
         snprintf(out_path, cap, "%.*s", (int)(strlen(path) - SUFFIX_LEN), path);
     } else {
@@ -243,51 +242,6 @@ static int test_file(const char *path, const gzng_options *opt) {
 }
 
 /* ===========================================================================
- * Directory recursion
- */
-
-static int is_directory(const char *path) {
-    struct stat st;
-    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
-}
-
-/* Compression skips entries already suffixed, decompression takes only suffixed entries, the way
-   gzip -r chooses files. */
-static int process_dir(const char *path, const gzng_options *opt) {
-    char sub[MAX_PATH_LEN];
-    DIR *dir = opendir(path);
-    struct dirent *e;
-    int rc = 0, r = 0;
-
-    if (dir == NULL) {
-        fail(path);
-        return 1;
-    }
-    while ((e = readdir(dir)) != NULL) {
-        struct stat st;
-        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
-            continue;
-        if (snprintf(sub, sizeof(sub), "%s/%s", path, e->d_name) >= (int)sizeof(sub))
-            continue;
-        if (lstat(sub, &st) != 0)
-            continue;
-        if (S_ISDIR(st.st_mode))
-            r = process_dir(sub, opt);
-        else if (!S_ISREG(st.st_mode))
-            continue;
-        else if (opt->decompress ? !has_suffix(sub) : has_suffix(sub))
-            continue;
-        else
-            r = gzng_process_path(sub, opt);
-        /* Preserve processing errors over the less serious "already exists" result. */
-        if (r == 1 || (r == 2 && rc == 0))
-            rc = r;
-    }
-    closedir(dir);
-    return rc;
-}
-
-/* ===========================================================================
  * Processing a file
  */
 
@@ -308,7 +262,7 @@ static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_p
     return 0;
 }
 
-int gzng_process_path(const char *path, const gzng_options *opt) {
+int gzng_process_file(const char *path, const gzng_options *opt) {
     char in_path[MAX_PATH_LEN], out_path[MAX_PATH_LEN];
     uint64_t total_in = 0, total_out = 0;
     uint32_t store_mtime = 0, hdr_mtime = 0;
@@ -317,14 +271,6 @@ int gzng_process_path(const char *path, const gzng_options *opt) {
     FILE *in, *out;
     int have_ist, rc;
 
-    /* A directory is recognised before anything else, so that -t honours -r and reports a
-       directory the way the other modes do. */
-    if (is_directory(path)) {
-        if (opt->recursive)
-            return process_dir(path, opt);
-        warn(opt, "gzip-ng: %s is a directory, ignored\n", path);
-        return 2;
-    }
     if (opt->test_mode)
         return test_file(path, opt);
     if (derive_paths(path, opt, in_path, out_path, sizeof(in_path)) != 0) {
