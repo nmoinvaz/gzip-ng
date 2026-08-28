@@ -419,6 +419,14 @@ static void reader_repair_out(gzblock_reader *r) {
     reader_block_out(r, r->repair.tmp, out_len, crc, NULL);
 }
 
+static int reader_block_status_error(gzblock_reader *r, int status, int last, size_t index) {
+    if (status == SEG_FULL)
+        return reader_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR,
+                           last ? "unexpected end of file" : "block %zu has trailing data", index);
+    return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", index,
+                       blockdec_status_name(status));
+}
+
 /* ===========================================================================
  * False marker repair and fallback
  */
@@ -479,11 +487,7 @@ static int reader_repair(gzblock_reader *r, slot_t *first) {
         }
         if (ps != NULL)
             pool_release(&r->pipeline.pool, ps);
-        if (status == SEG_FULL)
-            return reader_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR,
-                               last ? "unexpected end of file" : "block %zu has trailing data", r->pipeline.next_emit - 1);
-        return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->pipeline.next_emit - 1,
-                           blockdec_status_name(status));
+        return reader_block_status_error(r, status, last, r->pipeline.next_emit - 1);
     }
 }
 
@@ -519,11 +523,7 @@ static int reader_drain(gzblock_reader *r) {
         return reader_fallback(r);
     if (slot->status == SEG_SHORT && !slot->last)
         return reader_repair(r, slot);
-    if (slot->status == SEG_FULL)
-        return reader_fail(r, slot->last ? Z_BUF_ERROR : Z_DATA_ERROR,
-                           slot->last ? "unexpected end of file" : "block %zu has trailing data", r->pipeline.next_emit);
-    return reader_fail(r, slot->status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", r->pipeline.next_emit,
-                       blockdec_status_name(slot->status));
+    return reader_block_status_error(r, slot->status, slot->last, r->pipeline.next_emit);
 }
 
 static int reader_blocks(gzblock_reader *r) {
