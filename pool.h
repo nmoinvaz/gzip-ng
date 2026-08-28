@@ -56,9 +56,9 @@ typedef struct pool_s {
     slot_t **queue; /* filled slots in fill order, at most nring */
     size_t qhead, qtail;
     int abort;
-    zng_stream strm;         /* stream for working slots on the calling thread */
-    int inline_run;          /* no worker threads, slots are worked on demand */
-    struct pool_threads *th; /* workers, mutex, and the two condition variables */
+    zng_stream strm;             /* stream for working slots on the calling thread */
+    int inline_run;              /* no worker threads, slots are worked on demand */
+    struct pool_threads *thread; /* workers, mutex, and the two condition variables */
 } pool_t;
 
 int pool_default_threads(void);
