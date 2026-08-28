@@ -94,6 +94,28 @@ build-bench/test/benchmarks/benchmark_gzng
 
 Comparing whole binaries is a different job, fork and exec noise belongs to tools built for it. `test/benchmarks/compare.sh [size-MB] [threads]` runs gzip-ng against the system gzip and pigz where installed, through hyperfine when available and a built-in best-of-3 timer otherwise.
 
+### Results
+
+Apple M5, 4 performance and 6 efficiency cores, macOS 26. The input is 512 MiB of mixed content, source trees, build output, and a word list, which `gzip -6` compresses 4.8 to 1. gzip-ng and minigzip are built on zlib-ng 2.3.3, pigz is 2.8 and gzip is 1.14. Level 6 throughout, hyperfine, mean of 3 runs after a warmup.
+
+| Compress | Wall | MiB/s | Output | Of input |
+|---|---|---|---|---|
+| `gzip-ng -p 10` | 0.39 s | 1330 | 111.9 MiB | 21.9% |
+| `pigz -p 10` | 1.02 s | 504 | 107.1 MiB | 20.9% |
+| `gzip-ng` | 2.44 s | 210 | 109.9 MiB | 21.5% |
+| `minigzip` | 2.47 s | 208 | 109.9 MiB | 21.5% |
+| `gzip -6` | 6.35 s | 81 | 107.3 MiB | 21.0% |
+
+| Decompress | Input | Wall | MiB/s |
+|---|---|---|---|
+| `gzip-ng -p 10` | its own block output | 0.07 s | 7570 |
+| `pigz` | its own output | 0.44 s | 1170 |
+| `gzip-ng` | plain gzip | 0.45 s | 1130 |
+| `minigzip` | plain gzip | 0.47 s | 1090 |
+| `gzip` | plain gzip | 1.06 s | 480 |
+
+Serial, gzip-ng matches minigzip, the same deflate under a gzip front end. Parallel, independent blocks cost 1.9% of output at the default block size against the plain stream, and the rest of the gap to pigz is the dictionary pigz carries from one block into the next, which is also why pigz cannot decompress in parallel and gzip-ng can.
+
 ## Project notes
 
 - Plan and progress: https://gist.github.com/nmoinvaz/4f88555bdf30d0d0850f062525a12738
