@@ -425,7 +425,7 @@ static int32_t reader_block_status_error(gzblock_reader *r, int32_t status, int3
         return reader_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR,
                            last ? "unexpected end of file" : "block %zu has trailing data", index);
     return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", index,
-                       blockdec_status_name(status));
+                       decoder_status_name(status));
 }
 
 /* ===========================================================================
@@ -435,16 +435,16 @@ static int32_t reader_block_status_error(gzblock_reader *r, int32_t status, int3
 /* A false marker split the block in first. Inflate it again from there on this thread, feeding the
    following pieces until the real block completes. */
 static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
-    block_dec m;
+    decoder m;
     const uint8_t *piece = first->in;
     size_t piece_len = first->in_len, used;
     int32_t last = first->last, pair = first->pair, status;
     slot_t *ps = first;
 
-    blockdec_begin(&m, &r->repair.strm, r->repair.tmp, r->scan.block_size);
+    decoder_begin(&m, &r->repair.strm, r->repair.tmp, r->scan.block_size);
     for (;;) {
         m.accept_partial = pair;
-        status = blockdec_feed(&m, piece, piece_len, &used);
+        status = decoder_feed(&m, piece, piece_len, &used);
         r->pipeline.next_emit++;
         if (status == SEG_SHORT) {
             if (ps != NULL)

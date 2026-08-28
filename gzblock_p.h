@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "blockdec.h"
+#include "decoder.h"
 #include "buf.h"
 #include "format.h"
 #include "gzblock.h"

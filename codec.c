@@ -5,15 +5,15 @@
 #include "gzblock_p.h"
 
 static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
-    block_dec d;
+    decoder d;
     size_t offset = 0, used;
     int32_t status;
 
     /* Strict blocks must fill exactly block_size, so a reused larger buffer is capped for them. */
-    blockdec_begin(&d, strm, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_size : block_size);
+    decoder_begin(&d, strm, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_size : block_size);
     d.accept_partial = slot->pair;
     for (;;) {
-        status = blockdec_feed(&d, slot->in + offset, slot->in_len - offset, &used);
+        status = decoder_feed(&d, slot->in + offset, slot->in_len - offset, &used);
         offset += used;
         /* Pair-terminated and final segments may hold several coalesced chunks, so their output
            grows on demand. Their validity never rested on the size, growing stays safe. */
