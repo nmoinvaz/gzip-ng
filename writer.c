@@ -14,8 +14,8 @@ struct gzblock_writer_s {
     uint32_t crc;
     size_t total_in;
     int hdr_written, finished, failed;
-    uint32_t meta_mtime;
-    char meta_name[GZBLOCK_NAME_MAX];
+    uint32_t mtime;
+    char name[GZBLOCK_NAME_MAX];
     int rsyncable; /* end blocks at rolling hash hits so edits stay local */
     uint32_t rhash, rmask;
     size_t rmax; /* a block is cut on size alone only here */
@@ -60,8 +60,8 @@ static int writer_header(gzblock_writer *w) {
     if (w->hdr_written)
         return 0;
     memset(&hdr, 0, sizeof(hdr));
-    hdr.mtime = w->meta_mtime;
-    hdr.name = w->meta_name[0] != 0 ? w->meta_name : NULL;
+    hdr.mtime = w->mtime;
+    hdr.name = w->name[0] != 0 ? w->name : NULL;
     hdr.level = w->level;
     hdr.strategy = w->strategy;
     n = format_header_build(buf, &hdr);
@@ -277,9 +277,9 @@ int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
 int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
-    w->meta_mtime = mtime;
+    w->mtime = mtime;
     if (name != NULL && strlen(name) < GZBLOCK_NAME_MAX)
-        memcpy(w->meta_name, name, strlen(name) + 1);
+        memcpy(w->name, name, strlen(name) + 1);
     return 0;
 }
 
