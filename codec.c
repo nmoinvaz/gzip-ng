@@ -18,14 +18,14 @@ static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
         offset += used;
         /* Pair-terminated and final segments may hold several coalesced chunks, so their output
            grows on demand. Their validity never rested on the size, growing stays safe. */
-        if (status == SEG_OVERFLOW && (slot->pair || slot->last) && slot->out_size < GZBLOCK_MAX_BLOCK) {
+        if (status == DECODER_SEGMENT_OVERFLOW && (slot->pair || slot->last) && slot->out_size < GZBLOCK_MAX_BLOCK) {
             size_t size = slot->out_size * 2;
             uint8_t *grown;
             if (size > GZBLOCK_MAX_BLOCK)
                 size = GZBLOCK_MAX_BLOCK;
             grown = (uint8_t *)realloc(slot->out, size);
             if (!grown) {
-                status = SEG_ERROR;
+                status = DECODER_SEGMENT_ERROR;
                 break;
             }
             strm->next_out = grown + (size_t)strm->total_out;

@@ -420,10 +420,10 @@ static void reader_repair_out(gzblock_reader *r) {
 }
 
 static int32_t reader_block_status_error(gzblock_reader *r, int32_t status, int32_t last, size_t index) {
-    if (status == SEG_FULL)
+    if (status == DECODER_SEGMENT_FULL)
         return reader_fail(r, last ? Z_BUF_ERROR : Z_DATA_ERROR,
                            last ? "unexpected end of file" : "block %zu has trailing data", index);
-    return reader_fail(r, status == SEG_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", index,
+    return reader_fail(r, status == DECODER_SEGMENT_SHORT ? Z_BUF_ERROR : Z_DATA_ERROR, "block %zu is %s", index,
                        decoder_status_name(status));
 }
 
@@ -445,7 +445,7 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
         dec.accept_partial = pair;
         status = decoder_feed(&dec, piece, piece_len, &used);
         pipeline_drained(&r->pipeline);
-        if (status == SEG_SHORT) {
+        if (status == DECODER_SEGMENT_SHORT) {
             if (ps)
                 pool_release(&r->pipeline.pool, ps);
             if (last)
@@ -476,11 +476,11 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
             }
             continue;
         }
-        if (status == SEG_END) {
+        if (status == DECODER_SEGMENT_END) {
             reader_repair_out(r);
             return reader_member_end(r, piece + used, piece_len - used, ps);
         }
-        if (status == SEG_FULL && used == piece_len && !last) {
+        if (status == DECODER_SEGMENT_FULL && used == piece_len && !last) {
             reader_repair_out(r);
             if (ps)
                 pool_release(&r->pipeline.pool, ps);
@@ -500,12 +500,12 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
 static int32_t reader_drain(gzblock_reader *r) {
     slot_t *slot = pipeline_wait(&r->pipeline, r->pipeline.next_drain);
 
-    if (slot->status == SEG_FULL && slot->in_used == slot->in_len && !slot->last) {
+    if (slot->status == DECODER_SEGMENT_FULL && slot->in_used == slot->in_len && !slot->last) {
         pipeline_drained(&r->pipeline);
         reader_block_out(r, slot->out, slot->out_len, slot->crc, slot);
         return 0;
     }
-    if (slot->status == SEG_END) {
+    if (slot->status == DECODER_SEGMENT_END) {
         /* The final block. Its output goes out from tmp so the slot can be recycled right away. */
         if (slot->out_len > r->repair.tmp_size) {
             uint8_t *grown = (uint8_t *)realloc(r->repair.tmp, slot->out_len);
@@ -519,9 +519,9 @@ static int32_t reader_drain(gzblock_reader *r) {
         pipeline_drained(&r->pipeline);
         return reader_member_end(r, slot->in + slot->in_used, slot->in_len - slot->in_used, slot);
     }
-    if (slot->status == SEG_OVERFLOW && r->pipeline.next_drain == 0)
+    if (slot->status == DECODER_SEGMENT_OVERFLOW && r->pipeline.next_drain == 0)
         return reader_fallback(r);
-    if (slot->status == SEG_SHORT && !slot->last)
+    if (slot->status == DECODER_SEGMENT_SHORT && !slot->last)
         return reader_repair(r, slot);
     return reader_block_status_error(r, slot->status, slot->last, r->pipeline.next_drain);
 }

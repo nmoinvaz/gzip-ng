@@ -16,11 +16,11 @@ void decoder_init(decoder *dec, zng_stream *strm, uint8_t *out, uint32_t block_s
     strm->avail_out = block_size;
 }
 
-/* Feed the next piece of a block. Returns SEG_SHORT when the block needs more input, SEG_FULL
-   once the block's output and its trailing marker are consumed, SEG_END when the deflate stream
-   ends, SEG_OVERFLOW when the block wants more than block_size bytes of output, or SEG_ERROR on
+/* Feed the next piece of a block. Returns DECODER_SEGMENT_SHORT when the block needs more input, DECODER_SEGMENT_FULL
+   once the block's output and its trailing marker are consumed, DECODER_SEGMENT_END when the deflate stream
+   ends, DECODER_SEGMENT_OVERFLOW when the block wants more than block_size bytes of output, or DECODER_SEGMENT_ERROR on
    invalid data. With accept_partial the input ends at a marker pair, which no chance pattern
-   produces, so any clean output size ends the block and SEG_FULL comes back early. *used
+   produces, so any clean output size ends the block and DECODER_SEGMENT_FULL comes back early. *used
    receives how much of this piece was consumed. */
 int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *used) {
     zng_stream *strm = dec->strm;
@@ -40,11 +40,11 @@ int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *use
         if (err == Z_OK && (strm->data_type & (64 | 128)) == (64 | 128))
             err = zng_inflate(strm, Z_BLOCK); /* past the final block, conclude the stream */
         if (err == Z_STREAM_END) {
-            status = SEG_END;
+            status = DECODER_SEGMENT_END;
             break;
         }
         if (err != Z_OK) {
-            status = SEG_ERROR;
+            status = DECODER_SEGMENT_ERROR;
             break;
         }
         boundary = (strm->data_type & 128) != 0; /* just finished a deflate block */
@@ -56,17 +56,17 @@ int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *use
                pigz --independent wrote it. */
             if (!boundary && strm->avail_in == 0) {
                 if (exhausted) {
-                    status = SEG_SHORT; /* the marker continues in the next piece */
+                    status = DECODER_SEGMENT_SHORT; /* the marker continues in the next piece */
                     break;
                 }
                 continue;
             }
             if (!(boundary && aligned)) {
-                status = SEG_OVERFLOW;
+                status = DECODER_SEGMENT_OVERFLOW;
                 break;
             }
             if (exhausted) {
-                status = SEG_FULL;
+                status = DECODER_SEGMENT_FULL;
                 break;
             }
             continue; /* another empty stored block */
@@ -75,18 +75,18 @@ int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *use
             if (exhausted) {
                 /* A segment that ends at a marker pair is a block at whatever size it produced,
                    pairs do not occur by accident. Lone markers must land exactly on block_size. */
-                status = (dec->accept_partial && boundary && aligned) ? SEG_FULL : SEG_SHORT;
+                status = (dec->accept_partial && boundary && aligned) ? DECODER_SEGMENT_FULL : DECODER_SEGMENT_SHORT;
                 break;
             }
             continue; /* more deflate blocks to go */
         }
         /* The output is full. */
         if (!boundary) {
-            status = exhausted ? SEG_SHORT : SEG_OVERFLOW;
+            status = exhausted ? DECODER_SEGMENT_SHORT : DECODER_SEGMENT_OVERFLOW;
             break;
         }
         if (exhausted) {
-            status = aligned ? SEG_FULL : SEG_SHORT;
+            status = aligned ? DECODER_SEGMENT_FULL : DECODER_SEGMENT_SHORT;
             break;
         }
         dec->want_marker = 1;
@@ -97,13 +97,13 @@ int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *use
 
 const char *decoder_status_name(int32_t status) {
     switch (status) {
-    case SEG_FULL:
+    case DECODER_SEGMENT_FULL:
         return "complete";
-    case SEG_END:
+    case DECODER_SEGMENT_END:
         return "end of stream";
-    case SEG_SHORT:
+    case DECODER_SEGMENT_SHORT:
         return "truncated";
-    case SEG_OVERFLOW:
+    case DECODER_SEGMENT_OVERFLOW:
         return "larger than the block size";
     default:
         return "corrupt";

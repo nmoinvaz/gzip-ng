@@ -15,7 +15,13 @@ extern "C" {
 #endif
 
 /* How one piece of a block ended, see decoder_feed(). */
-enum { SEG_FULL, SEG_END, SEG_SHORT, SEG_OVERFLOW, SEG_ERROR };
+enum {
+    DECODER_SEGMENT_FULL,
+    DECODER_SEGMENT_END,
+    DECODER_SEGMENT_SHORT,
+    DECODER_SEGMENT_OVERFLOW,
+    DECODER_SEGMENT_ERROR
+};
 
 /* Incremental decoder for one independent block, fed one piece of input at a time. */
 typedef struct {
