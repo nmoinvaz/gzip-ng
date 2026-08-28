@@ -12,9 +12,6 @@
 extern "C" {
 #endif
 
-/* Gzip exit statuses. */
-enum { GZ_OK = 0, GZ_ERROR = 1, GZ_WARNING = 2 };
-
 typedef struct {
     int decompress;      /* --decompress */
     int stdout_mode;     /* --stdout */

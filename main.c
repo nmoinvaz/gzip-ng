@@ -18,6 +18,9 @@
 #include "gzblock.h"
 #include "options.h"
 
+/* Gzip exit statuses. */
+enum { GZ_OK = 0, GZ_ERROR = 1, GZ_WARNING = 2 };
+
 /* ===========================================================================
  * Diagnostics
  */
