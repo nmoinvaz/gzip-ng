@@ -20,14 +20,14 @@ struct pool_threads {
     pthread_cond_t work_cv; /* a slot was queued, or abort */
     pthread_cond_t done_cv; /* a slot became done */
     pthread_t *threads;
-    int started;
+    int32_t started;
 };
 
-int pool_default_threads(void) {
+int32_t pool_default_threads(void) {
 #  ifdef _SC_NPROCESSORS_ONLN
     long n = sysconf(_SC_NPROCESSORS_ONLN);
     if (n > 0)
-        return (int)MIN(n, 64);
+        return (int32_t)MIN(n, 64);
 #  endif
     return 1;
 }
@@ -64,7 +64,7 @@ static void *worker(void *arg) {
     return NULL;
 }
 
-int pool_start(pool_t *pool, int nthreads) {
+int32_t pool_start(pool_t *pool, int32_t nthreads) {
     struct pool_threads *thread;
 
     if (nthreads <= 1)
@@ -103,7 +103,7 @@ int pool_start(pool_t *pool, int nthreads) {
 
 void pool_stop(pool_t *pool) {
     struct pool_threads *thread = pool->thread;
-    int i;
+    int32_t i;
 
     if (pool->inline_run) {
         pool_stop_inline(pool);

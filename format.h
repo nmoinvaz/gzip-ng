@@ -29,13 +29,13 @@ extern "C" {
 #endif
 
 /* Whether buf starts with the gzip magic, which two bytes decide. */
-int format_is_gzip(const uint8_t *buf, size_t len);
+int32_t format_is_gzip(const uint8_t *buf, size_t len);
 
 /* What a member header records. */
 typedef struct {
-    uint32_t mtime;      /* 0 stores no time */
-    const char *name;    /* NULL or empty stores no name */
-    int level, strategy; /* the extra flags byte reports how hard deflate worked */
+    uint32_t mtime;          /* 0 stores no time */
+    const char *name;        /* NULL or empty stores no name */
+    int32_t level, strategy; /* the extra flags byte reports how hard deflate worked */
 } format_header;
 
 /* Lay a member header into buf, at most FORMAT_HEADER_MAX bytes. Returns its length. */

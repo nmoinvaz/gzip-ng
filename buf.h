@@ -24,10 +24,10 @@ typedef struct {
 
 #define buf_data(buf) ((buf)->p + (buf)->offset)
 
-int buf_reserve(buf_t *buf, size_t need);
-int buf_append(buf_t *buf, const uint8_t *data, size_t n);
+int32_t buf_reserve(buf_t *buf, size_t need);
+int32_t buf_append(buf_t *buf, const uint8_t *data, size_t n);
 void buf_drop(buf_t *buf, size_t n);
-int buf_fill(buf_t *buf, buf_read_fn read, void *ctx, size_t want, int *eof);
+int32_t buf_fill(buf_t *buf, buf_read_fn read, void *ctx, size_t want, int32_t *eof);
 
 #ifdef __cplusplus
 }

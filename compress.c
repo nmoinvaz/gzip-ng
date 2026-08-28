@@ -27,13 +27,14 @@ static size_t file_write(void *ctx, const uint8_t *buf, size_t len) {
 }
 
 /* Compress through the block engine, independent blocks sealed with marker pairs. */
-static int block_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t block_size, int threads,
-                                 uint32_t mtime, const char *name, uint64_t *total_in, uint64_t *total_out) {
+static int32_t block_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strategy, uint32_t block_size,
+                                     int32_t threads, uint32_t mtime, const char *name, uint64_t *total_in,
+                                     uint64_t *total_out) {
     wsink sink = {out, 0};
     uint64_t total = 0;
     gzblock_writer *w = gzblock_writer_open(file_write, &sink, level, strategy, block_size, threads);
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
-    int rc = -1;
+    int32_t rc = -1;
 
     if (w == NULL || buf == NULL)
         goto done;
@@ -77,8 +78,8 @@ done:
 #define RSYNC_SPAN 4096
 
 /* Push one span of input through deflate and write everything it produces. */
-static int deflate_span(zng_stream *strm, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int flush) {
-    int err;
+static int32_t deflate_span(zng_stream *strm, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int32_t flush) {
+    int32_t err;
 
     strm->next_in = (z_const uint8_t *)in;
     strm->avail_in = (uint32_t)len;
@@ -96,7 +97,8 @@ static int deflate_span(zng_stream *strm, FILE *out, uint8_t *obuf, const uint8_
 
 /* How much of buf to feed next. Without --rsyncable that is all of it. With it the span ends
    at the next rolling hash hit, where *sync asks for a flush. */
-static size_t next_span(int rsyncable, uint32_t *hash, uint32_t mask, const uint8_t *buf, size_t len, int *sync) {
+static size_t next_span(int32_t rsyncable, uint32_t *hash, uint32_t mask, const uint8_t *buf, size_t len,
+                        int32_t *sync) {
     size_t hit;
 
     *sync = 0;
@@ -107,8 +109,9 @@ static size_t next_span(int rsyncable, uint32_t *hash, uint32_t mask, const uint
     return *sync ? hit + 1 : len;
 }
 
-int gzng_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t block_size, int threads, int rsyncable,
-                         uint32_t mtime, const char *name, uint64_t *total_in, uint64_t *total_out) {
+int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strategy, uint32_t block_size, int32_t threads,
+                             int32_t rsyncable, uint32_t mtime, const char *name, uint64_t *total_in,
+                             uint64_t *total_out) {
     zng_gz_header head;
 
     if (block_size != 0)
@@ -118,7 +121,7 @@ int gzng_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t 
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
     uint8_t *ibuf = bufs, *obuf = bufs ? bufs + CHUNK : NULL;
     uint32_t hash = 0, mask = rolling_mask(RSYNC_SPAN);
-    int rc = -1;
+    int32_t rc = -1;
 
     if (bufs == NULL)
         return -1;
@@ -136,16 +139,16 @@ int gzng_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t 
     zng_deflateSetHeader(&strm, &head);
     for (;;) {
         size_t have = fread(ibuf, 1, CHUNK, in), pos = 0;
-        int final;
+        int32_t final;
 
         if (ferror(in))
             goto done;
         final = have < CHUNK;
         /* An empty read still runs once, which is what emits Z_FINISH. */
         do {
-            int sync;
+            int32_t sync;
             size_t span = next_span(rsyncable, &hash, mask, ibuf + pos, have - pos, &sync);
-            int flush = Z_NO_FLUSH;
+            int32_t flush = Z_NO_FLUSH;
 
             pos += span;
             if (final && pos == have)

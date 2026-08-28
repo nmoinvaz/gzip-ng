@@ -24,15 +24,15 @@ enum { POOL_INFLATE, POOL_DEFLATE };
 typedef struct {
     uint8_t *in; /* input block or compressed segment, owned by the slot */
     size_t in_len, in_size;
-    int last; /* final piece of the input */
-    int pair; /* the segment ends with a marker pair, a boundary in its own right */
+    int32_t last; /* final piece of the input */
+    int32_t pair; /* the segment ends with a marker pair, a boundary in its own right */
     uint8_t *out;
-    size_t out_size;     /* grows past block_size for pair-terminated and final segments */
-    int level, strategy; /* deflate settings for this block */
-    int status;          /* SEG_* for inflate, 0 or -1 for deflate */
+    size_t out_size;         /* grows past block_size for pair-terminated and final segments */
+    int32_t level, strategy; /* deflate settings for this block */
+    int32_t status;          /* SEG_* for inflate, 0 or -1 for deflate */
     size_t out_len, in_used;
     uint32_t crc; /* crc32 of the uncompressed side */
-    int state;
+    int32_t state;
 } slot_t;
 
 struct pool_s;
@@ -40,33 +40,33 @@ struct pool_s;
 /* The codec the pool drives, handed in before pool_start(), one persistent stream per worker
    running one slot at a time. */
 typedef struct {
-    int (*init)(struct pool_s *pool, zng_stream *strm);
+    int32_t (*init)(struct pool_s *pool, zng_stream *strm);
     void (*end)(struct pool_s *pool, zng_stream *strm);
     void (*run)(struct pool_s *pool, zng_stream *strm, slot_t *slot);
 } pool_codec;
 
 typedef struct pool_s {
     pool_codec codec;
-    int mode; /* POOL_INFLATE or POOL_DEFLATE */
+    int32_t mode; /* POOL_INFLATE or POOL_DEFLATE */
     uint32_t block_size;
-    int level, strategy; /* deflate settings */
-    size_t out_size;     /* bytes in each slot's out buffer */
+    int32_t level, strategy; /* deflate settings */
+    size_t out_size;         /* bytes in each slot's out buffer */
     slot_t *ring;
     size_t nring;
     slot_t **queue; /* filled slots in fill order, at most nring */
     size_t queue_head, queue_tail;
-    int abort;
+    int32_t abort;
     zng_stream strm;             /* stream for working slots on the calling thread */
-    int inline_run;              /* no worker threads, slots are worked on demand */
+    int32_t inline_run;          /* no worker threads, slots are worked on demand */
     struct pool_threads *thread; /* workers, mutex, and the two condition variables */
 } pool_t;
 
-int pool_default_threads(void);
+int32_t pool_default_threads(void);
 
 slot_t *pool_slot(pool_t *pool, size_t i);
-int pool_alloc(pool_t *pool, int nthreads, size_t in_size, size_t out_size);
+int32_t pool_alloc(pool_t *pool, int32_t nthreads, size_t in_size, size_t out_size);
 void pool_free(pool_t *pool);
-int pool_start(pool_t *pool, int nthreads);
+int32_t pool_start(pool_t *pool, int32_t nthreads);
 void pool_stop(pool_t *pool);
 void pool_submit(pool_t *pool, slot_t *slot);
 void pool_wait(pool_t *pool, slot_t *slot);

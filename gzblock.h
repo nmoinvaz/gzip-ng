@@ -40,26 +40,26 @@ typedef size_t (*gzblock_write_fn)(void *ctx, const uint8_t *buf, size_t len);
    1 does the work on the calling thread. */
 typedef struct gzblock_writer_s gzblock_writer;
 
-gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy, uint32_t block_size,
-                                    int nthreads);
+gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t level, int32_t strategy,
+                                    uint32_t block_size, int32_t nthreads);
 /* End blocks at rolling hash hits after half fill, content-defined boundaries for rsync,
    before the first write. The reader needs nothing special, pairs already carry any size. */
-int gzblock_writer_rsyncable(gzblock_writer *w, int on);
+int32_t gzblock_writer_rsyncable(gzblock_writer *w, int32_t on);
 
 /* Record a modification time and file name for the header, before the first write. A name of
    FORMAT_NAME_MAX bytes or longer is left out. */
-int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name);
+int32_t gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name);
 /* 0, or -1 on error. */
-int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len);
+int32_t gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len);
 /* Settings for the blocks to come. */
-int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy);
+int32_t gzblock_writer_setparams(gzblock_writer *w, int32_t level, int32_t strategy);
 /* End the current block early and write everything out. */
-int gzblock_writer_flush(gzblock_writer *w);
+int32_t gzblock_writer_flush(gzblock_writer *w);
 /* Write the last block and the trailer. */
-int gzblock_writer_finish(gzblock_writer *w);
+int32_t gzblock_writer_finish(gzblock_writer *w);
 const char *gzblock_writer_error(const gzblock_writer *w);
 /* Z_ERRNO, Z_MEM_ERROR, and the rest. */
-int gzblock_writer_errcode(const gzblock_writer *w);
+int32_t gzblock_writer_errcode(const gzblock_writer *w);
 /* Free, without finishing if that has not happened. */
 void gzblock_writer_close(gzblock_writer *w);
 
@@ -72,15 +72,15 @@ void gzblock_writer_close(gzblock_writer *w);
 typedef struct gzblock_reader_s gzblock_reader;
 
 gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
-                                    uint32_t block_size, int nthreads);
+                                    uint32_t block_size, int32_t nthreads);
 /* 0, or -1 on error. */
-int gzblock_reader_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got);
+int32_t gzblock_reader_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got);
 /* Hand out the next piece of output without copying. *p and *n describe bytes owned by the reader,
    valid until the next read or next call, *n is 0 at the end of the data. 0, or -1 on error. */
-int gzblock_reader_next(gzblock_reader *r, const uint8_t **p, size_t *n);
+int32_t gzblock_reader_next(gzblock_reader *r, const uint8_t **p, size_t *n);
 const char *gzblock_reader_error(const gzblock_reader *r);
 /* Z_ERRNO, Z_DATA_ERROR, Z_BUF_ERROR, and the rest. */
-int gzblock_reader_errcode(const gzblock_reader *r);
+int32_t gzblock_reader_errcode(const gzblock_reader *r);
 void gzblock_reader_close(gzblock_reader *r);
 
 #ifdef __cplusplus

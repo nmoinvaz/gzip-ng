@@ -24,11 +24,11 @@
 typedef struct {
     pool_t pool;
     size_t next_produce, next_emit;
-    int pool_up;
+    int32_t pool_up;
 } pipeline_t;
 
 /* The deflate and inflate codec, which the reader and writer hand to their pool. */
-int gzblock_codec_init(pool_t *pool, zng_stream *strm);
+int32_t gzblock_codec_init(pool_t *pool, zng_stream *strm);
 void gzblock_codec_end(pool_t *pool, zng_stream *strm);
 void gzblock_codec_run(pool_t *pool, zng_stream *strm, slot_t *slot);
 
@@ -38,7 +38,7 @@ static inline void pipeline_bind_codec(pipeline_t *pipeline) {
     pipeline->pool.codec.run = gzblock_codec_run;
 }
 
-static inline int pipeline_start(pipeline_t *pipeline, int nthreads, size_t in_size, size_t out_size) {
+static inline int32_t pipeline_start(pipeline_t *pipeline, int32_t nthreads, size_t in_size, size_t out_size) {
     if (pool_alloc(&pipeline->pool, nthreads, in_size, out_size) != 0)
         return -1;
     if (pool_start(&pipeline->pool, nthreads) != 0) {
@@ -54,7 +54,7 @@ static inline void pipeline_submit(pipeline_t *pipeline, slot_t *slot) {
     pipeline->next_produce++;
 }
 
-static inline int pipeline_has_pending(const pipeline_t *pipeline) {
+static inline int32_t pipeline_has_pending(const pipeline_t *pipeline) {
     return pipeline->next_emit < pipeline->next_produce;
 }
 

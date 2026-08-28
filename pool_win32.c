@@ -26,15 +26,15 @@ struct pool_threads {
     CONDITION_VARIABLE work_cv; /* a slot was queued, or abort */
     CONDITION_VARIABLE done_cv; /* a slot became done */
     HANDLE *threads;
-    int started;
+    int32_t started;
 };
 
-int pool_default_threads(void) {
+int32_t pool_default_threads(void) {
     SYSTEM_INFO si;
 
     GetSystemInfo(&si);
     if (si.dwNumberOfProcessors > 0)
-        return (int)MIN(si.dwNumberOfProcessors, 64);
+        return (int32_t)MIN(si.dwNumberOfProcessors, 64);
     return 1;
 }
 
@@ -70,7 +70,7 @@ static unsigned __stdcall worker(void *arg) {
     return 0;
 }
 
-int pool_start(pool_t *pool, int nthreads) {
+int32_t pool_start(pool_t *pool, int32_t nthreads) {
     struct pool_threads *thread;
 
     if (nthreads <= 1)
@@ -107,7 +107,7 @@ int pool_start(pool_t *pool, int nthreads) {
 
 void pool_stop(pool_t *pool) {
     struct pool_threads *thread = pool->thread;
-    int i;
+    int32_t i;
 
     if (pool->inline_run) {
         pool_stop_inline(pool);

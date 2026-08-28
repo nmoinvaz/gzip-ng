@@ -15,7 +15,7 @@ static void buf_compact(buf_t *buf) {
     }
 }
 
-int buf_reserve(buf_t *buf, size_t need) {
+int32_t buf_reserve(buf_t *buf, size_t need) {
     if (buf->offset + need > buf->size)
         buf_compact(buf);
     if (need > buf->size) {
@@ -32,7 +32,7 @@ int buf_reserve(buf_t *buf, size_t need) {
     return 0;
 }
 
-int buf_append(buf_t *buf, const uint8_t *data, size_t n) {
+int32_t buf_append(buf_t *buf, const uint8_t *data, size_t n) {
     if (buf_reserve(buf, buf->len + n) != 0)
         return -1;
     memcpy(buf_data(buf) + buf->len, data, n);
@@ -49,7 +49,7 @@ void buf_drop(buf_t *buf, size_t n) {
 
 /* Read through the callback until the buffer holds at least want bytes or the input ends, which
    sets *eof. Returns -1 on a read error. */
-int buf_fill(buf_t *buf, buf_read_fn read, void *ctx, size_t want, int *eof) {
+int32_t buf_fill(buf_t *buf, buf_read_fn read, void *ctx, size_t want, int32_t *eof) {
     while (buf->len < want && !*eof) {
         size_t got;
         if (buf->offset + buf->len == buf->size) {

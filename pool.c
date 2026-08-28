@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 #ifndef GZBLOCK_THREADS
-int pool_default_threads(void) {
+int32_t pool_default_threads(void) {
     return 1;
 }
 #endif
@@ -17,7 +17,7 @@ slot_t *pool_slot(pool_t *pool, size_t i) {
 }
 
 /* Allocate the ring, nthreads * 4 slots of in_size + out_size bytes, within RING_BYTES. */
-int pool_alloc(pool_t *pool, int nthreads, size_t in_size, size_t out_size) {
+int32_t pool_alloc(pool_t *pool, int32_t nthreads, size_t in_size, size_t out_size) {
     size_t i;
 #ifdef GZBLOCK_THREADS
     pool->nring = nthreads <= 1 ? 1 : (size_t)nthreads * 4;
@@ -65,7 +65,7 @@ void pool_free(pool_t *pool) {
 }
 
 /* Without worker threads the slots are worked on demand by the calling thread. */
-int pool_start_inline(pool_t *pool) {
+int32_t pool_start_inline(pool_t *pool) {
     pool->inline_run = 1;
     return pool->codec.init(pool, &pool->strm) == Z_OK ? 0 : -1;
 }
@@ -82,7 +82,7 @@ void pool_wait_inline(pool_t *pool, slot_t *slot) {
 
 #ifndef GZBLOCK_THREADS
 
-int pool_start(pool_t *pool, int nthreads) {
+int32_t pool_start(pool_t *pool, int32_t nthreads) {
     (void)nthreads;
     return pool_start_inline(pool);
 }

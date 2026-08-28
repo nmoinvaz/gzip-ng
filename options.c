@@ -96,7 +96,7 @@ enum {
 /* One row per option, in the order the help lists them. A row carries every spelling the option
    answers to, so a spelling cannot exist in the parser without appearing in the help. */
 typedef struct {
-    int id;
+    int32_t id;
     char letter;       /* 0 when there is no short form */
     const char *name;  /* long form without the dashes, NULL when there is none */
     const char *alias; /* second long spelling, or NULL */
@@ -163,7 +163,7 @@ void gzng_usage(FILE *out) {
     }
     for (i = 0; i < OPTION_COUNT; i++) {
         spellings(&option_table[i], buf, sizeof(buf));
-        fprintf(out, "  %-*s  %s\n", (int)width, buf, option_table[i].help);
+        fprintf(out, "  %-*s  %s\n", (int32_t)width, buf, option_table[i].help);
     }
     fprintf(out, "  %-*s  %s\n", (int)width, "-1 .. -9", "compression level, 6 by default");
 }
@@ -204,7 +204,7 @@ static void show_license(void) {
         "freely, subject to the restrictions in LICENSE.md.\n");
 }
 
-static int bad(const char *prog, const char *what, const char *arg) {
+static int32_t bad(const char *prog, const char *what, const char *arg) {
     fprintf(stderr, "%s: %s %s\n", prog, what, arg);
     fprintf(stderr, "Try %s --help for options.\n", prog);
     return -1;
@@ -212,7 +212,7 @@ static int bad(const char *prog, const char *what, const char *arg) {
 
 /* Carry out one option. Returns 0 to keep parsing, 1 when the run is already complete, -1 on a
    bad value with the message printed. */
-static int apply(gzng_options *opt, const option_desc *desc, const char *value, const char *prog) {
+static int32_t apply(gzng_options *opt, const option_desc *desc, const char *value, const char *prog) {
     switch (desc->id) {
     case OPT_STDOUT:
         opt->stdout_mode = 1;
@@ -296,7 +296,7 @@ static int apply(gzng_options *opt, const option_desc *desc, const char *value, 
         long n = value != NULL ? strtol(value, &end, 10) : 0;
         if (value == NULL || end == value || *end != 0 || n < 0 || n > 1024)
             return bad(prog, "bad thread count", value ? value : "(missing)");
-        opt->threads = (int)n;
+        opt->threads = (int32_t)n;
         opt->threads_given = 1;
         break;
     }
@@ -314,7 +314,7 @@ static int apply(gzng_options *opt, const option_desc *desc, const char *value, 
 }
 
 /* A long option, its value taken from the next argument when it wants one. */
-static int parse_long(gzng_options *opt, const char *prog, const char *arg, int argc, char **argv, int *i) {
+static int32_t parse_long(gzng_options *opt, const char *prog, const char *arg, int32_t argc, char **argv, int32_t *i) {
     const option_desc *desc = find_name(arg + 2);
     const char *value = NULL;
 
@@ -327,8 +327,9 @@ static int parse_long(gzng_options *opt, const char *prog, const char *arg, int 
 
 /* A run of short options, any one of which may take the rest of the argument or the next one as
    its value, which ends the run. */
-static int parse_shorts(gzng_options *opt, const char *prog, const char *arg, int argc, char **argv, int *i) {
-    int j, rc;
+static int32_t parse_shorts(gzng_options *opt, const char *prog, const char *arg, int32_t argc, char **argv,
+                            int32_t *i) {
+    int32_t j, rc;
 
     for (j = 1; arg[j] != 0; j++) {
         const option_desc *desc;
@@ -358,11 +359,11 @@ static int parse_shorts(gzng_options *opt, const char *prog, const char *arg, in
     return 0;
 }
 
-int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles) {
+int32_t gzng_options_parse(gzng_options *opt, int32_t argc, char **argv, int32_t *nfiles) {
     const char *prog = argv[0];
-    int nf = 0, no_more = 0, rc;
+    int32_t nf = 0, no_more = 0, rc;
 
-    for (int i = 1; i < argc; i++) {
+    for (int32_t i = 1; i < argc; i++) {
         const char *arg = argv[i];
 
         if (no_more || arg[0] != '-' || arg[1] == 0) {

@@ -22,10 +22,10 @@ void blockdec_begin(block_dec *d, zng_stream *strm, uint8_t *out, uint32_t block
    invalid data. With accept_partial the input ends at a marker pair, which no chance pattern
    produces, so any clean output size ends the block and SEG_FULL comes back early. *used
    receives how much of this piece was consumed. */
-int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) {
+int32_t blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) {
     zng_stream *strm = d->strm;
     size_t left = in_len, start_in = (size_t)strm->total_in;
-    int err, boundary, aligned, exhausted, status;
+    int32_t err, boundary, aligned, exhausted, status;
 
     strm->next_in = (z_const uint8_t *)in;
     strm->avail_in = 0;
@@ -95,7 +95,7 @@ int blockdec_feed(block_dec *d, const uint8_t *in, size_t in_len, size_t *used) 
     return status;
 }
 
-const char *blockdec_status_name(int status) {
+const char *blockdec_status_name(int32_t status) {
     switch (status) {
     case SEG_FULL:
         return "complete";

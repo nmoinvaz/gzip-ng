@@ -13,26 +13,26 @@ extern "C" {
 #endif
 
 typedef struct {
-    int decompress;      /* --decompress */
-    int stdout_mode;     /* --stdout */
-    int keep;            /* --keep */
-    int force;           /* --force, overwrite outputs, write compressed data to a terminal */
-    int recursive;       /* --recursive, descend into directories */
-    int verbose;         /* --verbose, report each file processed */
-    int quiet;           /* --quiet, suppress warnings */
-    int name_mode;       /* -1 default, 0 with --no-name, 1 with --name */
-    int time_mode;       /* -1 default, 0 with --no-name or --no-time, 1 with --name or --time */
-    int list;            /* --list, list instead of decompressing */
-    int test_mode;       /* --test, check integrity without writing */
-    int rsyncable;       /* --rsyncable, rsync friendly output */
-    int synchronous;     /* --synchronous, fsync outputs before removing inputs */
-    int level;           /* -0 to -9 */
-    int strategy;        /* deflate strategy options */
-    int transparent;     /* -T, copy without compressing */
-    int text_mode;       /* -A, no effect where text and binary io agree */
-    uint32_t block_size; /* --blocksize, 0 writes one plain deflate stream */
-    int threads;         /* --processes, 0 picks the number of CPUs */
-    int threads_given;   /* --processes was given, threads of 0 means every CPU, not the default */
+    int32_t decompress;    /* --decompress */
+    int32_t stdout_mode;   /* --stdout */
+    int32_t keep;          /* --keep */
+    int32_t force;         /* --force, overwrite outputs, write compressed data to a terminal */
+    int32_t recursive;     /* --recursive, descend into directories */
+    int32_t verbose;       /* --verbose, report each file processed */
+    int32_t quiet;         /* --quiet, suppress warnings */
+    int32_t name_mode;     /* -1 default, 0 with --no-name, 1 with --name */
+    int32_t time_mode;     /* -1 default, 0 with --no-name or --no-time, 1 with --name or --time */
+    int32_t list;          /* --list, list instead of decompressing */
+    int32_t test_mode;     /* --test, check integrity without writing */
+    int32_t rsyncable;     /* --rsyncable, rsync friendly output */
+    int32_t synchronous;   /* --synchronous, fsync outputs before removing inputs */
+    int32_t level;         /* -0 to -9 */
+    int32_t strategy;      /* deflate strategy options */
+    int32_t transparent;   /* -T, copy without compressing */
+    int32_t text_mode;     /* -A, no effect where text and binary io agree */
+    uint32_t block_size;   /* --blocksize, 0 writes one plain deflate stream */
+    int32_t threads;       /* --processes, 0 picks the number of CPUs */
+    int32_t threads_given; /* --processes was given, threads of 0 means every CPU, not the default */
 } gzng_options;
 
 void gzng_options_init(gzng_options *opt);
@@ -44,7 +44,7 @@ void gzng_options_personas(gzng_options *opt, const char *argv0);
    clustered, values attached or separate, -- ending the options. File arguments are compacted
    into argv[1..*nfiles]. Returns 0 to process files, 1 when the run is already complete
    (--help, --version), or -1 on a bad command line with a message printed. */
-int gzng_options_parse(gzng_options *opt, int argc, char **argv, int *nfiles);
+int32_t gzng_options_parse(gzng_options *opt, int32_t argc, char **argv, int32_t *nfiles);
 
 void gzng_usage(FILE *out);
 

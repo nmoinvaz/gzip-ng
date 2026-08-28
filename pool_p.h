@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 /* One worker on the calling thread, used when only one was asked for. */
-int pool_start_inline(pool_t *pool);
+int32_t pool_start_inline(pool_t *pool);
 void pool_stop_inline(pool_t *pool);
 void pool_wait_inline(pool_t *pool, slot_t *slot);
 

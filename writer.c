@@ -8,26 +8,26 @@ struct gzblock_writer_s {
     gzblock_write_fn write;
     void *ctx;
     uint32_t block_size;
-    int level, strategy, nthreads;
+    int32_t level, strategy, nthreads;
     pipeline_t pipeline;
     slot_t *cur; /* slot being filled */
     uint32_t crc;
     size_t total_in;
-    int hdr_written, finished, failed;
+    int32_t hdr_written, finished, failed;
     uint32_t mtime;
     char name[FORMAT_NAME_MAX];
-    int rsyncable; /* end blocks at rolling hash hits so edits stay local */
+    int32_t rsyncable; /* end blocks at rolling hash hits so edits stay local */
     uint32_t rsync_hash, rsync_mask;
     size_t rsync_max; /* a block is cut on size alone only here */
     size_t rsync_min; /* no early end before this much of the block is filled */
-    int err;          /* zlib error code once failed */
+    int32_t err;      /* zlib error code once failed */
     char msg[MSG_LEN];
 
     /* A block that has to be flushed part way continues on the calling thread as one deflate
        stream, so a flush does not shorten it. Blocks end at block_size, or at a rolling hash hit
        when the writer is rsyncable. */
     zng_stream strm;
-    int strm_init, inline_active;
+    int32_t strm_init, inline_active;
     size_t inline_fill; /* input bytes of the inline block so far */
     uint32_t inline_crc;
     uint8_t *obuf; /* IO_CHUNK of output space for the inline stream */
@@ -37,14 +37,14 @@ struct gzblock_writer_s {
  * Errors, output, and the member header
  */
 
-static int writer_fail(gzblock_writer *w, int err, const char *msg) {
+static int32_t writer_fail(gzblock_writer *w, int32_t err, const char *msg) {
     snprintf(w->msg, sizeof(w->msg), "%s", msg);
     w->err = err;
     w->failed = 1;
     return -1;
 }
 
-static int writer_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
+static int32_t writer_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
     if (w->write(w->ctx, buf, len) != len)
         return writer_fail(w, Z_ERRNO, "write error");
     return 0;
@@ -52,7 +52,7 @@ static int writer_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
 
 /* An ordinary gzip header, carrying only the name and time --name and --time ask for. Nothing in it
    marks the member as cut into blocks, a reader finds that out by scanning. */
-static int writer_header(gzblock_writer *w) {
+static int32_t writer_header(gzblock_writer *w) {
     uint8_t buf[FORMAT_HEADER_MAX];
     format_header hdr;
     size_t n;
@@ -74,8 +74,8 @@ static int writer_header(gzblock_writer *w) {
  */
 
 /* Run the inline stream with flush until its output is drained to the file. */
-static int writer_inline_out(gzblock_writer *w, int flush) {
-    int err;
+static int32_t writer_inline_out(gzblock_writer *w, int32_t flush) {
+    int32_t err;
     do {
         size_t have;
         w->strm.next_out = w->obuf;
@@ -91,7 +91,7 @@ static int writer_inline_out(gzblock_writer *w, int flush) {
 }
 
 /* The inline block is complete, seal it the way the pool does and account for it. */
-static int writer_inline_end(gzblock_writer *w, int last) {
+static int32_t writer_inline_end(gzblock_writer *w, int32_t last) {
     if (writer_inline_out(w, last ? Z_FINISH : Z_SYNC_FLUSH) != 0)
         return -1;
     if (!last && writer_inline_out(w, Z_FULL_FLUSH) != 0)
@@ -103,7 +103,7 @@ static int writer_inline_end(gzblock_writer *w, int last) {
 }
 
 /* Feed len bytes, at most what is left of the block, to the inline stream. */
-static int writer_inline_feed(gzblock_writer *w, const uint8_t *buf, size_t len) {
+static int32_t writer_inline_feed(gzblock_writer *w, const uint8_t *buf, size_t len) {
     w->strm.next_in = (z_const uint8_t *)buf;
     w->strm.avail_in = (uint32_t)len;
     w->inline_crc = (uint32_t)zng_crc32_z(w->inline_crc, buf, len);
@@ -115,9 +115,9 @@ static int writer_inline_feed(gzblock_writer *w, const uint8_t *buf, size_t len)
     return 0;
 }
 
-static int writer_drain(gzblock_writer *w);
+static int32_t writer_drain(gzblock_writer *w);
 
-static int writer_drain_all(gzblock_writer *w) {
+static int32_t writer_drain_all(gzblock_writer *w) {
     while (pipeline_has_pending(&w->pipeline)) {
         if (writer_drain(w) != 0)
             return -1;
@@ -127,7 +127,7 @@ static int writer_drain_all(gzblock_writer *w) {
 
 /* Move the block being filled onto the inline stream. Everything before it goes to the file first,
    so the inline output can follow directly. */
-static int writer_inline_begin(gzblock_writer *w) {
+static int32_t writer_inline_begin(gzblock_writer *w) {
     if (writer_drain_all(w) != 0)
         return -1;
     if (writer_header(w) != 0)
@@ -156,7 +156,7 @@ static int writer_inline_begin(gzblock_writer *w) {
 
 /* A partly filled block moves to the inline stream, so it can be flushed or reconfigured without
    ending early. No-op when there is no such block. */
-static int writer_inline_migrate(gzblock_writer *w) {
+static int32_t writer_inline_migrate(gzblock_writer *w) {
     if (!w->inline_active && w->cur != NULL && w->cur->in_len != 0)
         return writer_inline_begin(w);
     return 0;
@@ -167,7 +167,7 @@ static int writer_inline_migrate(gzblock_writer *w) {
  */
 
 /* Take the next free slot to fill, draining finished ones to make room. */
-static int writer_acquire(gzblock_writer *w) {
+static int32_t writer_acquire(gzblock_writer *w) {
     slot_t *slot;
     while ((slot = pool_slot(&w->pipeline.pool, w->pipeline.next_produce))->state != SLOT_FREE) {
         if (writer_drain(w) != 0)
@@ -178,7 +178,7 @@ static int writer_acquire(gzblock_writer *w) {
     return 0;
 }
 
-static void writer_submit(gzblock_writer *w, int last) {
+static void writer_submit(gzblock_writer *w, int32_t last) {
     w->cur->last = last;
     w->cur->level = w->level;
     w->cur->strategy = w->strategy;
@@ -187,7 +187,7 @@ static void writer_submit(gzblock_writer *w, int last) {
 }
 
 /* Write out the next compressed block in order. */
-static int writer_drain(gzblock_writer *w) {
+static int32_t writer_drain(gzblock_writer *w) {
     slot_t *slot = pipeline_wait(&w->pipeline, w->pipeline.next_emit);
     if (slot->status != 0)
         return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
@@ -206,7 +206,7 @@ static int writer_drain(gzblock_writer *w) {
 
 /* Size the ring for blocks of up to in_size input bytes and start the workers. Called again when
    --rsyncable widens the limit, which happens before any block is submitted. */
-static int writer_pool_size(gzblock_writer *w, size_t in_size) {
+static int32_t writer_pool_size(gzblock_writer *w, size_t in_size) {
     zng_stream bound;
     size_t out_size;
 
@@ -223,8 +223,8 @@ static int writer_pool_size(gzblock_writer *w, size_t in_size) {
     return 0;
 }
 
-gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level, int strategy, uint32_t block_size,
-                                    int nthreads) {
+gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t level, int32_t strategy,
+                                    uint32_t block_size, int32_t nthreads) {
     gzblock_writer *w;
 
     if (write == NULL || block_size == 0 || block_size > GZBLOCK_MAX_BLOCK)
@@ -258,7 +258,7 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int level
    every block_size / 2 bytes and refused before that much is buffered, which averages one block
    of block_size, and a block is cut on size alone only at twice it. That headroom leaves all but
    a few percent of boundaries content-defined. */
-int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
+int32_t gzblock_writer_rsyncable(gzblock_writer *w, int32_t on) {
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
     if (!on) {
@@ -274,7 +274,7 @@ int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
     return 0;
 }
 
-int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
+int32_t gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
     if (w == NULL || w->hdr_written || w->failed)
         return -1;
     w->mtime = mtime;
@@ -286,7 +286,7 @@ int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
 /* A hash hit after the minimum fill ends the block there, so boundaries follow the content and
    an edit re-aligns at the next hit instead of shifting every block. Shortens take to end at the
    first such hit. Returns 1 on a hit. */
-static int writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take) {
+static int32_t writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take) {
     size_t fill = w->cur->in_len;
     size_t first = fill + 1 >= w->rsync_min ? 0 : w->rsync_min - fill - 1;
     size_t hit = rolling_find(&w->rsync_hash, w->rsync_mask, buf, *take, first);
@@ -297,14 +297,14 @@ static int writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take)
     return 1;
 }
 
-int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
+int32_t gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
     size_t limit = w->block_size;
 
     if (w->failed || w->finished)
         return -1;
     while (len != 0) {
         size_t take;
-        int hit;
+        int32_t hit;
         if (w->inline_active) {
             take = MIN(w->block_size - w->inline_fill, len);
             if (writer_inline_feed(w, buf, take) != 0)
@@ -328,7 +328,7 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
     return 0;
 }
 
-int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
+int32_t gzblock_writer_setparams(gzblock_writer *w, int32_t level, int32_t strategy) {
     if (w->failed || w->finished)
         return -1;
     if (level == w->level && strategy == w->strategy)
@@ -338,7 +338,7 @@ int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
     if (writer_inline_migrate(w) != 0)
         return -1;
     if (w->inline_active) {
-        int err;
+        int32_t err;
         for (;;) {
             size_t have;
             w->strm.next_out = w->obuf;
@@ -358,7 +358,7 @@ int gzblock_writer_setparams(gzblock_writer *w, int level, int strategy) {
     return 0;
 }
 
-int gzblock_writer_flush(gzblock_writer *w) {
+int32_t gzblock_writer_flush(gzblock_writer *w) {
     if (w->failed || w->finished)
         return -1;
     if (writer_inline_migrate(w) != 0)
@@ -370,7 +370,7 @@ int gzblock_writer_flush(gzblock_writer *w) {
     return writer_header(w);
 }
 
-int gzblock_writer_finish(gzblock_writer *w) {
+int32_t gzblock_writer_finish(gzblock_writer *w) {
     uint8_t trailer[FORMAT_TRAILER_LEN];
 
     if (w->failed)
@@ -400,7 +400,7 @@ const char *gzblock_writer_error(const gzblock_writer *w) {
     return w->msg;
 }
 
-int gzblock_writer_errcode(const gzblock_writer *w) {
+int32_t gzblock_writer_errcode(const gzblock_writer *w) {
     return w->err;
 }
 

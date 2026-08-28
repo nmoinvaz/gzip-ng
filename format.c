@@ -9,7 +9,7 @@
 #include "util.h"
 #include "zlib-ng.h"
 
-int format_is_gzip(const uint8_t *buf, size_t len) {
+int32_t format_is_gzip(const uint8_t *buf, size_t len) {
     return len >= 2 && buf[0] == 0x1f && buf[1] == 0x8b;
 }
 

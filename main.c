@@ -60,14 +60,14 @@ static void report(const gzng_options *opt, const char *name, const char *outnam
 #define GZ_PATH_MAX   4096
 
 /* Whether path is named as a gzip file, by its suffix. */
-static int path_is_gzip(const char *path) {
+static int32_t path_is_gzip(const char *path) {
     size_t n = strlen(path);
     return n > GZ_SUFFIX_LEN && strcmp(path + n - GZ_SUFFIX_LEN, GZ_SUFFIX) == 0;
 }
 
 /* Compression turns file into file.gz, decompression file.gz into file, or file into file by
    reading file.gz. Returns -1 with errno set when the name will not fit. */
-static int path_derive(const char *path, int decompress, char *in_path, char *out_path, size_t cap) {
+static int32_t path_derive(const char *path, int32_t decompress, char *in_path, char *out_path, size_t cap) {
     if (strlen(path) + GZ_SUFFIX_LEN >= cap) {
         errno = ENAMETOOLONG;
         return -1;
@@ -77,7 +77,7 @@ static int path_derive(const char *path, int decompress, char *in_path, char *ou
         snprintf(out_path, cap, "%s" GZ_SUFFIX, path);
     } else if (path_is_gzip(path)) {
         snprintf(in_path, cap, "%s", path);
-        snprintf(out_path, cap, "%.*s", (int)(strlen(path) - GZ_SUFFIX_LEN), path);
+        snprintf(out_path, cap, "%.*s", (int32_t)(strlen(path) - GZ_SUFFIX_LEN), path);
     } else {
         snprintf(in_path, cap, "%s" GZ_SUFFIX, path);
         snprintf(out_path, cap, "%s", path);
@@ -94,7 +94,7 @@ static void path_from_stored(char *out_path, size_t cap, const char *in_path, co
     if (base[0] == 0)
         return;
     if (slash != NULL)
-        snprintf(out_path, cap, "%.*s%s", (int)(slash - in_path + 1), in_path, base);
+        snprintf(out_path, cap, "%.*s%s", (int32_t)(slash - in_path + 1), in_path, base);
     else
         snprintf(out_path, cap, "%s", base);
 }
@@ -120,7 +120,7 @@ static FILE *open_input(const char *path, struct stat *st) {
 
 /* The modification time and stored name from the header at the start of in, which is rewound
    afterwards. Returns 0 with the fields filled, name empty when absent, or -1 when not gzip. */
-static int read_header(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
+static int32_t read_header(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
     uint8_t buf[4096];
     size_t buf_len = fread(buf, 1, sizeof(buf), in);
     format_header hdr;
@@ -144,7 +144,7 @@ static int read_header(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
  */
 
 /* -T writes the bytes through untouched. */
-static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
+static int32_t copy_stream(FILE *in, FILE *out, uint64_t *count) {
     char buf[1 << 16];
     size_t n;
 
@@ -157,13 +157,13 @@ static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
     return ferror(in) ? -1 : 0;
 }
 
-static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
-                      uint64_t *total_in, uint64_t *total_out) {
+static int32_t run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
+                          uint64_t *total_in, uint64_t *total_out) {
     if (opt->decompress)
         return gzng_decompress_stream(in, out, NULL, 0, opt->block_size, opt->threads, total_in, total_out);
     if (opt->transparent) {
         uint64_t n = 0;
-        int rc = copy_stream(in, out, &n);
+        int32_t rc = copy_stream(in, out, &n);
         if (total_in != NULL)
             *total_in = n;
         if (total_out != NULL)
@@ -182,7 +182,7 @@ static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mti
 /* Under --test the first two bytes decide, since the reader passes anything but gzip through.
    They go into head for the reader to take first. Returns -1 with a warning naming the input when
    they are not gzip's. */
-static int test_peek(FILE *in, const char *name, const gzng_options *opt, uint8_t head[2], size_t *head_len) {
+static int32_t test_peek(FILE *in, const char *name, const gzng_options *opt, uint8_t head[2], size_t *head_len) {
     *head_len = fread(head, 1, 2, in);
     if (format_is_gzip(head, *head_len))
         return 0;
@@ -191,7 +191,7 @@ static int test_peek(FILE *in, const char *name, const gzng_options *opt, uint8_
 }
 
 /* Compressed bytes belong in a file or a pipe, gzip refuses a terminal without --force. */
-static int tty_guard(const gzng_options *opt) {
+static int32_t tty_guard(const gzng_options *opt) {
     if (!opt->decompress && !opt->transparent && !opt->force && isatty(fileno(stdout))) {
         fprintf(stderr, "gzip-ng: compressed data not written to a terminal, use -f to force\n");
         return GZ_ERROR;
@@ -200,9 +200,9 @@ static int tty_guard(const gzng_options *opt) {
 }
 
 /* Filter stdin to stdout. Returns GZ_OK, or GZ_ERROR with the error reported. */
-static int process_stdio(const gzng_options *opt) {
+static int32_t process_stdio(const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
-    int rc;
+    int32_t rc;
 
     if (tty_guard(opt) != GZ_OK)
         return GZ_ERROR;
@@ -245,10 +245,10 @@ static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t mt
 static void sync_dir(const char *out_path) {
     const char *slash = strrchr(out_path, '/');
     char dir_path[GZ_PATH_MAX];
-    int fd;
+    int32_t fd;
 
     if (slash != NULL)
-        snprintf(dir_path, sizeof(dir_path), "%.*s", (int)(slash - out_path), out_path);
+        snprintf(dir_path, sizeof(dir_path), "%.*s", (int32_t)(slash - out_path), out_path);
     else
         snprintf(dir_path, sizeof(dir_path), ".");
     fd = open(dir_path, O_RDONLY);
@@ -264,7 +264,7 @@ static void sync_dir(const char *out_path) {
 
 /* Check a file's integrity without writing anything, the --test verdict. Returns GZ_OK, or
    GZ_ERROR with the error reported. */
-static int test_file(FILE *in, const char *path, const gzng_options *opt) {
+static int32_t test_file(FILE *in, const char *path, const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
     uint8_t head[2];
     size_t head_len;
@@ -285,7 +285,7 @@ static int test_file(FILE *in, const char *path, const gzng_options *opt) {
 typedef struct {
     uint64_t compressed;
     uint64_t uncompressed;
-    int files;
+    int32_t files;
 } list_totals;
 
 /* The header row of the listing. */
@@ -312,8 +312,8 @@ static void list_row(const gzng_options *opt, uint32_t crc, uint32_t mtime, uint
 
 /* List one compressed file the way gzip --list does, accumulating totals. name is the file's
    name without its suffix, shown unless --name prefers the stored one. */
-static int list_file(FILE *in, const char *path, const char *name, const struct stat *st, const gzng_options *opt,
-                     list_totals *totals) {
+static int32_t list_file(FILE *in, const char *path, const char *name, const struct stat *st, const gzng_options *opt,
+                         list_totals *totals) {
     char stored[FORMAT_NAME_MAX];
     uint8_t tail[FORMAT_TRAILER_LEN];
     uint32_t mtime = 0, crc = 0;
@@ -361,10 +361,10 @@ static void list_end(const gzng_options *opt, const list_totals *totals) {
  */
 
 /* With --stdout the input file is left in place. */
-static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_path, uint32_t store_mtime,
-                             const char *store_name) {
+static int32_t process_to_stdout(FILE *in, const gzng_options *opt, const char *in_path, uint32_t store_mtime,
+                                 const char *store_name) {
     uint64_t total_in = 0, total_out = 0;
-    int rc;
+    int32_t rc;
 
     if (tty_guard(opt) != GZ_OK)
         return GZ_ERROR;
@@ -379,13 +379,13 @@ static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_p
 
 /* Process in, named in_path, into the file named by out_path, which --name may change and
    which holds GZ_PATH_MAX. */
-static int process_file(FILE *in, const char *in_path, char *out_path, const struct stat *ist,
-                        const gzng_options *opt) {
+static int32_t process_file(FILE *in, const char *in_path, char *out_path, const struct stat *ist,
+                            const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
     uint32_t mtime = 0;      /* to write when compressing, read when decompressing */
     const char *name = NULL; /* to write when compressing */
     FILE *out;
-    int rc;
+    int32_t rc;
 
     /* The name and time to record in the header, subject to --no-name, --name, --no-time, and
        --time. */
@@ -446,17 +446,17 @@ static int process_file(FILE *in, const char *in_path, char *out_path, const str
  */
 
 /* The worse of two statuses, an error outranks a warning, which outranks success. */
-static int worse(int rc, int r) {
+static int32_t worse(int32_t rc, int32_t r) {
     return r == GZ_ERROR || (r == GZ_WARNING && rc == GZ_OK) ? r : rc;
 }
 
 /* One file, listed with --list, checked with --test, or processed. The input is opened and
    closed here, and removed once processing replaced it. */
-static int run_file(const char *path, const gzng_options *opt, list_totals *totals) {
+static int32_t run_file(const char *path, const gzng_options *opt, list_totals *totals) {
     char in_path[GZ_PATH_MAX], out_path[GZ_PATH_MAX];
     struct stat st;
     FILE *in;
-    int rc;
+    int32_t rc;
 
     if (path_derive(path, opt->decompress || opt->list, in_path, out_path, sizeof(in_path)) != 0) {
         fail(path);
@@ -479,14 +479,14 @@ static int run_file(const char *path, const gzng_options *opt, list_totals *tota
 }
 
 /* Walk a directory for the files --recursive picks, the way gzip --recursive does. */
-static int run_dir(const char *path, const gzng_options *opt, list_totals *totals) {
+static int32_t run_dir(const char *path, const gzng_options *opt, list_totals *totals) {
     char sub[GZ_PATH_MAX];
     DIR *dir = opendir(path);
     struct dirent *e;
     /* Compression skips entries already suffixed, decompression and listing take only suffixed
        entries, the way gzip --recursive chooses files. */
-    int want_suffix = opt->decompress || opt->list;
-    int rc = GZ_OK;
+    int32_t want_suffix = opt->decompress || opt->list;
+    int32_t rc = GZ_OK;
 
     if (dir == NULL) {
         fprintf(stderr, "gzip-ng: %s: %s\n", path, strerror(errno));
@@ -496,7 +496,7 @@ static int run_dir(const char *path, const gzng_options *opt, list_totals *total
         struct stat st;
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
             continue;
-        if (snprintf(sub, sizeof(sub), "%s/%s", path, e->d_name) >= (int)sizeof(sub))
+        if (snprintf(sub, sizeof(sub), "%s/%s", path, e->d_name) >= (int32_t)sizeof(sub))
             continue;
         if (lstat(sub, &st) != 0)
             continue;
@@ -510,7 +510,7 @@ static int run_dir(const char *path, const gzng_options *opt, list_totals *total
 }
 
 /* One argument, a file, or a directory walked under --recursive and a warning without. */
-static int run_path(const char *path, const gzng_options *opt, list_totals *totals) {
+static int32_t run_path(const char *path, const gzng_options *opt, list_totals *totals) {
     struct stat st;
 
     if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
@@ -526,7 +526,7 @@ static int run_path(const char *path, const gzng_options *opt, list_totals *tota
 int main(int argc, char **argv) {
     gzng_options opt;
     list_totals totals = {0, 0, 0};
-    int nfiles = 0, rc = GZ_OK, ret;
+    int32_t nfiles = 0, rc = GZ_OK, ret;
 
     gzng_options_init(&opt);
     gzng_options_personas(&opt, argv[0]);
@@ -544,8 +544,8 @@ int main(int argc, char **argv) {
     }
     if (opt.list)
         list_begin(&opt);
-    for (int i = 1; i <= nfiles; i++) {
-        int r = strcmp(argv[i], "-") == 0 && !opt.list ? process_stdio(&opt) : run_path(argv[i], &opt, &totals);
+    for (int32_t i = 1; i <= nfiles; i++) {
+        int32_t r = strcmp(argv[i], "-") == 0 && !opt.list ? process_stdio(&opt) : run_path(argv[i], &opt, &totals);
         rc = worse(rc, r);
     }
     if (opt.list)

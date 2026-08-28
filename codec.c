@@ -7,7 +7,7 @@
 static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
     block_dec d;
     size_t offset = 0, used;
-    int status;
+    int32_t status;
 
     /* Strict blocks must fill exactly block_size, so a reused larger buffer is capped for them. */
     blockdec_begin(&d, strm, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_size : block_size);
@@ -45,7 +45,7 @@ static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
 /* Deflate one block on a fresh raw stream. A full flush ends it on a byte boundary with the empty
    stored block marker, the last block ends the deflate stream instead. */
 static void run_block(zng_stream *strm, slot_t *slot, size_t out_size) {
-    int err;
+    int32_t err;
     zng_deflateReset(strm);
     zng_deflateParams(strm, slot->level, slot->strategy);
     strm->next_in = (z_const uint8_t *)slot->in;
@@ -62,7 +62,7 @@ static void run_block(zng_stream *strm, slot_t *slot, size_t out_size) {
     slot->crc = (uint32_t)zng_crc32_z(0, slot->in, slot->in_len);
 }
 
-int gzblock_codec_init(pool_t *pool, zng_stream *strm) {
+int32_t gzblock_codec_init(pool_t *pool, zng_stream *strm) {
     memset(strm, 0, sizeof(*strm));
     if (pool->mode == POOL_DEFLATE)
         return zng_deflateInit2(strm, pool->level, Z_DEFLATED, -MAX_WBITS, 8, pool->strategy);
