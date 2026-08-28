@@ -19,8 +19,7 @@ typedef struct {
     int files;
 } gzng_totals;
 
-/* List one compressed file the way gzip --list does, accumulating totals.
-   Returns 0, or 1 with the error reported. */
+/* List one compressed file the way gzip --list does, accumulating totals. */
 int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *totals);
 
 /* The header row, and the totals row once more than one file was listed. */

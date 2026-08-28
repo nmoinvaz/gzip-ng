@@ -88,23 +88,23 @@ static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mti
 static int tty_guard(const gzng_options *opt) {
     if (!opt->decompress && !opt->transparent && !opt->force && isatty(fileno(stdout))) {
         fprintf(stderr, "gzip-ng: compressed data not written to a terminal, use -f to force\n");
-        return 1;
+        return GZ_ERROR;
     }
-    return 0;
+    return GZ_OK;
 }
 
 int gzng_process_stdio(const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
 
-    if (tty_guard(opt) != 0)
-        return 1;
+    if (tty_guard(opt) != GZ_OK)
+        return GZ_ERROR;
     errno = 0;
     if (run_stream(stdin, opt->test_mode ? NULL : stdout, opt, 0, NULL, &total_in, &total_out) != 0) {
         fail("stdin");
-        return 1;
+        return GZ_ERROR;
     }
     report(opt, "stdin", NULL, total_in, total_out);
-    return 0;
+    return GZ_OK;
 }
 
 /* ===========================================================================
@@ -228,17 +228,17 @@ int gzng_test_file(const char *path, const gzng_options *opt) {
     in = fopen(path, "rb");
     if (in == NULL) {
         fail(path);
-        return 1;
+        return GZ_ERROR;
     }
     /* Non-gzip input fails the test rather than passing through. */
     if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
         warn(opt, "gzip-ng: %s: not in gzip format\n", path);
         fclose(in);
-        return 1;
+        return GZ_ERROR;
     }
-    rc = gzng_decompress_stream(in, NULL, opt, &total_in, &total_out) != 0 ? 1 : 0;
+    rc = gzng_decompress_stream(in, NULL, opt, &total_in, &total_out) != 0 ? GZ_ERROR : GZ_OK;
     fclose(in);
-    if (rc == 0 && opt->verbose && !opt->quiet)
+    if (rc == GZ_OK && opt->verbose && !opt->quiet)
         fprintf(stderr, "%s:\t OK\n", path);
     return rc;
 }
@@ -253,15 +253,15 @@ static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_p
     uint64_t total_in = 0, total_out = 0;
     int rc;
 
-    if (tty_guard(opt) != 0)
-        return 1;
+    if (tty_guard(opt) != GZ_OK)
+        return GZ_ERROR;
     rc = run_stream(in, stdout, opt, store_mtime, store_name, &total_in, &total_out);
     if (rc != 0 || fflush(stdout) != 0) {
         fail(in_path);
-        return 1;
+        return GZ_ERROR;
     }
     report(opt, in_path, NULL, total_in, total_out);
-    return 0;
+    return GZ_OK;
 }
 
 int gzng_process_file(const char *path, const gzng_options *opt) {
@@ -275,14 +275,14 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
 
     if (derive_paths(path, opt, in_path, out_path, sizeof(in_path)) != 0) {
         fail(path);
-        return 1;
+        return GZ_ERROR;
     }
 
     errno = 0;
     in = fopen(in_path, "rb");
     if (in == NULL) {
         fail(in_path);
-        return 1;
+        return GZ_ERROR;
     }
     have_ist = fstat(fileno(in), &ist) == 0;
     if (!opt->decompress && have_ist)
@@ -290,7 +290,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     if (opt->decompress && !opt->stdout_mode &&
         restore_meta(in, opt, in_path, out_path, sizeof(out_path), &hdr_mtime) != 0) {
         fclose(in);
-        return 1;
+        return GZ_ERROR;
     }
     if (opt->stdout_mode) {
         rc = process_to_stdout(in, opt, in_path, store_mtime, store_name);
@@ -303,21 +303,21 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         if (!opt->force && errno == EEXIST) {
             warn(opt, "gzip-ng: %s already exists, not overwritten, use -f\n", out_path);
             fclose(in);
-            return 2;
+            return GZ_WARNING;
         }
         fail(out_path);
         fclose(in);
-        return 1;
+        return GZ_ERROR;
     }
     rc = run_stream(in, out, opt, store_mtime, store_name, &total_in, &total_out);
     fclose(in);
     /* --synchronous flushes the output before the input is unlinked. */
     if (rc == 0 && opt->synchronous && (fflush(out) != 0 || fsync(fileno(out)) != 0))
-        rc = 1;
+        rc = -1;
     if (fclose(out) != 0 || rc != 0) {
         fail(rc != 0 ? in_path : out_path);
         unlink(out_path);
-        return 1;
+        return GZ_ERROR;
     }
     if (have_ist)
         copy_attrs(out_path, &ist, opt->decompress ? hdr_mtime : 0);
@@ -326,5 +326,5 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     if (!opt->keep)
         unlink(in_path);
     report(opt, in_path, out_path, total_in, total_out);
-    return 0;
+    return GZ_OK;
 }

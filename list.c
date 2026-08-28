@@ -51,19 +51,19 @@ int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *total
         fprintf(stderr, "gzip-ng: %s: %s\n", path, errno ? strerror(errno) : "too short to be gzip");
         if (in != NULL)
             fclose(in);
-        return 1;
+        return GZ_ERROR;
     }
     if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
         fprintf(stderr, "gzip-ng: %s: not in gzip format\n", path);
         fclose(in);
-        return 1;
+        return GZ_ERROR;
     }
     /* The trailer of the last member, the same 32-bit size gzip reports. */
     fseek(in, -GZ_TRAILER, SEEK_END);
     n = fread(tail, 1, sizeof(tail), in);
     fclose(in);
     if (n != 8)
-        return 1;
+        return GZ_ERROR;
     {
         uint32_t size32;
         format_trailer_parse(tail, &crc, &size32);
@@ -84,7 +84,7 @@ int gzng_list_file(const char *path, const gzng_options *opt, gzng_totals *total
     totals->compressed += (uint64_t)st.st_size;
     totals->uncompressed += uncompressed;
     totals->files++;
-    return 0;
+    return GZ_OK;
 }
 
 void gzng_list_end(const gzng_options *opt, const gzng_totals *totals) {

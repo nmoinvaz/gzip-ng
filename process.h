@@ -13,15 +13,13 @@
 extern "C" {
 #endif
 
-/* Filter stdin to stdout. Returns 0, 1 on error, with the error reported. */
+/* Filter stdin to stdout. */
 int gzng_process_stdio(const gzng_options *opt);
 
-/* Process one file, never a directory. Returns 0, 1 on error, 2 on a warning, reported either
-   way. */
+/* Process one file, never a directory. */
 int gzng_process_file(const char *path, const gzng_options *opt);
 
-/* Check one file's integrity without writing anything, the --test verdict. Returns 0, or 1 with
-   the error reported. */
+/* Check one file's integrity without writing anything, the --test verdict. */
 int gzng_test_file(const char *path, const gzng_options *opt);
 
 /* Whether path ends in the .gz suffix. */

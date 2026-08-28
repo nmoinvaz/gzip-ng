@@ -14,9 +14,9 @@
 
 #define MAX_PATH_LEN 4096
 
-/* gzip's convention, 1 for errors beats 2 for warnings beats 0. */
+/* The worse of two statuses, an error outranks a warning, which outranks success. */
 static int worse(int rc, int r) {
-    return r == 1 || (r == 2 && rc == 0) ? r : rc;
+    return r == GZ_ERROR || (r == GZ_WARNING && rc == GZ_OK) ? r : rc;
 }
 
 /* One file, listed with --list, checked with --test, or processed. */
@@ -36,11 +36,11 @@ static int run_dir(const char *path, const gzng_options *opt, gzng_totals *total
     /* Compression skips entries already suffixed, decompression and listing take only suffixed
        entries, the way gzip --recursive chooses files. */
     int want_suffix = opt->decompress || opt->list;
-    int rc = 0;
+    int rc = GZ_OK;
 
     if (dir == NULL) {
         fprintf(stderr, "gzip-ng: %s: %s\n", path, strerror(errno));
-        return 1;
+        return GZ_ERROR;
     }
     while ((e = readdir(dir)) != NULL) {
         struct stat st;
@@ -68,7 +68,7 @@ static int run_path(const char *path, const gzng_options *opt, gzng_totals *tota
             return run_dir(path, opt, totals);
         if (!opt->quiet)
             fprintf(stderr, "gzip-ng: %s is a directory, ignored\n", path);
-        return 2;
+        return GZ_WARNING;
     }
     return run_file(path, opt, totals);
 }
@@ -76,19 +76,19 @@ static int run_path(const char *path, const gzng_options *opt, gzng_totals *tota
 int main(int argc, char **argv) {
     gzng_options opt;
     gzng_totals totals = {0, 0, 0};
-    int nfiles = 0, rc = 0, ret;
+    int nfiles = 0, rc = GZ_OK, ret;
 
     gzng_options_init(&opt);
     gzng_options_personas(&opt, argv[0]);
     ret = gzng_options_parse(&opt, argc, argv, &nfiles);
     if (ret == 1)
-        return 0;
+        return GZ_OK;
     if (ret < 0)
-        return 1;
+        return GZ_ERROR;
     if (nfiles == 0) {
         if (opt.list) {
             fprintf(stderr, "gzip-ng: -l needs file arguments\n");
-            return 1;
+            return GZ_ERROR;
         }
         return gzng_process_stdio(&opt);
     }
