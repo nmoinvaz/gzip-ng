@@ -136,8 +136,6 @@ Apple M5, 10 cores. 512 MiB of mixed source, build output, and text, 4.8 to 1 un
 | `minigzip` | plain gzip | 0.47 s | 1090 |
 | `gzip` | plain gzip | 1.06 s | 480 |
 
-Serial, gzip-ng is minigzip with a gzip front end. Parallel, independent blocks cost 1.9% of output, and the rest of the gap to pigz is the dictionary it carries between blocks, which is also what keeps its decompression serial.
-
 ## Project notes
 
 - Plan and progress: https://gist.github.com/nmoinvaz/4f88555bdf30d0d0850f062525a12738
