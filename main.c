@@ -271,8 +271,10 @@ static int process_file(const char *path, const gzng_options *opt) {
     rc = run_stream(in, out, opt, mtime, name, &total_in, &total_out);
     fclose(in);
     /* --synchronous flushes the output before the input is unlinked. */
-    if (rc == 0 && opt->synchronous && (fflush(out) != 0 || fsync(fileno(out)) != 0))
-        rc = -1;
+    if (rc == 0 && opt->synchronous) {
+        if (fflush(out) != 0 || fsync(fileno(out)) != 0)
+            rc = -1;
+    }
     if (fclose(out) != 0 || rc != 0) {
         fail(rc != 0 ? in_path : out_path);
         unlink(out_path);
