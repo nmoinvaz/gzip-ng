@@ -283,77 +283,18 @@ int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
     return 0;
 }
 
-/* The rolling hash runs as four chains at once. A 32 bit Gear hash is the sum of the table
-   entries for the last 32 bytes, each shifted by its distance, so a position's hash depends on
-   the 32 bytes before it and nothing earlier. One chain is bound by its own latency, so a tile
-   of input is hashed as four stretches in lockstep, each after the first warmed up on the 32
-   bytes before it. Tiles keep the work close to what one chain stopping at the first hit does. */
-#define RSYNC_LANES   4
-#define RSYNC_STRETCH 1024
-
 /* A hash hit after the minimum fill ends the block there, so boundaries follow the content and
    an edit re-aligns at the next hit instead of shifting every block. Shortens take to end at the
-   first such hit and leaves the hash of the last byte taken in w->rsync_hash. Returns 1 on a hit. */
+   first such hit. Returns 1 on a hit. */
 static int writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take) {
-    size_t fill = w->cur->in_len, n = *take;
-    /* The first position that may end the block. The hash has forgotten everything before the
-       31 bytes ahead of it, so hashing starts there. */
+    size_t fill = w->cur->in_len;
     size_t first = fill + 1 >= w->rsync_min ? 0 : w->rsync_min - fill - 1;
-    size_t k = first > 31 ? first - 31 : 0;
-    uint32_t hash = w->rsync_hash, mask = w->rsync_mask;
+    size_t hit = rolling_find(&w->rsync_hash, w->rsync_mask, buf, *take, first);
 
-    if (k >= n)
+    if (hit == *take)
         return 0;
-    for (; k < first && k < n; k++)
-        ROLLING_ADD(hash, buf[k]);
-    while (n - k >= RSYNC_LANES * RSYNC_STRETCH) {
-        const uint8_t *p = buf + k;
-        uint32_t h[RSYNC_LANES], at_hash[RSYNC_LANES];
-        size_t at[RSYNC_LANES], i, j;
-
-        h[0] = hash;
-        for (i = 1; i < RSYNC_LANES; i++) {
-            h[i] = 0;
-            for (j = 0; j < 32; j++)
-                ROLLING_ADD(h[i], p[i * RSYNC_STRETCH - 32 + j]);
-        }
-        for (i = 0; i < RSYNC_LANES; i++)
-            at[i] = RSYNC_STRETCH;
-        for (j = 0; j < RSYNC_STRETCH; j++) {
-            for (i = 0; i < RSYNC_LANES; i++)
-                ROLLING_ADD(h[i], p[i * RSYNC_STRETCH + j]);
-            /* One rare branch for all four, so the loop stays at the hash and its loads. */
-            if (ROLLING_HIT(h[0], mask) || ROLLING_HIT(h[1], mask) || ROLLING_HIT(h[2], mask) ||
-                ROLLING_HIT(h[3], mask)) {
-                for (i = 0; i < RSYNC_LANES; i++) {
-                    if (ROLLING_HIT(h[i], mask) && at[i] == RSYNC_STRETCH) {
-                        at[i] = j;
-                        at_hash[i] = h[i];
-                    }
-                }
-            }
-        }
-        /* The earliest stretch with a hit holds the earliest hit. */
-        for (i = 0; i < RSYNC_LANES; i++) {
-            if (at[i] != RSYNC_STRETCH) {
-                w->rsync_hash = at_hash[i];
-                *take = k + i * RSYNC_STRETCH + at[i] + 1;
-                return 1;
-            }
-        }
-        hash = h[RSYNC_LANES - 1];
-        k += RSYNC_LANES * RSYNC_STRETCH;
-    }
-    for (; k < n; k++) {
-        ROLLING_ADD(hash, buf[k]);
-        if (ROLLING_HIT(hash, mask)) {
-            w->rsync_hash = hash;
-            *take = k + 1;
-            return 1;
-        }
-    }
-    w->rsync_hash = hash;
-    return 0;
+    *take = hit + 1;
+    return 1;
 }
 
 int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {

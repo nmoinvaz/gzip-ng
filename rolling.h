@@ -41,6 +41,12 @@ static inline uint32_t rolling_mask(size_t span) {
     return ((uint32_t)1 << bits) - 1;
 }
 
+/* The first position in [first, len) whose hash hits mask, or len when none does. hash carries
+   the chain in and comes out as the hash at the position returned, or at the last byte hashed.
+   Since the hash forgets a byte after 32 shifts, hashing starts 31 bytes before first, and the
+   chain carried in matters only when first is closer to the start than that. */
+size_t rolling_find(uint32_t *hash, uint32_t mask, const uint8_t *buf, size_t len, size_t first);
+
 #ifdef __cplusplus
 }
 #endif

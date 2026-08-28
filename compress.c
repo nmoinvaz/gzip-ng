@@ -97,22 +97,14 @@ static int deflate_span(zng_stream *strm, FILE *out, uint8_t *obuf, const uint8_
 /* How much of buf to feed next. Without --rsyncable that is all of it. With it the span ends
    at the next rolling hash hit, where *sync asks for a flush. */
 static size_t next_span(int rsyncable, uint32_t *hash, uint32_t mask, const uint8_t *buf, size_t len, int *sync) {
-    uint32_t h = *hash;
-    size_t k;
+    size_t hit;
 
     *sync = 0;
     if (!rsyncable)
         return len;
-    for (k = 0; k < len; k++) {
-        ROLLING_ADD(h, buf[k]);
-        if (ROLLING_HIT(h, mask)) {
-            *hash = h;
-            *sync = 1;
-            return k + 1;
-        }
-    }
-    *hash = h;
-    return len;
+    hit = rolling_find(hash, mask, buf, len, 0);
+    *sync = hit < len;
+    return *sync ? hit + 1 : len;
 }
 
 int gzng_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t block_size, int threads, int rsyncable,

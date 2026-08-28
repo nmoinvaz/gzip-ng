@@ -1,4 +1,4 @@
-/* rolling.c -- the table behind the rolling hash
+/* rolling.c -- the rolling hash's table and its search
  * For conditions of distribution and use, see LICENSE.md
  */
 
@@ -37,3 +37,67 @@ const uint32_t rolling_gear[256] = {
     0xe9410ea4, 0xae5bac1c, 0xc01d7780, 0x131dc709, 0x8ebed168, 0x8027b30d, 0x7c80d6be, 0x285d676d, 0xd4a6fbbb,
     0x6b7252f5, 0x76e7c3b3, 0xbeef68cb, 0x9ddbcc9a,
 };
+
+/* The hash runs as four chains at once. A 32 bit Gear hash is the sum of the table entries for
+   the last 32 bytes, each shifted by its distance, so a position's hash depends on the 32 bytes
+   before it and nothing earlier. One chain is bound by its own latency, so a tile of input is
+   hashed as four stretches in lockstep, each after the first warmed up on the 32 bytes before
+   it. Tiles keep the work close to what one chain stopping at the first hit does. */
+#define ROLLING_LANES   4
+#define ROLLING_STRETCH 1024
+
+size_t rolling_find(uint32_t *hash, uint32_t mask, const uint8_t *buf, size_t len, size_t first) {
+    size_t k = first > 31 ? first - 31 : 0;
+    uint32_t chain = *hash;
+
+    if (k >= len)
+        return len;
+    for (; k < first && k < len; k++)
+        ROLLING_ADD(chain, buf[k]);
+    while (len - k >= ROLLING_LANES * ROLLING_STRETCH) {
+        const uint8_t *p = buf + k;
+        uint32_t h[ROLLING_LANES], at_hash[ROLLING_LANES];
+        size_t at[ROLLING_LANES], i, j;
+
+        h[0] = chain;
+        for (i = 1; i < ROLLING_LANES; i++) {
+            h[i] = 0;
+            for (j = 0; j < 32; j++)
+                ROLLING_ADD(h[i], p[i * ROLLING_STRETCH - 32 + j]);
+        }
+        for (i = 0; i < ROLLING_LANES; i++)
+            at[i] = ROLLING_STRETCH;
+        for (j = 0; j < ROLLING_STRETCH; j++) {
+            for (i = 0; i < ROLLING_LANES; i++)
+                ROLLING_ADD(h[i], p[i * ROLLING_STRETCH + j]);
+            /* One rare branch for all four, so the loop stays at the hash and its loads. */
+            if (ROLLING_HIT(h[0], mask) || ROLLING_HIT(h[1], mask) || ROLLING_HIT(h[2], mask) ||
+                ROLLING_HIT(h[3], mask)) {
+                for (i = 0; i < ROLLING_LANES; i++) {
+                    if (ROLLING_HIT(h[i], mask) && at[i] == ROLLING_STRETCH) {
+                        at[i] = j;
+                        at_hash[i] = h[i];
+                    }
+                }
+            }
+        }
+        /* The earliest stretch with a hit holds the earliest hit. */
+        for (i = 0; i < ROLLING_LANES; i++) {
+            if (at[i] != ROLLING_STRETCH) {
+                *hash = at_hash[i];
+                return k + i * ROLLING_STRETCH + at[i];
+            }
+        }
+        chain = h[ROLLING_LANES - 1];
+        k += ROLLING_LANES * ROLLING_STRETCH;
+    }
+    for (; k < len; k++) {
+        ROLLING_ADD(chain, buf[k]);
+        if (ROLLING_HIT(chain, mask)) {
+            *hash = chain;
+            return k;
+        }
+    }
+    *hash = chain;
+    return len;
+}
