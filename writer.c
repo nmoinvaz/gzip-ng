@@ -17,10 +17,10 @@ struct gzblock_writer_s {
     uint32_t mtime;
     char name[FORMAT_NAME_MAX];
     int rsyncable; /* end blocks at rolling hash hits so edits stay local */
-    uint32_t rhash, rmask;
-    size_t rmax; /* a block is cut on size alone only here */
-    size_t rmin; /* no early end before this much of the block is filled */
-    int err;     /* zlib error code once failed */
+    uint32_t rsync_hash, rsync_mask;
+    size_t rsync_max; /* a block is cut on size alone only here */
+    size_t rsync_min; /* no early end before this much of the block is filled */
+    int err;          /* zlib error code once failed */
     char msg[MSG_LEN];
 
     /* A block that has to be flushed part way continues on the calling thread as one deflate
@@ -265,10 +265,10 @@ int gzblock_writer_rsyncable(gzblock_writer *w, int on) {
         w->rsyncable = 0;
         return 0;
     }
-    w->rmin = w->block_size / 2;
-    w->rmask = rolling_mask(w->rmin);
-    w->rmax = (size_t)w->block_size * 2;
-    if (writer_pool_size(w, w->rmax) != 0)
+    w->rsync_min = w->block_size / 2;
+    w->rsync_mask = rolling_mask(w->rsync_min);
+    w->rsync_max = (size_t)w->block_size * 2;
+    if (writer_pool_size(w, w->rsync_max) != 0)
         return w->failed = 1, -1;
     w->rsyncable = 1;
     return 0;
@@ -293,14 +293,14 @@ int gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
 
 /* A hash hit after the minimum fill ends the block there, so boundaries follow the content and
    an edit re-aligns at the next hit instead of shifting every block. Shortens take to end at the
-   first such hit and leaves the hash of the last byte taken in w->rhash. Returns 1 on a hit. */
+   first such hit and leaves the hash of the last byte taken in w->rsync_hash. Returns 1 on a hit. */
 static int writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take) {
     size_t fill = w->cur->in_len, n = *take;
     /* The first position that may end the block. The hash has forgotten everything before the
        31 bytes ahead of it, so hashing starts there. */
-    size_t first = fill + 1 >= w->rmin ? 0 : w->rmin - fill - 1;
+    size_t first = fill + 1 >= w->rsync_min ? 0 : w->rsync_min - fill - 1;
     size_t k = first > 31 ? first - 31 : 0;
-    uint32_t hash = w->rhash, mask = w->rmask;
+    uint32_t hash = w->rsync_hash, mask = w->rsync_mask;
 
     if (k >= n)
         return 0;
@@ -336,7 +336,7 @@ static int writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take)
         /* The earliest stretch with a hit holds the earliest hit. */
         for (i = 0; i < RSYNC_LANES; i++) {
             if (at[i] != RSYNC_STRETCH) {
-                w->rhash = at_hash[i];
+                w->rsync_hash = at_hash[i];
                 *take = k + i * RSYNC_STRETCH + at[i] + 1;
                 return 1;
             }
@@ -347,12 +347,12 @@ static int writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take)
     for (; k < n; k++) {
         ROLLING_ADD(hash, buf[k]);
         if (ROLLING_HIT(hash, mask)) {
-            w->rhash = hash;
+            w->rsync_hash = hash;
             *take = k + 1;
             return 1;
         }
     }
-    w->rhash = hash;
+    w->rsync_hash = hash;
     return 0;
 }
 
@@ -374,7 +374,7 @@ int gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) {
         }
         if (w->cur == NULL && writer_acquire(w) != 0)
             return -1;
-        limit = w->rsyncable ? w->rmax : w->block_size;
+        limit = w->rsyncable ? w->rsync_max : w->block_size;
         take = MIN(limit - w->cur->in_len, len);
         hit = w->rsyncable && writer_rsync_cut(w, buf, &take);
         memcpy(w->cur->in + w->cur->in_len, buf, take);
