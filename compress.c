@@ -27,12 +27,11 @@ static size_t file_write(void *ctx, const uint8_t *buf, size_t len) {
 }
 
 /* Compress through the block engine, independent blocks sealed with marker pairs. */
-static int block_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
-                                 uint64_t *total_in, uint64_t *total_out) {
+static int block_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t block_size, int threads,
+                                 uint32_t mtime, const char *name, uint64_t *total_in, uint64_t *total_out) {
     wsink sink = {out, 0};
     uint64_t total = 0;
-    gzblock_writer *w =
-        gzblock_writer_open(file_write, &sink, opt->level, opt->strategy, opt->block_size, opt->threads);
+    gzblock_writer *w = gzblock_writer_open(file_write, &sink, level, strategy, block_size, threads);
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
     int rc = -1;
 
@@ -116,18 +115,12 @@ static size_t next_span(int rsyncable, uint32_t *hash, uint32_t mask, const uint
     return len;
 }
 
-int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
-                         uint64_t *total_in, uint64_t *total_out) {
+int gzng_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t block_size, int threads, int rsyncable,
+                         uint32_t mtime, const char *name, uint64_t *total_in, uint64_t *total_out) {
     zng_gz_header head;
 
-    /* Threads need blocks to work on, so --processes implies one. Without either this stays a
-       single deflate stream. */
-    if (opt->block_size != 0 || (opt->threads_given && opt->threads != 1)) {
-        gzng_options blocked = *opt;
-        if (blocked.block_size == 0)
-            blocked.block_size = GZNG_DEFAULT_BLOCK;
-        return block_compress_stream(in, out, &blocked, mtime, name, total_in, total_out);
-    }
+    if (block_size != 0)
+        return block_compress_stream(in, out, level, strategy, block_size, threads, mtime, name, total_in, total_out);
 
     zng_stream strm;
     uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
@@ -138,7 +131,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     if (bufs == NULL)
         return -1;
     memset(&strm, 0, sizeof(strm));
-    if (zng_deflateInit2(&strm, opt->level, Z_DEFLATED, MAX_WBITS + 16, 8, opt->strategy) != Z_OK) {
+    if (zng_deflateInit2(&strm, level, Z_DEFLATED, MAX_WBITS + 16, 8, strategy) != Z_OK) {
         free(bufs);
         return -1;
     }
@@ -159,7 +152,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
         /* An empty read still runs once, which is what emits Z_FINISH. */
         do {
             int sync;
-            size_t span = next_span(opt->rsyncable, &hash, mask, ibuf + pos, have - pos, &sync);
+            size_t span = next_span(rsyncable, &hash, mask, ibuf + pos, have - pos, &sync);
             int flush = Z_NO_FLUSH;
 
             pos += span;

@@ -8,8 +8,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "options.h"
-
 /* What a block holds on average when nothing says otherwise. */
 #define GZNG_DEFAULT_BLOCK (128u << 10)
 
@@ -17,9 +15,11 @@
 extern "C" {
 #endif
 
-/* Compress in to out as one plain gzip stream. Returns 0, or -1 with errno telling io errors. */
-int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
-                         uint64_t *total_in, uint64_t *total_out);
+/* Compress in to out as one gzip member, plain deflate when block_size is 0 and independent
+   blocks of block_size on threads workers otherwise, the plain stream rsync friendly on request.
+   Returns 0, or -1 with errno telling io errors. */
+int gzng_compress_stream(FILE *in, FILE *out, int level, int strategy, uint32_t block_size, int threads, int rsyncable,
+                         uint32_t mtime, const char *name, uint64_t *total_in, uint64_t *total_out);
 
 #ifdef __cplusplus
 }

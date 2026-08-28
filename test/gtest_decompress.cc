@@ -61,7 +61,9 @@ std::vector<uint8_t> blocks(const std::vector<uint8_t> &data) {
     opt.threads_given = 1;
     FILE *in = stream_of(data), *out = tmpfile();
     uint64_t total_in = 0, total_out = 0;
-    EXPECT_EQ(0, gzng_compress_stream(in, out, &opt, 0, nullptr, &total_in, &total_out));
+    EXPECT_EQ(0,
+              gzng_compress_stream(in, out, opt.level, opt.strategy, opt.block_size, opt.threads, opt.rsyncable, 0,
+                                   nullptr, &total_in, &total_out));
     auto packed = contents(out);
     fclose(in);
     fclose(out);

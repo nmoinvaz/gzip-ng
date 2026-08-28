@@ -170,7 +170,13 @@ static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mti
             *total_out = n;
         return rc;
     }
-    return gzng_compress_stream(in, out, opt, mtime, name, total_in, total_out);
+    /* Threads need blocks to work on, so --processes implies one. Without either this stays a
+       single deflate stream. */
+    uint32_t block_size = opt->block_size;
+    if (block_size == 0 && opt->threads_given && opt->threads != 1)
+        block_size = GZNG_DEFAULT_BLOCK;
+    return gzng_compress_stream(in, out, opt->level, opt->strategy, block_size, opt->threads, opt->rsyncable, mtime,
+                                name, total_in, total_out);
 }
 
 /* Under --test the first two bytes decide, since the reader passes anything but gzip through.

@@ -48,7 +48,9 @@ std::vector<uint8_t> compress(const std::vector<uint8_t> &data, const gzng_optio
                               const char *name = nullptr, uint64_t *total_in = nullptr, uint64_t *total_out = nullptr) {
     uint64_t in_count = 0, out_count = 0;
     FILE *in = stream_of(data), *out = tmpfile();
-    EXPECT_EQ(0, gzng_compress_stream(in, out, &opt, mtime, name, &in_count, &out_count));
+    EXPECT_EQ(0,
+              gzng_compress_stream(in, out, opt.level, opt.strategy, opt.block_size, opt.threads, opt.rsyncable, mtime,
+                                   name, &in_count, &out_count));
     auto packed = contents(out);
     fclose(in);
     fclose(out);
@@ -114,14 +116,6 @@ TEST(compress, blocksize_cuts_independent_blocks) {
     auto packed = compress(data, opt);
     EXPECT_TRUE(has_block_pairs(packed));
     EXPECT_EQ(data, inflate(packed, data.size())) << "blocks still make one ordinary member";
-}
-
-TEST(compress, processes_ask_for_blocks) {
-    gzng_options opt = defaults();
-    opt.threads = 2;
-    opt.threads_given = 1;
-
-    EXPECT_TRUE(has_block_pairs(compress(pattern(1 << 20), opt)));
 }
 
 TEST(compress, levels_trade_size_for_time) {
