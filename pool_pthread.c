@@ -43,13 +43,13 @@ static void *worker(void *arg) {
         slot_t *slot;
 
         pthread_mutex_lock(&thread->mutex);
-        while (!pool->abort && pool->qhead == pool->qtail)
+        while (!pool->abort && pool->queue_head == pool->queue_tail)
             pthread_cond_wait(&thread->work_cv, &thread->mutex);
         if (pool->abort) {
             pthread_mutex_unlock(&thread->mutex);
             break;
         }
-        slot = pool->queue[pool->qhead++ % pool->nring];
+        slot = pool->queue[pool->queue_head++ % pool->nring];
         slot->state = SLOT_CLAIMED;
         pthread_mutex_unlock(&thread->mutex);
 
@@ -135,7 +135,7 @@ void pool_submit(pool_t *pool, slot_t *slot) {
     }
     pthread_mutex_lock(&thread->mutex);
     slot->state = SLOT_FILLED;
-    pool->queue[pool->qtail++ % pool->nring] = slot;
+    pool->queue[pool->queue_tail++ % pool->nring] = slot;
     pthread_cond_signal(&thread->work_cv);
     pthread_mutex_unlock(&thread->mutex);
 }

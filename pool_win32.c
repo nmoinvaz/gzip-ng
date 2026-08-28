@@ -49,13 +49,13 @@ static unsigned __stdcall worker(void *arg) {
         slot_t *slot;
 
         EnterCriticalSection(&thread->mutex);
-        while (!pool->abort && pool->qhead == pool->qtail)
+        while (!pool->abort && pool->queue_head == pool->queue_tail)
             SleepConditionVariableCS(&thread->work_cv, &thread->mutex, INFINITE);
         if (pool->abort) {
             LeaveCriticalSection(&thread->mutex);
             break;
         }
-        slot = pool->queue[pool->qhead++ % pool->nring];
+        slot = pool->queue[pool->queue_head++ % pool->nring];
         slot->state = SLOT_CLAIMED;
         LeaveCriticalSection(&thread->mutex);
 
@@ -139,7 +139,7 @@ void pool_submit(pool_t *pool, slot_t *slot) {
     }
     EnterCriticalSection(&thread->mutex);
     slot->state = SLOT_FILLED;
-    pool->queue[pool->qtail++ % pool->nring] = slot;
+    pool->queue[pool->queue_tail++ % pool->nring] = slot;
     WakeConditionVariable(&thread->work_cv);
     LeaveCriticalSection(&thread->mutex);
 }

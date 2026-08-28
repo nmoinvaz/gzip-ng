@@ -60,7 +60,7 @@ void pool_free(pool_t *pool) {
     pool->ring = NULL;
     pool->queue = NULL;
     pool->nring = 0;
-    pool->qhead = pool->qtail = 0;
+    pool->queue_head = pool->queue_tail = 0;
     pool->abort = 0;
 }
 
