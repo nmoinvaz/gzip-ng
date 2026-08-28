@@ -441,7 +441,7 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
     int32_t last = first->last, pair = first->pair, status;
     slot_t *ps = first;
 
-    decoder_begin(&dec, &r->repair.strm, r->repair.tmp, r->scan.block_size);
+    decoder_init(&dec, &r->repair.strm, r->repair.tmp, r->scan.block_size);
     for (;;) {
         dec.accept_partial = pair;
         status = decoder_feed(&dec, piece, piece_len, &used);

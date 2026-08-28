@@ -5,7 +5,7 @@
 #include "decoder.h"
 #include "util.h"
 
-void decoder_begin(decoder *dec, zng_stream *strm, uint8_t *out, uint32_t block_size) {
+void decoder_init(decoder *dec, zng_stream *strm, uint8_t *out, uint32_t block_size) {
     dec->strm = strm;
     dec->want_marker = 0;
     dec->accept_partial = 0;

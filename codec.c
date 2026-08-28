@@ -10,7 +10,7 @@ static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
     int32_t status;
 
     /* Strict blocks must fill exactly block_size, so a reused larger buffer is capped for them. */
-    decoder_begin(&dec, strm, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_size : block_size);
+    decoder_init(&dec, strm, slot->out, slot->pair || slot->last ? (uint32_t)slot->out_size : block_size);
     dec.accept_partial = slot->pair;
     for (;;) {
         status = decoder_feed(&dec, slot->in + offset, slot->in_len - offset, &used);

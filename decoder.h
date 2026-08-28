@@ -24,7 +24,7 @@ typedef struct {
     int32_t accept_partial; /* the input ends at a marker pair, so any clean output size is a block */
 } decoder;
 
-void decoder_begin(decoder *dec, zng_stream *strm, uint8_t *out, uint32_t block_size);
+void decoder_init(decoder *dec, zng_stream *strm, uint8_t *out, uint32_t block_size);
 int32_t decoder_feed(decoder *dec, const uint8_t *in, size_t in_len, size_t *used);
 const char *decoder_status_name(int32_t status);
 
