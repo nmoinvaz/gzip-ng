@@ -5,7 +5,7 @@
 #ifndef GZNG_H_
 #define GZNG_H_
 
-#define GZNG_VERSION "0.1.0"
+#define GZNG_VERSION "2.0.0"
 
 #ifdef __cplusplus
 extern "C" {

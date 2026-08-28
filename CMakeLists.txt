@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(gzip-ng VERSION 0.1.0 LANGUAGES C)
+project(gzip-ng VERSION 2.0.0 LANGUAGES C)
 
 option(GZNG_ENABLE_TESTS "Build gzip-ng tests" ON)
 option(GZNG_ENABLE_BENCHMARKS "Build gzip-ng benchmarks" OFF)
