@@ -59,8 +59,8 @@ static void report(const gzng_options *opt, const char *name, const char *outnam
 #define GZ_SUFFIX_LEN 3
 #define GZ_PATH_MAX   4096
 
-/* Whether path ends in the suffix. */
-static int path_has_suffix(const char *path) {
+/* Whether path is named as a gzip file, by its suffix. */
+static int path_is_gzip(const char *path) {
     size_t n = strlen(path);
     return n > GZ_SUFFIX_LEN && strcmp(path + n - GZ_SUFFIX_LEN, GZ_SUFFIX) == 0;
 }
@@ -75,7 +75,7 @@ static int path_derive(const char *path, int decompress, char *in_path, char *ou
     if (!decompress) {
         snprintf(in_path, cap, "%s", path);
         snprintf(out_path, cap, "%s" GZ_SUFFIX, path);
-    } else if (path_has_suffix(path)) {
+    } else if (path_is_gzip(path)) {
         snprintf(in_path, cap, "%s", path);
         snprintf(out_path, cap, "%.*s", (int)(strlen(path) - GZ_SUFFIX_LEN), path);
     } else {
@@ -353,7 +353,7 @@ static int list_file(const char *path, const gzng_options *opt, list_totals *tot
         name = stored;
     } else {
         size_t len = strlen(path);
-        if (path_has_suffix(path) && len - GZ_SUFFIX_LEN < sizeof(name_buf)) {
+        if (path_is_gzip(path) && len - GZ_SUFFIX_LEN < sizeof(name_buf)) {
             memcpy(name_buf, path, len - GZ_SUFFIX_LEN);
             name_buf[len - GZ_SUFFIX_LEN] = 0;
             name = name_buf;
@@ -501,7 +501,7 @@ static int run_dir(const char *path, const gzng_options *opt, list_totals *total
             continue;
         if (S_ISDIR(st.st_mode))
             rc = worse(rc, run_dir(sub, opt, totals));
-        else if (S_ISREG(st.st_mode) && path_has_suffix(sub) == want_suffix)
+        else if (S_ISREG(st.st_mode) && path_is_gzip(sub) == want_suffix)
             rc = worse(rc, run_file(sub, opt, totals));
     }
     closedir(dir);
