@@ -16,7 +16,6 @@
 #include "decompress.h"
 #include "format.h"
 #include "gzblock.h"
-#include "gzfile.h"
 #include "options.h"
 
 /* ===========================================================================
@@ -46,6 +45,55 @@ static void report(const gzng_options *opt, const char *name, const char *outnam
         fprintf(stderr, "%s:\t%5.1f%% -- replaced with %s\n", name, pct, outname);
     else
         fprintf(stderr, "%s:\t%5.1f%%\n", name, pct);
+}
+
+/* ===========================================================================
+ * File names
+ */
+
+/* The suffix that names a gzip file, and the longest path the naming helpers write. */
+#define GZ_SUFFIX     ".gz"
+#define GZ_SUFFIX_LEN 3
+#define GZ_PATH_MAX   4096
+
+/* Whether path ends in the suffix. */
+static int path_has_suffix(const char *path) {
+    size_t n = strlen(path);
+    return n > GZ_SUFFIX_LEN && strcmp(path + n - GZ_SUFFIX_LEN, GZ_SUFFIX) == 0;
+}
+
+/* Compression turns file into file.gz, decompression file.gz into file, or file into file by
+   reading file.gz. Returns -1 with errno set when the name will not fit. */
+static int path_derive(const char *path, int decompress, char *in_path, char *out_path, size_t cap) {
+    if (strlen(path) + GZ_SUFFIX_LEN >= cap) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    if (!decompress) {
+        snprintf(in_path, cap, "%s", path);
+        snprintf(out_path, cap, "%s" GZ_SUFFIX, path);
+    } else if (path_has_suffix(path)) {
+        snprintf(in_path, cap, "%s", path);
+        snprintf(out_path, cap, "%.*s", (int)(strlen(path) - GZ_SUFFIX_LEN), path);
+    } else {
+        snprintf(in_path, cap, "%s" GZ_SUFFIX, path);
+        snprintf(out_path, cap, "%s", path);
+    }
+    return 0;
+}
+
+/* The output name for --name, the stored name placed in the input's directory. */
+static void path_from_stored(char *out_path, size_t cap, const char *in_path, const char *stored) {
+    const char *slash = strrchr(in_path, '/');
+    const char *base = strrchr(stored, '/');
+
+    base = base ? base + 1 : stored;
+    if (base[0] == 0)
+        return;
+    if (slash != NULL)
+        snprintf(out_path, cap, "%.*s%s", (int)(slash - in_path + 1), in_path, base);
+    else
+        snprintf(out_path, cap, "%s", base);
 }
 
 /* ===========================================================================
@@ -173,7 +221,7 @@ static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, 
         return -1;
     }
     if (opt->name_mode == 1 && stored[0] != 0)
-        gzng_path_from_stored(out_path, cap, in_path, stored);
+        path_from_stored(out_path, cap, in_path, stored);
     if (opt->time_mode != 1)
         *hdr_mtime = 0;
     return 0;
@@ -302,7 +350,7 @@ static int list_file(const char *path, const gzng_options *opt, list_totals *tot
         name = stored;
     } else {
         size_t len = strlen(path);
-        if (gzng_path_has_suffix(path) && len - GZ_SUFFIX_LEN < sizeof(name_buf)) {
+        if (path_has_suffix(path) && len - GZ_SUFFIX_LEN < sizeof(name_buf)) {
             memcpy(name_buf, path, len - GZ_SUFFIX_LEN);
             name_buf[len - GZ_SUFFIX_LEN] = 0;
             name = name_buf;
@@ -356,7 +404,7 @@ static int process_file(const char *path, const gzng_options *opt) {
     FILE *in, *out;
     int rc;
 
-    if (gzng_path_derive(path, opt->decompress, in_path, out_path, sizeof(in_path)) != 0) {
+    if (path_derive(path, opt->decompress, in_path, out_path, sizeof(in_path)) != 0) {
         fail(path);
         return GZ_ERROR;
     }
@@ -450,7 +498,7 @@ static int run_dir(const char *path, const gzng_options *opt, list_totals *total
             continue;
         if (S_ISDIR(st.st_mode))
             rc = worse(rc, run_dir(sub, opt, totals));
-        else if (S_ISREG(st.st_mode) && gzng_path_has_suffix(sub) == want_suffix)
+        else if (S_ISREG(st.st_mode) && path_has_suffix(sub) == want_suffix)
             rc = worse(rc, run_file(sub, opt, totals));
     }
     closedir(dir);
