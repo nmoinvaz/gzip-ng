@@ -278,6 +278,7 @@ static int process_dir(const char *path, const gzng_options *opt) {
             continue;
         else
             r = gzng_process_path(sub, opt);
+        /* Preserve processing errors over the less serious "already exists" result. */
         if (r == 1 || (r == 2 && rc == 0))
             rc = r;
     }
