@@ -196,7 +196,7 @@ static int32_t writer_drain(gzblock_writer *w) {
     w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
     w->total_in += slot->in_len;
     pool_release(&w->pipeline.pool, slot);
-    w->pipeline.next_drain++;
+    pipeline_drained(&w->pipeline);
     return 0;
 }
 

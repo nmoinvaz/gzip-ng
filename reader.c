@@ -444,7 +444,7 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
     for (;;) {
         dec.accept_partial = pair;
         status = decoder_feed(&dec, piece, piece_len, &used);
-        r->pipeline.next_drain++;
+        pipeline_drained(&r->pipeline);
         if (status == SEG_SHORT) {
             if (ps != NULL)
                 pool_release(&r->pipeline.pool, ps);
@@ -501,7 +501,7 @@ static int32_t reader_drain(gzblock_reader *r) {
     slot_t *slot = pipeline_wait(&r->pipeline, r->pipeline.next_drain);
 
     if (slot->status == SEG_FULL && slot->in_used == slot->in_len && !slot->last) {
-        r->pipeline.next_drain++;
+        pipeline_drained(&r->pipeline);
         reader_block_out(r, slot->out, slot->out_len, slot->crc, slot);
         return 0;
     }
@@ -516,7 +516,7 @@ static int32_t reader_drain(gzblock_reader *r) {
         }
         memcpy(r->repair.tmp, slot->out, slot->out_len);
         reader_block_out(r, r->repair.tmp, slot->out_len, slot->crc, NULL);
-        r->pipeline.next_drain++;
+        pipeline_drained(&r->pipeline);
         return reader_member_end(r, slot->in + slot->in_used, slot->in_len - slot->in_used, slot);
     }
     if (slot->status == SEG_OVERFLOW && r->pipeline.next_drain == 0)

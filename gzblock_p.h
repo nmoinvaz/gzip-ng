@@ -44,6 +44,11 @@ static inline void pipeline_submit(pipeline_t *pipeline, slot_t *slot) {
     pipeline->next_submit++;
 }
 
+/* The slot at next_drain has been taken in order, the next one is up. */
+static inline void pipeline_drained(pipeline_t *pipeline) {
+    pipeline->next_drain++;
+}
+
 static inline int32_t pipeline_has_pending(const pipeline_t *pipeline) {
     return pipeline->next_drain < pipeline->next_submit;
 }
