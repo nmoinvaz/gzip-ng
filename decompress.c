@@ -9,22 +9,22 @@
 typedef struct {
     FILE *f;
     uint64_t in;
-} rsource;
+} gzblock_reader_ctx;
 
 static size_t file_read(void *ctx, uint8_t *buf, size_t len) {
-    rsource *s = (rsource *)ctx;
-    size_t n = fread(buf, 1, len, s->f);
-    if (n == 0 && ferror(s->f))
+    gzblock_reader_ctx *reader_ctx = (gzblock_reader_ctx *)ctx;
+    size_t n = fread(buf, 1, len, reader_ctx->f);
+    if (n == 0 && ferror(reader_ctx->f))
         return (size_t)-1;
-    s->in += n;
+    reader_ctx->in += n;
     return n;
 }
 
 int32_t gzng_decompress_stream(FILE *in, FILE *out, const uint8_t *head, size_t head_len, uint32_t block_size,
                                int32_t threads, uint64_t *total_in, uint64_t *total_out) {
-    rsource src = {in, head_len};
+    gzblock_reader_ctx reader_ctx = {in, head_len};
     uint64_t total = 0;
-    gzblock_reader *r = gzblock_reader_open(file_read, &src, head, head_len, block_size, threads);
+    gzblock_reader *r = gzblock_reader_open(file_read, &reader_ctx, head, head_len, block_size, threads);
 
     if (r == NULL)
         return -1;
@@ -46,7 +46,7 @@ int32_t gzng_decompress_stream(FILE *in, FILE *out, const uint8_t *head, size_t 
     }
     gzblock_reader_close(r);
     if (total_in != NULL)
-        *total_in = src.in;
+        *total_in = reader_ctx.in;
     if (total_out != NULL)
         *total_out = total;
     return 0;

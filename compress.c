@@ -78,18 +78,19 @@ done:
 #define RSYNC_SPAN 4096
 
 /* Push one span of input through deflate and write everything it produces. */
-static int32_t deflate_span(zng_stream *strm, FILE *out, uint8_t *obuf, const uint8_t *in, size_t len, int32_t flush) {
+static int32_t deflate_span(zng_stream *strm, FILE *out, uint8_t *out_buf, const uint8_t *in, size_t len,
+                            int32_t flush) {
     int32_t err;
 
     strm->next_in = (z_const uint8_t *)in;
     strm->avail_in = (uint32_t)len;
     do {
-        strm->next_out = obuf;
+        strm->next_out = out_buf;
         strm->avail_out = CHUNK;
         err = zng_deflate(strm, flush);
         if (err != Z_OK && err != Z_STREAM_END && err != Z_BUF_ERROR)
             return -1;
-        if (fwrite(obuf, 1, CHUNK - strm->avail_out, out) != CHUNK - strm->avail_out)
+        if (fwrite(out_buf, 1, CHUNK - strm->avail_out, out) != CHUNK - strm->avail_out)
             return -1;
     } while (strm->avail_in != 0 || strm->avail_out == 0);
     return 0;
@@ -118,16 +119,16 @@ int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strateg
         return block_compress_stream(in, out, level, strategy, block_size, threads, mtime, name, total_in, total_out);
 
     zng_stream strm;
-    uint8_t *bufs = (uint8_t *)malloc(2 * CHUNK);
-    uint8_t *ibuf = bufs, *obuf = bufs ? bufs + CHUNK : NULL;
-    uint32_t hash = 0, mask = rolling_mask(RSYNC_SPAN);
+    uint8_t *buffers = (uint8_t *)malloc(2 * CHUNK);
+    uint8_t *in_buf = buffers, *out_buf = buffers ? buffers + CHUNK : NULL;
+    uint32_t rsync_hash = 0, rsync_mask = rolling_mask(RSYNC_SPAN);
     int32_t rc = -1;
 
-    if (bufs == NULL)
+    if (buffers == NULL)
         return -1;
     memset(&strm, 0, sizeof(strm));
     if (zng_deflateInit2(&strm, level, Z_DEFLATED, MAX_WBITS + 16, 8, strategy) != Z_OK) {
-        free(bufs);
+        free(buffers);
         return -1;
     }
     /* Always set the header, even with nothing to record in it. Left to itself zlib-ng stamps
@@ -138,7 +139,7 @@ int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strateg
     head.os = FORMAT_OS_CODE;
     zng_deflateSetHeader(&strm, &head);
     for (;;) {
-        size_t have = fread(ibuf, 1, CHUNK, in), pos = 0;
+        size_t have = fread(in_buf, 1, CHUNK, in), pos = 0;
         int32_t final;
 
         if (ferror(in))
@@ -147,7 +148,7 @@ int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strateg
         /* An empty read still runs once, which is what emits Z_FINISH. */
         do {
             int32_t sync;
-            size_t span = next_span(rsyncable, &hash, mask, ibuf + pos, have - pos, &sync);
+            size_t span = next_span(rsyncable, &rsync_hash, rsync_mask, in_buf + pos, have - pos, &sync);
             int32_t flush = Z_NO_FLUSH;
 
             pos += span;
@@ -155,7 +156,7 @@ int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strateg
                 flush = Z_FINISH;
             else if (sync)
                 flush = Z_SYNC_FLUSH;
-            if (deflate_span(&strm, out, obuf, ibuf + pos - span, span, flush) != 0)
+            if (deflate_span(&strm, out, out_buf, in_buf + pos - span, span, flush) != 0)
                 goto done;
         } while (pos < have);
         if (final)
@@ -168,6 +169,6 @@ done:
     if (total_out != NULL)
         *total_out = (uint64_t)strm.total_out;
     zng_deflateEnd(&strm);
-    free(bufs);
+    free(buffers);
     return rc;
 }
