@@ -67,6 +67,15 @@ static FILE *open_input(const char *path, struct stat *st) {
     return in;
 }
 
+/* The time and stored name from a gzip file's header, or -1 with a warning that it is not one. */
+static int read_meta(const char *path, const gzng_options *opt, uint32_t *mtime, char *name, size_t name_len) {
+    if (gzng_read_meta(path, mtime, name, name_len) != 0) {
+        warn(opt, "gzip-ng: %s: not in gzip format\n", path);
+        return -1;
+    }
+    return 0;
+}
+
 /* ===========================================================================
  * Stream processing
  */
@@ -141,16 +150,13 @@ static void store_meta(const gzng_options *opt, const char *in_path, const struc
         *mtime = (uint32_t)ist->st_mtime;
 }
 
-/* Read the stored name and time. With --name the stored name decides the output path.
-   Returns -1 when the input is not gzip. */
-static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, char *out_path, size_t cap,
-                        uint32_t *hdr_mtime) {
+/* With --name the stored name decides the output path, and --name or --time whether the stored
+   time applies. Returns -1 when the input is not gzip, reported. */
+static int restore_meta(const gzng_options *opt, const char *in_path, char *out_path, size_t cap, uint32_t *hdr_mtime) {
     char stored[FORMAT_NAME_MAX];
 
-    if (gzng_read_meta(in, hdr_mtime, stored, sizeof(stored)) != 0) {
-        warn(opt, "gzip-ng: %s: not in gzip format\n", in_path);
+    if (read_meta(in_path, opt, hdr_mtime, stored, sizeof(stored)) != 0)
         return -1;
-    }
     if (opt->name_mode == 1 && stored[0] != 0)
         gzng_path_from_stored(out_path, cap, in_path, stored);
     if (opt->time_mode != 1)
@@ -205,8 +211,7 @@ static int test_file(const char *path, const gzng_options *opt) {
     if (in == NULL)
         return GZ_ERROR;
     /* Non-gzip input fails the test rather than passing through. */
-    if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
-        warn(opt, "gzip-ng: %s: not in gzip format\n", path);
+    if (read_meta(path, opt, &mtime, stored, sizeof(stored)) != 0) {
         fclose(in);
         return GZ_ERROR;
     }
@@ -268,8 +273,7 @@ static int list_file(const char *path, const gzng_options *opt, list_totals *tot
         fclose(in);
         return GZ_ERROR;
     }
-    if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
-        fprintf(stderr, "gzip-ng: %s: not in gzip format\n", path);
+    if (read_meta(path, opt, &mtime, stored, sizeof(stored)) != 0) {
         fclose(in);
         return GZ_ERROR;
     }
@@ -358,7 +362,7 @@ static int process_file(const char *path, const gzng_options *opt) {
         fclose(in);
         return rc;
     }
-    if (opt->decompress && restore_meta(in, opt, in_path, out_path, sizeof(out_path), &mtime) != 0) {
+    if (opt->decompress && restore_meta(opt, in_path, out_path, sizeof(out_path), &mtime) != 0) {
         fclose(in);
         return GZ_ERROR;
     }

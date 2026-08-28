@@ -7,7 +7,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,9 +26,9 @@ int gzng_path_derive(const char *path, int decompress, char *in_path, char *out_
 /* The output name for --name, the stored name placed in the input's directory. */
 void gzng_path_from_stored(char *out_path, size_t cap, const char *in_path, const char *stored);
 
-/* Read the modification time and stored name from a gzip header, rewinding the stream.
-   Returns 0 with the fields filled, name empty when absent, or -1 when not seekable gzip. */
-int gzng_read_meta(FILE *in, uint32_t *mtime, char *name, size_t name_len);
+/* Read the modification time and stored name from a gzip file's header. Returns 0 with the
+   fields filled, name empty when absent, or -1 when the file cannot be read or is not gzip. */
+int gzng_read_meta(const char *path, uint32_t *mtime, char *name, size_t name_len);
 
 #ifdef __cplusplus
 }

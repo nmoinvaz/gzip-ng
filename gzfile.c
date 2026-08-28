@@ -5,6 +5,7 @@
 #include "gzfile.h"
 
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "format.h"
@@ -48,15 +49,21 @@ void gzng_path_from_stored(char *out_path, size_t cap, const char *in_path, cons
         snprintf(out_path, cap, "%s", base);
 }
 
-int gzng_read_meta(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
+int gzng_read_meta(const char *path, uint32_t *mtime, char *name, size_t name_len) {
     uint8_t buf[4096];
-    size_t got = fread(buf, 1, sizeof(buf), in);
     format_header hdr;
+    FILE *in;
+    size_t got;
 
     *mtime = 0;
     if (name_len != 0)
         name[0] = 0;
-    if (fseek(in, 0, SEEK_SET) != 0 || !format_is_gzip(buf, got))
+    in = fopen(path, "rb");
+    if (in == NULL)
+        return -1;
+    got = fread(buf, 1, sizeof(buf), in);
+    fclose(in);
+    if (!format_is_gzip(buf, got))
         return -1;
     /* A header that outruns the buffer still yields the fields that fit in it. */
     if (format_header_parse(buf, got, &hdr) == (size_t)-1)
