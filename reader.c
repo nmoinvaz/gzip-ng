@@ -23,9 +23,9 @@ typedef struct {
     buf_t buf; /* input in hand, not yet consumed by the current stage */
     int eof;   /* the read callback returned 0 */
 
-    const uint8_t *out_p; /* output being handed out */
-    size_t out_n;
-    slot_t *out_slot; /* slot to release once out_p is consumed, or NULL */
+    const uint8_t *next; /* next output to deliver */
+    size_t have;         /* bytes available at next */
+    slot_t *slot;        /* slot to release once next is consumed, or NULL */
 } reader_io;
 
 typedef struct {
@@ -91,9 +91,9 @@ static int reader_oom(gzblock_reader *r) {
 }
 
 static void reader_handout(gzblock_reader *r, const uint8_t *p, size_t n, slot_t *slot) {
-    r->io.out_p = p;
-    r->io.out_n = n;
-    r->io.out_slot = slot;
+    r->io.next = p;
+    r->io.have = n;
+    r->io.slot = slot;
 }
 
 /* ===========================================================================
@@ -665,17 +665,17 @@ gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8
 
 /* Output handed out earlier has been consumed, the slot holding it can go back to the pool. */
 static void reader_done_pending(gzblock_reader *r) {
-    if (r->io.out_n == 0 && r->io.out_slot != NULL) {
-        pool_release(&r->pipeline.pool, r->io.out_slot);
-        r->io.out_slot = NULL;
+    if (r->io.have == 0 && r->io.slot != NULL) {
+        pool_release(&r->pipeline.pool, r->io.slot);
+        r->io.slot = NULL;
     }
 }
 
-/* Advance until there is output to hand out or the data ends. Returns 0 with r->io.out_n set or the
+/* Advance until there is output to hand out or the data ends. Returns 0 with r->io.have set or the
    state at READER_END, -1 on error. */
 static int reader_advance(gzblock_reader *r) {
     int rc;
-    while (r->io.out_n == 0) {
+    while (r->io.have == 0) {
         switch (r->io.state) {
         case READER_HEADER:
             rc = reader_header(r);
@@ -711,13 +711,13 @@ int gzblock_reader_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got
         size_t n;
         if (reader_advance(r) != 0)
             return -1;
-        if (r->io.out_n == 0)
+        if (r->io.have == 0)
             break; /* end of the data */
-        n = r->io.out_n < len - done ? r->io.out_n : len - done;
-        memcpy(buf + done, r->io.out_p, n);
+        n = r->io.have < len - done ? r->io.have : len - done;
+        memcpy(buf + done, r->io.next, n);
         done += n;
-        r->io.out_p += n;
-        r->io.out_n -= n;
+        r->io.next += n;
+        r->io.have -= n;
         reader_done_pending(r);
     }
     *got = done;
@@ -728,11 +728,11 @@ int gzblock_reader_next(gzblock_reader *r, const uint8_t **p, size_t *n) {
     reader_done_pending(r);
     if (reader_advance(r) != 0)
         return -1;
-    *p = r->io.out_p;
-    *n = r->io.out_n;
+    *p = r->io.next;
+    *n = r->io.have;
     /* Consumed as far as the reader is concerned, the slot goes back on the next call. */
-    r->io.out_p += r->io.out_n;
-    r->io.out_n = 0;
+    r->io.next += r->io.have;
+    r->io.have = 0;
     return 0;
 }
 
