@@ -216,7 +216,7 @@ static int32_t writer_pool_size(gzblock_writer *w, size_t in_size) {
     out_size = zng_deflateBound(&bound, in_size) + 32;
     zng_deflateEnd(&bound);
 
-    if (w->pipeline.pool_up)
+    if (w->pipeline.started)
         pipeline_free(&w->pipeline);
     if (pipeline_start(&w->pipeline, w->nthreads, in_size, out_size) != 0)
         return -1;

@@ -23,8 +23,9 @@
 
 typedef struct {
     pool_t pool;
-    size_t next_produce, next_emit;
-    int32_t pool_up;
+    size_t next_produce;
+    size_t next_emit;
+    int32_t started;
 } pipeline_t;
 
 static inline int32_t pipeline_start(pipeline_t *pipeline, int32_t nthreads, size_t in_size, size_t out_size) {
@@ -34,7 +35,7 @@ static inline int32_t pipeline_start(pipeline_t *pipeline, int32_t nthreads, siz
         pool_free(&pipeline->pool);
         return -2;
     }
-    pipeline->pool_up = 1;
+    pipeline->started = 1;
     return 0;
 }
 
@@ -58,10 +59,10 @@ static inline void pipeline_reset(pipeline_t *pipeline) {
 }
 
 static inline void pipeline_free(pipeline_t *pipeline) {
-    if (pipeline->pool_up)
+    if (pipeline->started)
         pool_stop(&pipeline->pool);
     pool_free(&pipeline->pool);
-    pipeline->pool_up = 0;
+    pipeline->started = 0;
 }
 
 #endif /* GZBLOCK_P_H_ */
