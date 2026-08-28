@@ -44,7 +44,7 @@ static void report(const gzng_options *opt, const char *name, const char *outnam
 
     if (!opt->verbose || opt->quiet)
         return;
-    if (outname != NULL)
+    if (outname)
         fprintf(stderr, "%s:\t%5.1f%% -- replaced with %s\n", name, pct, outname);
     else
         fprintf(stderr, "%s:\t%5.1f%%\n", name, pct);
@@ -93,7 +93,7 @@ static void path_from_stored(char *out_path, size_t cap, const char *in_path, co
     base = base ? base + 1 : stored;
     if (base[0] == 0)
         return;
-    if (slash != NULL)
+    if (slash)
         snprintf(out_path, cap, "%.*s%s", (int32_t)(slash - in_path + 1), in_path, base);
     else
         snprintf(out_path, cap, "%s", base);
@@ -109,11 +109,11 @@ static FILE *open_input(const char *path, struct stat *st) {
 
     errno = 0;
     in = fopen(path, "rb");
-    if (in != NULL && fstat(fileno(in), st) != 0) {
+    if (in && fstat(fileno(in), st) != 0) {
         fclose(in);
         in = NULL;
     }
-    if (in == NULL)
+    if (!in)
         fail(path);
     return in;
 }
@@ -134,7 +134,7 @@ static int32_t read_header(FILE *in, uint32_t *mtime, char *name, size_t name_le
     if (format_header_parse(buf, buf_len, &hdr) == (size_t)-1)
         return -1;
     *mtime = hdr.mtime;
-    if (hdr.name != NULL && name_len != 0)
+    if (hdr.name && name_len != 0)
         snprintf(name, name_len, "%s", hdr.name);
     return 0;
 }
@@ -151,7 +151,7 @@ static int32_t copy_stream(FILE *in, FILE *out, uint64_t *count) {
     while ((n = fread(buf, 1, sizeof(buf), in)) != 0) {
         if (fwrite(buf, 1, n, out) != n)
             return -1;
-        if (count != NULL)
+        if (count)
             *count += n;
     }
     return ferror(in) ? -1 : 0;
@@ -164,9 +164,9 @@ static int32_t run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t
     if (opt->transparent) {
         uint64_t n = 0;
         int32_t rc = copy_stream(in, out, &n);
-        if (total_in != NULL)
+        if (total_in)
             *total_in = n;
-        if (total_out != NULL)
+        if (total_out)
             *total_out = n;
         return rc;
     }
@@ -247,7 +247,7 @@ static void sync_dir(const char *out_path) {
     char dir_path[GZ_PATH_MAX];
     int32_t fd;
 
-    if (slash != NULL)
+    if (slash)
         snprintf(dir_path, sizeof(dir_path), "%.*s", (int32_t)(slash - out_path), out_path);
     else
         snprintf(dir_path, sizeof(dir_path), ".");
@@ -415,7 +415,7 @@ static int32_t process_file(FILE *in, const char *in_path, char *out_path, const
     }
 
     out = fopen(out_path, opt->force ? "wb" : "wbx");
-    if (out == NULL) {
+    if (!out) {
         if (!opt->force && errno == EEXIST) {
             warn(opt, "gzip-ng: %s already exists, not overwritten, use -f\n", out_path);
             return GZ_WARNING;
@@ -463,7 +463,7 @@ static int32_t run_file(const char *path, const gzng_options *opt, list_totals *
         return GZ_ERROR;
     }
     in = open_input(in_path, &st);
-    if (in == NULL)
+    if (!in)
         return GZ_ERROR;
     if (opt->list)
         rc = list_file(in, in_path, out_path, &st, opt, totals);
@@ -488,11 +488,11 @@ static int32_t run_dir(const char *path, const gzng_options *opt, list_totals *t
     int32_t want_suffix = opt->decompress || opt->list;
     int32_t rc = GZ_OK;
 
-    if (dir == NULL) {
+    if (!dir) {
         fprintf(stderr, "gzip-ng: %s: %s\n", path, strerror(errno));
         return GZ_ERROR;
     }
-    while ((e = readdir(dir)) != NULL) {
+    while ((e = readdir(dir))) {
         struct stat st;
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
             continue;

@@ -195,7 +195,7 @@ static int32_t reader_next_segment(gzblock_reader *r) {
         size_t limit = b->len >= 3 ? b->len - 3 : 0;
         const uint8_t *bp = buf_data(b);
         const uint8_t *hit = r->scan.scanned < limit ? scan_marker(bp + r->scan.scanned, bp + limit) : NULL;
-        if (hit != NULL) {
+        if (hit) {
             size_t n = (size_t)(hit - bp) + 4;
             int32_t empties = 0;
             /* Empty stored blocks right after the marker belong to this segment too, the second one
@@ -277,7 +277,7 @@ static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t b
         /* Segments are swapped in from the scanner, so slots start without an in buffer. */
         r->repair.tmp = (uint8_t *)malloc(block_size);
         r->repair.tmp_size = block_size;
-        if (r->repair.tmp == NULL)
+        if (!r->repair.tmp)
             return reader_oom(r);
         {
             int32_t rc = pipeline_start(&r->pipeline, r->io.nthreads, 0, block_size);
@@ -390,7 +390,7 @@ static int32_t reader_member_end(gzblock_reader *r, const uint8_t *rest, size_t 
 
     if (buf_append(&all, rest, rest_n) != 0)
         return reader_oom(r);
-    if (slot != NULL)
+    if (slot)
         pool_release(&r->pipeline.pool, slot);
     if (reader_collect_pending(r, &all) != 0)
         return -1;
@@ -446,7 +446,7 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
         status = decoder_feed(&dec, piece, piece_len, &used);
         pipeline_drained(&r->pipeline);
         if (status == SEG_SHORT) {
-            if (ps != NULL)
+            if (ps)
                 pool_release(&r->pipeline.pool, ps);
             if (last)
                 return reader_fail(r, Z_BUF_ERROR, "block %zu is truncated", r->pipeline.next_drain - 1);
@@ -482,11 +482,11 @@ static int32_t reader_repair(gzblock_reader *r, slot_t *first) {
         }
         if (status == SEG_FULL && used == piece_len && !last) {
             reader_repair_out(r);
-            if (ps != NULL)
+            if (ps)
                 pool_release(&r->pipeline.pool, ps);
             return 0;
         }
-        if (ps != NULL)
+        if (ps)
             pool_release(&r->pipeline.pool, ps);
         return reader_block_status_error(r, status, last, r->pipeline.next_drain - 1);
     }
@@ -509,7 +509,7 @@ static int32_t reader_drain(gzblock_reader *r) {
         /* The final block. Its output goes out from tmp so the slot can be recycled right away. */
         if (slot->out_len > r->repair.tmp_size) {
             uint8_t *grown = (uint8_t *)realloc(r->repair.tmp, slot->out_len);
-            if (grown == NULL)
+            if (!grown)
                 return reader_oom(r);
             r->repair.tmp = grown;
             r->repair.tmp_size = slot->out_len;
@@ -575,7 +575,7 @@ static int32_t reader_probe(gzblock_reader *r, size_t hdr_len) {
     limit = r->io.buf.len < hdr_len + PROBE_WINDOW ? r->io.buf.len : hdr_len + PROBE_WINDOW;
     while (pos + 9 <= limit) {
         hit = scan_marker(bp + pos, bp + limit - 3);
-        if (hit == NULL)
+        if (!hit)
             break;
         pos = (size_t)(hit - bp);
         if (pos + 9 <= limit && memcmp(hit + 4, "\0\0\0\xff\xff", 5) == 0)
@@ -644,17 +644,17 @@ gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8
                                     uint32_t block_size, int32_t nthreads) {
     gzblock_reader *r;
 
-    if (read == NULL)
+    if (!read)
         return NULL;
     r = (gzblock_reader *)calloc(1, sizeof(*r));
-    if (r == NULL)
+    if (!r)
         return NULL;
     r->io.read = read;
     r->io.ctx = ctx;
     r->io.block_hint = block_size > GZBLOCK_MAX_BLOCK ? 0 : block_size;
     r->io.nthreads = nthreads > 0 ? nthreads : pool_default_threads();
     r->stream.obuf = (uint8_t *)malloc(IO_CHUNK);
-    if (r->stream.obuf == NULL || (head_len != 0 && buf_append(&r->io.buf, head, head_len) != 0)) {
+    if (!r->stream.obuf || (head_len != 0 && buf_append(&r->io.buf, head, head_len) != 0)) {
         gzblock_reader_close(r);
         return NULL;
     }
@@ -664,7 +664,7 @@ gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8
 
 /* Output handed out earlier has been consumed, the slot holding it can go back to the pool. */
 static void reader_done_pending(gzblock_reader *r) {
-    if (r->io.have == 0 && r->io.slot != NULL) {
+    if (r->io.have == 0 && r->io.slot) {
         pool_release(&r->pipeline.pool, r->io.slot);
         r->io.slot = NULL;
     }
@@ -744,7 +744,7 @@ int32_t gzblock_reader_errcode(const gzblock_reader *r) {
 }
 
 void gzblock_reader_close(gzblock_reader *r) {
-    if (r == NULL)
+    if (!r)
         return;
     pipeline_free(&r->pipeline);
     if (r->stream.strm_init)

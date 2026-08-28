@@ -36,9 +36,9 @@ static int32_t block_compress_stream(FILE *in, FILE *out, int32_t level, int32_t
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
     int32_t rc = -1;
 
-    if (w == NULL || buf == NULL)
+    if (!w || !buf)
         goto done;
-    if (mtime != 0 || name != NULL)
+    if (mtime != 0 || name)
         gzblock_writer_meta(w, mtime, name);
     /* Boundaries always follow the content. It costs 0.02% of the output and keeps an edit
        local, so it is not worth putting behind a flag. */
@@ -60,12 +60,12 @@ static int32_t block_compress_stream(FILE *in, FILE *out, int32_t level, int32_t
 engine_error:
     fprintf(stderr, "gzip-ng: %s\n", gzblock_writer_error(w));
 done:
-    if (w != NULL)
+    if (w)
         gzblock_writer_close(w);
     free(buf);
-    if (total_in != NULL)
+    if (total_in)
         *total_in = total;
-    if (total_out != NULL)
+    if (total_out)
         *total_out = writer_ctx.total_out;
     return rc;
 }
@@ -112,7 +112,7 @@ int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strateg
     uint32_t rsync_mask = rolling_mask(RSYNC_SPAN);
     int32_t rc = -1;
 
-    if (buffers == NULL)
+    if (!buffers)
         return -1;
     memset(&strm, 0, sizeof(strm));
     if (zng_deflateInit2(&strm, level, Z_DEFLATED, MAX_WBITS + 16, 8, strategy) != Z_OK) {
@@ -157,9 +157,9 @@ int32_t gzng_compress_stream(FILE *in, FILE *out, int32_t level, int32_t strateg
     }
     rc = 0;
 done:
-    if (total_in != NULL)
+    if (total_in)
         *total_in = (uint64_t)strm.total_in;
-    if (total_out != NULL)
+    if (total_out)
         *total_out = (uint64_t)strm.total_out;
     zng_deflateEnd(&strm);
     free(buffers);

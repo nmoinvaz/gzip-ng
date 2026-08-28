@@ -145,9 +145,9 @@ static void spellings(const option_desc *opt, char *buf, size_t cap) {
         n += (size_t)snprintf(buf + n, cap - n, "-%c", opt->letter);
     else
         n += (size_t)snprintf(buf + n, cap - n, "  ");
-    if (opt->name != NULL)
+    if (opt->name)
         n += (size_t)snprintf(buf + n, cap - n, " --%s", opt->name);
-    if (opt->value != NULL)
+    if (opt->value)
         snprintf(buf + n, cap - n, " %s", opt->value);
 }
 
@@ -182,8 +182,7 @@ static const option_desc *find_name(const char *name) {
 
     for (i = 0; i < OPTION_COUNT; i++) {
         const option_desc *opt = &option_table[i];
-        if ((opt->name != NULL && strcmp(opt->name, name) == 0) ||
-            (opt->alias != NULL && strcmp(opt->alias, name) == 0))
+        if ((opt->name && strcmp(opt->name, name) == 0) || (opt->alias && strcmp(opt->alias, name) == 0))
             return opt;
     }
     return NULL;
@@ -288,13 +287,13 @@ static int32_t apply(gzng_options *opt, const option_desc *desc, const char *val
         opt->level = 9;
         break;
     case OPT_BLOCKSIZE:
-        if (value == NULL || (opt->block_size = gzng_parse_size(value)) == 0)
+        if (!value || (opt->block_size = gzng_parse_size(value)) == 0)
             return bad(prog, "bad block size", value ? value : "(missing)");
         break;
     case OPT_PROCESSES: {
         char *end;
-        long n = value != NULL ? strtol(value, &end, 10) : 0;
-        if (value == NULL || end == value || *end != 0 || n < 0 || n > 1024)
+        long n = value ? strtol(value, &end, 10) : 0;
+        if (!value || end == value || *end != 0 || n < 0 || n > 1024)
             return bad(prog, "bad thread count", value ? value : "(missing)");
         opt->threads = (int32_t)n;
         opt->threads_given = 1;
@@ -318,9 +317,9 @@ static int32_t parse_long(gzng_options *opt, const char *prog, const char *arg, 
     const option_desc *desc = find_name(arg + 2);
     const char *value = NULL;
 
-    if (desc == NULL)
+    if (!desc)
         return bad(prog, "unknown option", arg);
-    if (desc->value != NULL)
+    if (desc->value)
         value = *i + 1 < argc ? argv[++*i] : NULL;
     return apply(opt, desc, value, prog);
 }
@@ -340,11 +339,11 @@ static int32_t parse_shorts(gzng_options *opt, const char *prog, const char *arg
             continue;
         }
         desc = find_letter(arg[j]);
-        if (desc == NULL) {
+        if (!desc) {
             char unknown[3] = {'-', arg[j], 0};
             return bad(prog, "unknown option", unknown);
         }
-        if (desc->value != NULL) {
+        if (desc->value) {
             if (arg[j + 1] != 0)
                 value = arg + j + 1;
             else if (*i + 1 < argc)

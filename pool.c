@@ -30,17 +30,17 @@ int32_t pool_alloc(pool_t *pool, int32_t nthreads, size_t in_size, size_t out_si
     pool->out_size = out_size;
     pool->ring = (slot_t *)calloc(pool->nring, sizeof(slot_t));
     pool->queue = (slot_t **)calloc(pool->nring, sizeof(slot_t *));
-    if (pool->ring == NULL || pool->queue == NULL)
+    if (!pool->ring || !pool->queue)
         return -1;
     for (i = 0; i < pool->nring; i++) {
         pool->ring[i].out = (uint8_t *)malloc(out_size);
         pool->ring[i].out_size = out_size;
-        if (pool->ring[i].out == NULL)
+        if (!pool->ring[i].out)
             return -1;
         if (in_size != 0) {
             pool->ring[i].in = (uint8_t *)malloc(in_size);
             pool->ring[i].in_size = in_size;
-            if (pool->ring[i].in == NULL)
+            if (!pool->ring[i].in)
                 return -1;
         }
     }
@@ -49,7 +49,7 @@ int32_t pool_alloc(pool_t *pool, int32_t nthreads, size_t in_size, size_t out_si
 
 void pool_free(pool_t *pool) {
     size_t i;
-    if (pool->ring != NULL) {
+    if (pool->ring) {
         for (i = 0; i < pool->nring; i++) {
             free(pool->ring[i].in);
             free(pool->ring[i].out);

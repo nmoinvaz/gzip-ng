@@ -77,13 +77,13 @@ int32_t pool_start(pool_t *pool, int32_t nthreads) {
         return pool_start_inline(pool);
 
     thread = (struct pool_threads *)calloc(1, sizeof(*thread));
-    if (thread == NULL)
+    if (!thread)
         return -1;
     InitializeCriticalSection(&thread->mutex);
     InitializeConditionVariable(&thread->work_cv);
     InitializeConditionVariable(&thread->done_cv);
     thread->threads = (HANDLE *)calloc((size_t)nthreads, sizeof(HANDLE));
-    if (thread->threads == NULL) {
+    if (!thread->threads) {
         DeleteCriticalSection(&thread->mutex);
         free(thread);
         return -1;
@@ -114,7 +114,7 @@ void pool_stop(pool_t *pool) {
         pool->inline_run = 0;
         return;
     }
-    if (thread == NULL)
+    if (!thread)
         return;
     EnterCriticalSection(&thread->mutex);
     pool->abort = 1;

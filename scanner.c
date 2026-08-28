@@ -17,7 +17,7 @@ static inline uint32_t gzng_ctz64(uint64_t v) {
 /* The scalar scanner, also the tail behind the vector ones. Pointer to the first 00 00 FF FF
    starting in [start, end), or NULL. end + 3 must be readable. */
 static const uint8_t *scan_marker_scalar(const uint8_t *start, const uint8_t *end) {
-    while (start < end && (start = (const uint8_t *)memchr(start, 0, (size_t)(end - start))) != NULL) {
+    while (start < end && (start = (const uint8_t *)memchr(start, 0, (size_t)(end - start)))) {
         if (start[1] == 0 && start[2] == 0xff && start[3] == 0xff)
             return start;
         start++;

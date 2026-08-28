@@ -24,7 +24,7 @@ int32_t buf_reserve(buf_t *buf, size_t need) {
         while (size < need)
             size *= 2;
         grown = (uint8_t *)realloc(buf->p, size);
-        if (grown == NULL)
+        if (!grown)
             return -1;
         buf->p = grown;
         buf->size = size;

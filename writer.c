@@ -144,7 +144,7 @@ static int32_t writer_inline_begin(gzblock_writer *w) {
     w->inline_active = 1;
     w->inline_fill = 0;
     w->inline_crc = 0;
-    if (w->cur != NULL) {
+    if (w->cur) {
         slot_t *slot = w->cur;
         w->cur = NULL;
         if (slot->in_len != 0 && writer_inline_feed(w, slot->in, slot->in_len) != 0)
@@ -157,7 +157,7 @@ static int32_t writer_inline_begin(gzblock_writer *w) {
 /* A partly filled block moves to the inline stream, so it can be flushed or reconfigured without
    ending early. No-op when there is no such block. */
 static int32_t writer_inline_migrate(gzblock_writer *w) {
-    if (!w->inline_active && w->cur != NULL && w->cur->in_len != 0)
+    if (!w->inline_active && w->cur && w->cur->in_len != 0)
         return writer_inline_begin(w);
     return 0;
 }
@@ -227,10 +227,10 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
                                     uint32_t block_size, int32_t nthreads) {
     gzblock_writer *w;
 
-    if (write == NULL || block_size == 0 || block_size > GZBLOCK_MAX_BLOCK)
+    if (!write || block_size == 0 || block_size > GZBLOCK_MAX_BLOCK)
         return NULL;
     w = (gzblock_writer *)calloc(1, sizeof(*w));
-    if (w == NULL)
+    if (!w)
         return NULL;
     w->write = write;
     w->ctx = ctx;
@@ -244,7 +244,7 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
     w->pipeline.pool.level = level;
     w->pipeline.pool.strategy = strategy;
     w->obuf = (uint8_t *)malloc(IO_CHUNK);
-    if (w->obuf == NULL || writer_pool_size(w, block_size) != 0) {
+    if (!w->obuf || writer_pool_size(w, block_size) != 0) {
         pipeline_free(&w->pipeline);
         free(w->obuf);
         free(w);
@@ -258,7 +258,7 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
    of block_size, and a block is cut on size alone only at twice it. That headroom leaves all but
    a few percent of boundaries content-defined. */
 int32_t gzblock_writer_rsyncable(gzblock_writer *w, int32_t on) {
-    if (w == NULL || w->hdr_written || w->failed)
+    if (!w || w->hdr_written || w->failed)
         return -1;
     if (!on) {
         w->rsyncable = 0;
@@ -274,10 +274,10 @@ int32_t gzblock_writer_rsyncable(gzblock_writer *w, int32_t on) {
 }
 
 int32_t gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name) {
-    if (w == NULL || w->hdr_written || w->failed)
+    if (!w || w->hdr_written || w->failed)
         return -1;
     w->mtime = mtime;
-    if (name != NULL && strlen(name) < FORMAT_NAME_MAX)
+    if (name && strlen(name) < FORMAT_NAME_MAX)
         memcpy(w->name, name, strlen(name) + 1);
     return 0;
 }
@@ -312,7 +312,7 @@ int32_t gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) 
             len -= take;
             continue;
         }
-        if (w->cur == NULL && writer_acquire(w) != 0)
+        if (!w->cur && writer_acquire(w) != 0)
             return -1;
         limit = w->rsyncable ? w->rsync_max : w->block_size;
         take = MIN(limit - w->cur->in_len, len);
@@ -382,7 +382,7 @@ int32_t gzblock_writer_finish(gzblock_writer *w) {
             return -1;
     } else {
         /* The last block ends the deflate stream, an empty one if the input ended on a boundary. */
-        if (w->cur == NULL && writer_acquire(w) != 0)
+        if (!w->cur && writer_acquire(w) != 0)
             return -1;
         writer_submit(w, 1);
         if (writer_drain_all(w) != 0)
@@ -404,7 +404,7 @@ int32_t gzblock_writer_errcode(const gzblock_writer *w) {
 }
 
 void gzblock_writer_close(gzblock_writer *w) {
-    if (w == NULL)
+    if (!w)
         return;
     pipeline_free(&w->pipeline);
     if (w->strm_init)

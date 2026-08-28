@@ -14,7 +14,7 @@ int32_t format_is_gzip(const uint8_t *buf, size_t len) {
 }
 
 size_t format_header_build(uint8_t *buf, const format_header *hdr) {
-    size_t name_len = hdr->name != NULL ? strlen(hdr->name) : 0;
+    size_t name_len = hdr->name ? strlen(hdr->name) : 0;
     size_t n = FORMAT_HEADER_LEN;
 
     /* A name that does not fit is omitted rather than truncated. */
@@ -43,7 +43,7 @@ size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
     size_t pos = FORMAT_HEADER_LEN;
     uint8_t flags;
 
-    if (hdr != NULL)
+    if (hdr)
         memset(hdr, 0, sizeof(*hdr));
     if (len < FORMAT_HEADER_LEN)
         return 0;
@@ -52,7 +52,7 @@ size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
     flags = buf[3];
     if (flags & 0xe0)
         return (size_t)-1;
-    if (hdr != NULL)
+    if (hdr)
         hdr->mtime = load_le32(buf + 4);
 
     if (flags & 4) { /* FEXTRA */
@@ -72,7 +72,7 @@ size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
             pos++;
         if (pos >= len)
             return 0;
-        if (hdr != NULL)
+        if (hdr)
             hdr->name = (const char *)buf + start;
         pos++;
     }

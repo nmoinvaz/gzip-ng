@@ -24,7 +24,7 @@ static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
             if (size > GZBLOCK_MAX_BLOCK)
                 size = GZBLOCK_MAX_BLOCK;
             grown = (uint8_t *)realloc(slot->out, size);
-            if (grown == NULL) {
+            if (!grown) {
                 status = SEG_ERROR;
                 break;
             }
