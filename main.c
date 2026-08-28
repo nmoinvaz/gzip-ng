@@ -201,35 +201,6 @@ static int process_stdio(const gzng_options *opt) {
  * Header fields and file attributes
  */
 
-/* The name and time to record in the header, subject to --no-name, --name, --no-time, and
-   --time. */
-static void store_meta(const gzng_options *opt, const char *in_path, const struct stat *ist, uint32_t *mtime,
-                       const char **name) {
-    if (opt->name_mode != 0) {
-        const char *base = strrchr(in_path, '/');
-        *name = base ? base + 1 : in_path;
-    }
-    if (opt->time_mode != 0)
-        *mtime = (uint32_t)ist->st_mtime;
-}
-
-/* With --name the stored name decides the output path, and --name or --time whether the stored
-   time applies. Returns -1 when the input is not gzip, reported. */
-static int restore_meta(FILE *in, const gzng_options *opt, const char *in_path, char *out_path, size_t cap,
-                        uint32_t *hdr_mtime) {
-    char stored[FORMAT_NAME_MAX];
-
-    if (read_header(in, hdr_mtime, stored, sizeof(stored)) != 0) {
-        warn(opt, "gzip-ng: %s: not in gzip format\n", in_path);
-        return -1;
-    }
-    if (opt->name_mode == 1 && stored[0] != 0)
-        path_from_stored(out_path, cap, in_path, stored);
-    if (opt->time_mode != 1)
-        *hdr_mtime = 0;
-    return 0;
-}
-
 /* gzip carries the input file's mode and times onto the output, and --name on decompression prefers
    the time stored in the header. */
 static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t hdr_mtime) {
@@ -415,16 +386,35 @@ static int process_file(const char *path, const gzng_options *opt) {
     in = open_input(in_path, &ist);
     if (in == NULL)
         return GZ_ERROR;
-    if (!opt->decompress)
-        store_meta(opt, in_path, &ist, &mtime, &name);
+    /* The name and time to record in the header, subject to --no-name, --name, --no-time, and
+       --time. */
+    if (!opt->decompress) {
+        if (opt->name_mode != 0) {
+            const char *base = strrchr(in_path, '/');
+            name = base ? base + 1 : in_path;
+        }
+        if (opt->time_mode != 0)
+            mtime = (uint32_t)ist.st_mtime;
+    }
     if (opt->stdout_mode) {
         rc = process_to_stdout(in, opt, in_path, mtime, name);
         fclose(in);
         return rc;
     }
-    if (opt->decompress && restore_meta(in, opt, in_path, out_path, sizeof(out_path), &mtime) != 0) {
-        fclose(in);
-        return GZ_ERROR;
+    /* With --name the stored name decides the output path, and --name or --time whether the
+       stored time applies. */
+    if (opt->decompress) {
+        char stored[FORMAT_NAME_MAX];
+
+        if (read_header(in, &mtime, stored, sizeof(stored)) != 0) {
+            warn(opt, "gzip-ng: %s: not in gzip format\n", in_path);
+            fclose(in);
+            return GZ_ERROR;
+        }
+        if (opt->name_mode == 1 && stored[0] != 0)
+            path_from_stored(out_path, sizeof(out_path), in_path, stored);
+        if (opt->time_mode != 1)
+            mtime = 0;
     }
 
     out = fopen(out_path, opt->force ? "wb" : "wbx");
