@@ -198,7 +198,7 @@ static int process_stdio(const gzng_options *opt) {
 }
 
 /* ===========================================================================
- * Header fields and file attributes
+ * Output file attributes
  */
 
 /* gzip carries the input file's mode and times onto the output, and --name on decompression prefers
