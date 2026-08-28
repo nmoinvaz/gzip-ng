@@ -271,6 +271,14 @@ static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t b
     /* A pair-terminated block may be any size and coalescing gathers several, so this is a
        memory bound rather than a property of the format. */
     r->scan.max_seg = (size_t)block_size * 4 + 1024;
+    /* The repair stream opens before the workers start, so the first call into zlib-ng, which
+       fills its function table, is made here rather than by every worker at once. */
+    if (!r->repair.strm_init) {
+        memset(&r->repair.strm, 0, sizeof(r->repair.strm));
+        if (zng_inflateInit2(&r->repair.strm, -MAX_WBITS) != Z_OK)
+            return reader_oom(r);
+        r->repair.strm_init = 1;
+    }
     if (!r->pipeline.started) {
         r->pipeline.pool.mode = POOL_INFLATE;
         r->pipeline.pool.block_size = block_size;
@@ -286,12 +294,6 @@ static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t b
             if (rc == -2)
                 return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
         }
-    }
-    if (!r->repair.strm_init) {
-        memset(&r->repair.strm, 0, sizeof(r->repair.strm));
-        if (zng_inflateInit2(&r->repair.strm, -MAX_WBITS) != Z_OK)
-            return reader_oom(r);
-        r->repair.strm_init = 1;
     }
     r->scan.paired = paired;
     r->scan.scanned = 0;
