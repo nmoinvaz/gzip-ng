@@ -247,15 +247,14 @@ static int process_file(const char *path, const gzng_options *opt) {
     have_ist = fstat(fileno(in), &ist) == 0;
     if (!opt->decompress && have_ist)
         store_meta(opt, in_path, &ist, &mtime, &name);
-    if (opt->decompress && !opt->stdout_mode &&
-        restore_meta(in, opt, in_path, out_path, sizeof(out_path), &mtime) != 0) {
-        fclose(in);
-        return GZ_ERROR;
-    }
     if (opt->stdout_mode) {
         rc = process_to_stdout(in, opt, in_path, mtime, name);
         fclose(in);
         return rc;
+    }
+    if (opt->decompress && restore_meta(in, opt, in_path, out_path, sizeof(out_path), &mtime) != 0) {
+        fclose(in);
+        return GZ_ERROR;
     }
 
     out = fopen(out_path, opt->force ? "wb" : "wbx");
