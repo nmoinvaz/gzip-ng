@@ -147,7 +147,7 @@ int gzng_compress_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t 
     memset(&head, 0, sizeof(head));
     head.time = mtime;
     head.name = (uint8_t *)(uintptr_t)name;
-    head.os = OS_CODE;
+    head.os = FORMAT_OS_CODE;
     zng_deflateSetHeader(&strm, &head);
     for (;;) {
         size_t have = fread(ibuf, 1, CHUNK, in), pos = 0;

@@ -99,7 +99,7 @@ TEST(compress, header_records_the_time_and_name) {
     ASSERT_NE((size_t)-1, format_header_parse(packed.data(), packed.size(), &hdr));
     EXPECT_EQ(0x5f6a7b8cu, hdr.mtime);
     EXPECT_STREQ("file.txt", hdr.name);
-    EXPECT_EQ(OS_CODE, packed[9]);
+    EXPECT_EQ(FORMAT_OS_CODE, packed[9]);
 }
 
 TEST(compress, a_plain_stream_has_no_blocks) {

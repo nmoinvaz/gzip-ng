@@ -15,18 +15,18 @@ extern "C" {
 #define FORMAT_HEADER_LEN  10 /* the fixed bytes, before any optional field */
 #define FORMAT_TRAILER_LEN 8  /* crc32 and size, the member ending */
 
-/* The header's OS byte, RFC 1952's code for the platform the member was made on. */
-#ifdef _WIN32
-#  define OS_CODE 0
-#else
-#  define OS_CODE 3
-#endif
-
 /* Longest file name stored in or read from a header, including the terminator. */
 #define FORMAT_NAME_MAX 256
 
 /* Longest header format_header_build() can produce, the fixed ten bytes and the stored name. */
 #define FORMAT_HEADER_MAX (FORMAT_HEADER_LEN + FORMAT_NAME_MAX)
+
+/* The header's OS byte, RFC 1952's code for the platform the member was made on. */
+#ifdef _WIN32
+#  define FORMAT_OS_CODE 0
+#else
+#  define FORMAT_OS_CODE 3
+#endif
 
 /* Whether buf starts with the gzip magic, which two bytes decide. */
 int format_is_gzip(const uint8_t *buf, size_t len);
