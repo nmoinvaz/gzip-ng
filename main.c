@@ -49,6 +49,25 @@ static void report(const gzng_options *opt, const char *name, const char *outnam
 }
 
 /* ===========================================================================
+ * Input files
+ */
+
+/* Open an input read-only, with its stat when st is not NULL. NULL with the error reported. */
+static FILE *open_input(const char *path, struct stat *st) {
+    FILE *in;
+
+    errno = 0;
+    in = fopen(path, "rb");
+    if (in != NULL && st != NULL && fstat(fileno(in), st) != 0) {
+        fclose(in);
+        in = NULL;
+    }
+    if (in == NULL)
+        fail(path);
+    return in;
+}
+
+/* ===========================================================================
  * Stream processing
  */
 
@@ -182,12 +201,9 @@ static int test_file(const char *path, const gzng_options *opt) {
     FILE *in;
     int rc;
 
-    errno = 0;
-    in = fopen(path, "rb");
-    if (in == NULL) {
-        fail(path);
+    in = open_input(path, NULL);
+    if (in == NULL)
         return GZ_ERROR;
-    }
     /* Non-gzip input fails the test rather than passing through. */
     if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
         warn(opt, "gzip-ng: %s: not in gzip format\n", path);
@@ -244,12 +260,12 @@ static int list_file(const char *path, const gzng_options *opt, list_totals *tot
     size_t n;
     FILE *in;
 
-    errno = 0;
-    in = fopen(path, "rb");
-    if (in == NULL || fstat(fileno(in), &st) != 0 || st.st_size < 18) {
-        fprintf(stderr, "gzip-ng: %s: %s\n", path, errno ? strerror(errno) : "too short to be gzip");
-        if (in != NULL)
-            fclose(in);
+    in = open_input(path, &st);
+    if (in == NULL)
+        return GZ_ERROR;
+    if (st.st_size < 18) {
+        fprintf(stderr, "gzip-ng: %s: too short to be gzip\n", path);
+        fclose(in);
         return GZ_ERROR;
     }
     if (gzng_read_meta(in, &mtime, stored, sizeof(stored)) != 0) {
@@ -325,21 +341,17 @@ static int process_file(const char *path, const gzng_options *opt) {
     const char *name = NULL; /* to write when compressing */
     struct stat ist;
     FILE *in, *out;
-    int have_ist, rc;
+    int rc;
 
     if (gzng_path_derive(path, opt->decompress, in_path, out_path, sizeof(in_path)) != 0) {
         fail(path);
         return GZ_ERROR;
     }
 
-    errno = 0;
-    in = fopen(in_path, "rb");
-    if (in == NULL) {
-        fail(in_path);
+    in = open_input(in_path, &ist);
+    if (in == NULL)
         return GZ_ERROR;
-    }
-    have_ist = fstat(fileno(in), &ist) == 0;
-    if (!opt->decompress && have_ist)
+    if (!opt->decompress)
         store_meta(opt, in_path, &ist, &mtime, &name);
     if (opt->stdout_mode) {
         rc = process_to_stdout(in, opt, in_path, mtime, name);
@@ -374,8 +386,7 @@ static int process_file(const char *path, const gzng_options *opt) {
         unlink(out_path);
         return GZ_ERROR;
     }
-    if (have_ist)
-        copy_attrs(out_path, &ist, opt->decompress ? mtime : 0);
+    copy_attrs(out_path, &ist, opt->decompress ? mtime : 0);
     if (opt->synchronous)
         sync_dir(out_path);
     if (!opt->keep)
