@@ -28,7 +28,8 @@ if(NOT TARGET zlib-ng::zlib)
 endif()
 
 
-add_library(gzng STATIC
+# Static unless BUILD_SHARED_LIBS asks otherwise.
+add_library(gzng
     codec.c
     reader.c
     writer.c
@@ -59,6 +60,15 @@ add_library(gzng STATIC
     options.h
     gzng.h)
 target_include_directories(gzng PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+if(BUILD_SHARED_LIBS)
+    # The exported API, a module definition on Windows and a version script for GNU ld.
+    if(WIN32)
+        target_sources(gzng PRIVATE win32/gzng.def)
+    elseif(NOT APPLE)
+        target_link_options(gzng PRIVATE "-Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/gzng.map")
+        set_property(TARGET gzng APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gzng.map)
+    endif()
+endif()
 target_link_libraries(gzng PUBLIC zlib-ng::zlib)
 
 if(GZNG_THREADS)

@@ -22,3 +22,7 @@ add_executable(benchmark_gzng
     benchmark_gzblock.cc
     benchmark_scanner.cc)
 target_link_libraries(benchmark_gzng PRIVATE gzng benchmark::benchmark benchmark::benchmark_main)
+if(BUILD_SHARED_LIBS)
+    # The scanner is not part of the exported API, so the benchmark builds its own copy.
+    target_sources(benchmark_gzng PRIVATE ${CMAKE_SOURCE_DIR}/scanner.c)
+endif()
