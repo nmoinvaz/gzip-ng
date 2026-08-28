@@ -160,7 +160,7 @@ static int copy_stream(FILE *in, FILE *out, uint64_t *count) {
 static int run_stream(FILE *in, FILE *out, const gzng_options *opt, uint32_t mtime, const char *name,
                       uint64_t *total_in, uint64_t *total_out) {
     if (opt->decompress)
-        return gzng_decompress_stream(in, out, opt, NULL, 0, total_in, total_out);
+        return gzng_decompress_stream(in, out, NULL, 0, opt->block_size, opt->threads, total_in, total_out);
     if (opt->transparent) {
         uint64_t n = 0;
         int rc = copy_stream(in, out, &n);
@@ -206,7 +206,7 @@ static int process_stdio(const gzng_options *opt) {
         size_t head_len;
         if (test_peek(stdin, "stdin", opt, head, &head_len) != 0)
             return GZ_ERROR;
-        rc = gzng_decompress_stream(stdin, NULL, opt, head, head_len, &total_in, &total_out);
+        rc = gzng_decompress_stream(stdin, NULL, head, head_len, opt->block_size, opt->threads, &total_in, &total_out);
     } else {
         rc = run_stream(stdin, stdout, opt, 0, NULL, &total_in, &total_out);
     }
@@ -265,7 +265,7 @@ static int test_file(FILE *in, const char *path, const gzng_options *opt) {
 
     if (test_peek(in, path, opt, head, &head_len) != 0)
         return GZ_ERROR;
-    if (gzng_decompress_stream(in, NULL, opt, head, head_len, &total_in, &total_out) != 0)
+    if (gzng_decompress_stream(in, NULL, head, head_len, opt->block_size, opt->threads, &total_in, &total_out) != 0)
         return GZ_ERROR;
     if (opt->verbose && !opt->quiet)
         fprintf(stderr, "%s:\t OK\n", path);

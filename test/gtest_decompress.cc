@@ -80,7 +80,8 @@ run_result run(const std::vector<uint8_t> &input, const gzng_options &opt, bool 
                const std::vector<uint8_t> &head = {}) {
     run_result r = {0, 0, 0, {}};
     FILE *in = stream_of(input), *out = to_null ? nullptr : tmpfile();
-    r.rc = gzng_decompress_stream(in, out, &opt, head.data(), head.size(), &r.total_in, &r.total_out);
+    r.rc = gzng_decompress_stream(in, out, head.data(), head.size(), opt.block_size, opt.threads, &r.total_in,
+                                  &r.total_out);
     if (out != nullptr) {
         r.output = contents(out);
         fclose(out);
