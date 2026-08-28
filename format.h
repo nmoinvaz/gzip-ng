@@ -19,6 +19,9 @@ extern "C" {
 /* Longest header format_header_build() can produce, the fixed ten bytes and the stored name. */
 #define FORMAT_HEADER_MAX (10 + GZBLOCK_NAME_MAX)
 
+/* Whether buf starts with the gzip magic, which two bytes decide. */
+int format_is_gzip(const uint8_t *buf, size_t len);
+
 /* What a member header records. */
 typedef struct {
     uint32_t mtime;      /* 0 stores no time */
@@ -28,9 +31,6 @@ typedef struct {
 
 /* Lay a member header into buf, at most FORMAT_HEADER_MAX bytes. Returns its length. */
 size_t format_header_build(uint8_t *buf, const format_header *hdr);
-
-/* Whether buf starts with the gzip magic, which two bytes decide. */
-int format_is_gzip(const uint8_t *buf, size_t len);
 
 /* Walk a member header, over any extra field, name, comment, and header crc it carries. When
    hdr is not NULL it receives the time and the stored name, the name pointing into buf, each as

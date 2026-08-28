@@ -9,6 +9,10 @@
 #include "util.h"
 #include "zlib-ng.h"
 
+int format_is_gzip(const uint8_t *buf, size_t len) {
+    return len >= 2 && buf[0] == 0x1f && buf[1] == 0x8b;
+}
+
 size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     size_t name_len = hdr->name != NULL ? strlen(hdr->name) : 0;
     size_t n = 10;
@@ -33,10 +37,6 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
         n += name_len + 1;
     }
     return n;
-}
-
-int format_is_gzip(const uint8_t *buf, size_t len) {
-    return len >= 2 && buf[0] == 0x1f && buf[1] == 0x8b;
 }
 
 size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
