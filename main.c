@@ -253,7 +253,7 @@ static void row(const gzng_options *opt, uint32_t crc, uint32_t mtime, uint64_t 
 static int list_file(const char *path, const gzng_options *opt, list_totals *totals) {
     char stored[GZBLOCK_NAME_MAX], name_buf[4096];
     const char *name = path;
-    uint8_t tail[GZ_TRAILER];
+    uint8_t tail[GZ_TRAILER_LEN];
     uint32_t mtime = 0, crc = 0;
     uint64_t uncompressed;
     struct stat st;
@@ -263,7 +263,7 @@ static int list_file(const char *path, const gzng_options *opt, list_totals *tot
     in = open_input(path, &st);
     if (in == NULL)
         return GZ_ERROR;
-    if (st.st_size < 18) {
+    if (st.st_size < GZ_HEADER_LEN + GZ_TRAILER_LEN) {
         fprintf(stderr, "gzip-ng: %s: too short to be gzip\n", path);
         fclose(in);
         return GZ_ERROR;
@@ -274,10 +274,10 @@ static int list_file(const char *path, const gzng_options *opt, list_totals *tot
         return GZ_ERROR;
     }
     /* The trailer of the last member, the same 32-bit size gzip reports. */
-    fseek(in, -GZ_TRAILER, SEEK_END);
+    fseek(in, -GZ_TRAILER_LEN, SEEK_END);
     n = fread(tail, 1, sizeof(tail), in);
     fclose(in);
-    if (n != 8)
+    if (n != GZ_TRAILER_LEN)
         return GZ_ERROR;
     {
         uint32_t size32;

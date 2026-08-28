@@ -430,7 +430,7 @@ int gzblock_writer_flush(gzblock_writer *w) {
 }
 
 int gzblock_writer_finish(gzblock_writer *w) {
-    uint8_t trailer[GZ_TRAILER];
+    uint8_t trailer[GZ_TRAILER_LEN];
 
     if (w->failed)
         return -1;

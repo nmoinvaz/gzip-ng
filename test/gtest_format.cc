@@ -116,7 +116,7 @@ TEST(format, values_are_stored_little_endian) {
 }
 
 TEST(format, trailer_round_trips) {
-    uint8_t buf[GZ_TRAILER];
+    uint8_t buf[GZ_TRAILER_LEN];
     uint32_t crc = 0, total = 0;
 
     format_trailer_build(buf, 0xdeadbeefu, 0x100000007ull);

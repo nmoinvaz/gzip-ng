@@ -14,10 +14,11 @@
 extern "C" {
 #endif
 
-#define GZ_TRAILER 8 /* crc32 and size, the member ending */
+#define GZ_HEADER_LEN  10 /* the fixed bytes, before any optional field */
+#define GZ_TRAILER_LEN 8  /* crc32 and size, the member ending */
 
 /* Longest header format_header_build() can produce, the fixed ten bytes and the stored name. */
-#define FORMAT_HEADER_MAX (10 + GZBLOCK_NAME_MAX)
+#define FORMAT_HEADER_MAX (GZ_HEADER_LEN + GZBLOCK_NAME_MAX)
 
 /* Whether buf starts with the gzip magic, which two bytes decide. */
 int format_is_gzip(const uint8_t *buf, size_t len);

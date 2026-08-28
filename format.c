@@ -15,13 +15,13 @@ int format_is_gzip(const uint8_t *buf, size_t len) {
 
 size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     size_t name_len = hdr->name != NULL ? strlen(hdr->name) : 0;
-    size_t n = 10;
+    size_t n = GZ_HEADER_LEN;
 
     /* A name that does not fit is omitted rather than truncated. */
     if (name_len >= GZBLOCK_NAME_MAX)
         name_len = 0;
 
-    memset(buf, 0, 10);
+    memset(buf, 0, GZ_HEADER_LEN);
     buf[0] = 0x1f;
     buf[1] = 0x8b;
     buf[2] = 8;                                /* deflate */
@@ -40,12 +40,12 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
 }
 
 size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
-    size_t pos = 10;
+    size_t pos = GZ_HEADER_LEN;
     uint8_t flags;
 
     if (hdr != NULL)
         memset(hdr, 0, sizeof(*hdr));
-    if (len < 10)
+    if (len < GZ_HEADER_LEN)
         return 0;
     if (!format_is_gzip(buf, len) || buf[2] != 8)
         return (size_t)-1;
