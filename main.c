@@ -71,16 +71,16 @@ static FILE *open_input(const char *path, struct stat *st) {
    afterwards. Returns 0 with the fields filled, name empty when absent, or -1 when not gzip. */
 static int read_header(FILE *in, uint32_t *mtime, char *name, size_t name_len) {
     uint8_t buf[4096];
-    size_t got = fread(buf, 1, sizeof(buf), in);
+    size_t buf_len = fread(buf, 1, sizeof(buf), in);
     format_header hdr;
 
     *mtime = 0;
     if (name_len != 0)
         name[0] = 0;
-    if (fseek(in, 0, SEEK_SET) != 0 || !format_is_gzip(buf, got))
+    if (fseek(in, 0, SEEK_SET) != 0 || !format_is_gzip(buf, buf_len))
         return -1;
     /* A header that outruns the buffer still yields the fields that fit in it. */
-    if (format_header_parse(buf, got, &hdr) == (size_t)-1)
+    if (format_header_parse(buf, buf_len, &hdr) == (size_t)-1)
         return -1;
     *mtime = hdr.mtime;
     if (hdr.name != NULL && name_len != 0)
