@@ -267,8 +267,8 @@ static int process_to_stdout(FILE *in, const gzng_options *opt, const char *in_p
 int gzng_process_file(const char *path, const gzng_options *opt) {
     char in_path[MAX_PATH_LEN], out_path[MAX_PATH_LEN];
     uint64_t total_in = 0, total_out = 0;
-    uint32_t store_mtime = 0, hdr_mtime = 0;
-    const char *store_name = NULL;
+    uint32_t mtime = 0;      /* to write when compressing, read when decompressing */
+    const char *name = NULL; /* to write when compressing */
     struct stat ist;
     FILE *in, *out;
     int have_ist, rc;
@@ -286,14 +286,14 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
     }
     have_ist = fstat(fileno(in), &ist) == 0;
     if (!opt->decompress && have_ist)
-        store_meta(opt, in_path, &ist, &store_mtime, &store_name);
+        store_meta(opt, in_path, &ist, &mtime, &name);
     if (opt->decompress && !opt->stdout_mode &&
-        restore_meta(in, opt, in_path, out_path, sizeof(out_path), &hdr_mtime) != 0) {
+        restore_meta(in, opt, in_path, out_path, sizeof(out_path), &mtime) != 0) {
         fclose(in);
         return GZ_ERROR;
     }
     if (opt->stdout_mode) {
-        rc = process_to_stdout(in, opt, in_path, store_mtime, store_name);
+        rc = process_to_stdout(in, opt, in_path, mtime, name);
         fclose(in);
         return rc;
     }
@@ -309,7 +309,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         fclose(in);
         return GZ_ERROR;
     }
-    rc = run_stream(in, out, opt, store_mtime, store_name, &total_in, &total_out);
+    rc = run_stream(in, out, opt, mtime, name, &total_in, &total_out);
     fclose(in);
     /* --synchronous flushes the output before the input is unlinked. */
     if (rc == 0 && opt->synchronous && (fflush(out) != 0 || fsync(fileno(out)) != 0))
@@ -320,7 +320,7 @@ int gzng_process_file(const char *path, const gzng_options *opt) {
         return GZ_ERROR;
     }
     if (have_ist)
-        copy_attrs(out_path, &ist, opt->decompress ? hdr_mtime : 0);
+        copy_attrs(out_path, &ist, opt->decompress ? mtime : 0);
     if (opt->synchronous)
         sync_dir(out_path);
     if (!opt->keep)
