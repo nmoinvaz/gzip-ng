@@ -202,19 +202,12 @@ static void sync_dir(const char *out_path) {
    GZ_ERROR with the error reported. */
 static int test_file(const char *path, const gzng_options *opt) {
     uint64_t total_in = 0, total_out = 0;
-    char stored[FORMAT_NAME_MAX];
-    uint32_t mtime;
     FILE *in;
     int rc;
 
     in = open_input(path, NULL);
     if (in == NULL)
         return GZ_ERROR;
-    /* Non-gzip input fails the test rather than passing through. */
-    if (read_meta(path, opt, &mtime, stored, sizeof(stored)) != 0) {
-        fclose(in);
-        return GZ_ERROR;
-    }
     rc = gzng_decompress_stream(in, NULL, opt, &total_in, &total_out) != 0 ? GZ_ERROR : GZ_OK;
     fclose(in);
     if (rc == GZ_OK && opt->verbose && !opt->quiet)
