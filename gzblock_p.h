@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "decoder.h"
+#include "codec.h"
 #include "buf.h"
 #include "format.h"
 #include "gzblock.h"
@@ -44,7 +44,7 @@ static inline void pipeline_submit(pipeline_t *pipeline, slot_t *slot) {
     pipeline->next_submit++;
 }
 
-/* The slot at next_drain has been taken in order, the next one is up. */
+/* The block at next_drain went out in order, the next one is up. */
 static inline void pipeline_drained(pipeline_t *pipeline) {
     pipeline->next_drain++;
 }
@@ -57,6 +57,11 @@ static inline slot_t *pipeline_wait(pipeline_t *pipeline, size_t index) {
     slot_t *slot = pool_slot(&pipeline->pool, index);
     pool_wait(&pipeline->pool, slot);
     return slot;
+}
+
+/* Everything submitted but not yet drained was taken back, nothing is pending. */
+static inline void pipeline_clear(pipeline_t *pipeline) {
+    pipeline->next_submit = pipeline->next_drain;
 }
 
 static inline void pipeline_reset(pipeline_t *pipeline) {

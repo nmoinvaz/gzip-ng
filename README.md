@@ -89,7 +89,7 @@ header | block 1 … 00 00 FF FF 00 00 00 FF FF | block 2 … 00 00 FF FF 00 00 
 - A scanner finds every `00 00 FF FF`, one empty stored block, with SIMD filtering for the zero pair the way `memchr` filters for a byte. A second empty stored block behind it makes a boundary.
 - Each segment between boundaries is inflated on its own by a worker into a slot the size of a block, with its CRC taken there, and the blocks are handed out in order.
 - `pigz --rsyncable --independent` ends a block at every rsync point, about every 4 KiB. The reader gathers those until about a block size is in hand before handing them to a worker, since a slot per 4 KiB costs more to hand off than to inflate.
-- Stored data can hold the marker pair by chance, so a boundary is trusted only when the segment inflates to a whole block. A segment that comes up short is inflated again on the calling thread across the segments after it, and a member with no block structure at all goes back through plain inflate.
+- Stored data can hold the marker pair by chance, so a boundary is trusted only when the segment inflates to a whole block. A segment that comes up short goes back to the input to be cut again past that marker, and a member with no block structure at all goes back through plain inflate.
 - The trailer's CRC and length are checked against what the blocks produced.
 
 ## Benchmarks

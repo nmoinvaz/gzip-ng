@@ -29,7 +29,7 @@ typedef struct {
     uint8_t *out;
     size_t out_size;         /* grows past block_size for pair-terminated and final segments */
     int32_t level, strategy; /* deflate settings for this block */
-    int32_t status;          /* DECODER_SEGMENT_* for inflate, 0 or -1 for deflate */
+    int32_t status;          /* SEGMENT_* for inflate, 0 or -1 for deflate */
     size_t out_len, in_used;
     uint32_t crc; /* crc32 of the uncompressed side */
     int32_t state;

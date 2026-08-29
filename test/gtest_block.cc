@@ -249,4 +249,48 @@ TEST(block_reader, blocks_larger_than_the_probe_assumes_still_decode) {
         EXPECT_EQ(data, block_read(packed, nthreads)) << "nthreads " << nthreads;
 }
 
+TEST(block_reader, false_pair_in_a_block_larger_than_the_probe_assumes) {
+    /* Stored data can hold the nine bytes of a marker pair by chance. The reader cuts there, finds
+       the piece incomplete, and inflates the real block again on its own thread, which has to make
+       room the same way a worker does when the block is larger than the size it assumed. */
+    auto data = sample_data(1 << 20);
+    const uint8_t pair[9] = {0, 0, 0xff, 0xff, 0, 0, 0, 0xff, 0xff};
+    memcpy(data.data() + 300000, pair, sizeof(pair));
+    std::vector<uint8_t> out;
+    gzblock_writer *w = gzblock_writer_open(vec_write, &out, 0, Z_DEFAULT_STRATEGY, 512 * 1024, 1);
+    ASSERT_NE(nullptr, w);
+    ASSERT_EQ(0, gzblock_writer_write(w, data.data(), data.size()));
+    ASSERT_EQ(0, gzblock_writer_finish(w));
+    gzblock_writer_close(w);
+
+    for (int nthreads : {1, 3})
+        EXPECT_EQ(data, block_read(out, nthreads)) << "nthreads " << nthreads;
+}
+
+TEST(block_reader, false_lone_marker_in_a_strict_block) {
+    /* Full flushes without pairs cut a member into blocks that must be exactly the size the caller
+       names, and a chance marker in stored data looks like an early cut. */
+    auto data = sample_data(300000);
+    const uint8_t marker[4] = {0, 0, 0xff, 0xff};
+    memcpy(data.data() + 20000, marker, sizeof(marker));
+    std::vector<uint8_t> packed(zng_compressBound(data.size()) + 1024);
+    zng_stream strm;
+    memset(&strm, 0, sizeof(strm));
+    ASSERT_EQ(Z_OK, zng_deflateInit2(&strm, 0, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY));
+    strm.next_out = packed.data();
+    strm.avail_out = static_cast<uint32_t>(packed.size());
+    for (size_t pos = 0; pos < data.size(); pos += 65536) {
+        size_t n = std::min<size_t>(65536, data.size() - pos);
+        strm.next_in = data.data() + pos;
+        strm.avail_in = static_cast<uint32_t>(n);
+        ASSERT_EQ(pos + n < data.size() ? Z_OK : Z_STREAM_END,
+                  zng_deflate(&strm, pos + n < data.size() ? Z_FULL_FLUSH : Z_FINISH));
+    }
+    packed.resize(strm.total_out);
+    zng_deflateEnd(&strm);
+
+    for (int nthreads : {1, 3})
+        EXPECT_EQ(data, block_read(packed, nthreads, 65536)) << "nthreads " << nthreads;
+}
+
 }  // namespace

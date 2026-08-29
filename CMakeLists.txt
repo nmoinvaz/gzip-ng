@@ -59,8 +59,7 @@ add_library(gzng
     gzblock_p.h
     buf.c
     buf.h
-    decoder.c
-    decoder.h
+    codec.h
     compress.c
     compress.h
     decompress.c
