@@ -485,6 +485,12 @@ static int32_t reader_header(gzblock_reader *r) {
         }
         want *= 2;
     }
+    /* One thread gains nothing from blocks and pays for the scan and an extra copy, so plain
+       inflate streams the member. */
+    if (r->io.nthreads == 1) {
+        reader_start_stream(r);
+        return 0;
+    }
     /* Nothing in a header says how a member is cut, so a caller's hint decides, or the probe. */
     hdr_block_size = r->io.block_hint;
     /* A block size that would cost more memory than is sensible. */
