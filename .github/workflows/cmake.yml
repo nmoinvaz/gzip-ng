@@ -36,6 +36,8 @@ jobs:
             compiler: clang
             cxx-compiler: clang++
             cmake-args: -DGZNG_SANITIZER=Memory
+            # https://github.com/llvm/llvm-project/issues/55785
+            msan-options: use_sigaltstack=0
 
           - name: macOS Clang
             os: macos-latest
@@ -55,13 +57,32 @@ jobs:
       CFLAGS: ${{ matrix.cflags }}
       CXXFLAGS: ${{ matrix.cflags }}
       ASAN_OPTIONS: verbosity=0:abort_on_error=1:halt_on_error=1
-      MSAN_OPTIONS: verbosity=0:abort_on_error=1:halt_on_error=1
+      MSAN_OPTIONS: ${{ matrix.msan-options || 'verbosity=0' }}:abort_on_error=1:halt_on_error=1
       TSAN_OPTIONS: verbosity=0:abort_on_error=1:halt_on_error=1
       LSAN_OPTIONS: verbosity=0:abort_on_error=1:halt_on_error=1
       UBSAN_OPTIONS: verbosity=0:print_stacktrace=1:abort_on_error=1:halt_on_error=1
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # MSAN needs every byte of the process instrumented, so the gtest binary gets C++ libraries
+      # built with it, the way zlib-ng's MSAN job does.
+      - name: Compile LLVM C++ libraries (MSAN)
+        if: contains(matrix.name, 'MSAN')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build
+          git clone --depth=1 https://github.com/llvm/llvm-project --single-branch --branch release/18.x
+          cmake -S llvm-project/runtimes -B llvm-project/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
+            -DLLVM_USE_SANITIZER=MemoryWithOrigins \
+            -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
+            -DLIBCXX_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_DOCS=OFF
+          cmake --build llvm-project/build -j3 -- cxx cxxabi
+          echo "LLVM_BUILD_DIR=`pwd`/llvm-project/build" >> $GITHUB_ENV
 
       - name: Generate project files
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake-args }}

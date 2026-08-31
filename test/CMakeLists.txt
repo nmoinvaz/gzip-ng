@@ -2,7 +2,14 @@ enable_language(CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT TARGET GTest::GTest)
+# Google test needs the MSAN instrumented C++ runtime, set up before it is fetched.
+if(GZNG_SANITIZER STREQUAL "Memory")
+    if(NOT DEFINED ENV{LLVM_BUILD_DIR})
+        message(FATAL_ERROR "MSAN needs instrumented C++ libraries, set LLVM_BUILD_DIR")
+    endif()
+    include_directories($ENV{LLVM_BUILD_DIR}/include $ENV{LLVM_BUILD_DIR}/include/c++/v1)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
+elseif(NOT TARGET GTest::GTest)
     find_package(GTest QUIET)
 endif()
 
@@ -34,6 +41,10 @@ add_executable(gtest_gzng
     gtest_options.cc
     ${CMAKE_SOURCE_DIR}/options.c)
 target_link_libraries(gtest_gzng PRIVATE gzng GTest::Main)
+if(GZNG_SANITIZER STREQUAL "Memory")
+    target_link_directories(gtest_gzng PRIVATE $ENV{LLVM_BUILD_DIR}/lib)
+    target_link_options(gtest_gzng PRIVATE -stdlib=libc++ -lc++abi)
+endif()
 if(BUILD_SHARED_LIBS)
     # The format helpers are not part of the exported API, so the tests build their own copy.
     target_sources(gtest_gzng PRIVATE ${CMAKE_SOURCE_DIR}/format.c)
