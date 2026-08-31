@@ -69,6 +69,7 @@ add_library(gzng
     gzng.c
     rolling.c
     rolling.h
+    pipeline.h
     pool.c
     pool.h
     pool_p.h
