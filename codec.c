@@ -135,7 +135,7 @@ static void run_block(zng_stream *strm, slot_t *slot, size_t out_size) {
     slot->out_len = out_size - strm->avail_out;
     slot->in_used = slot->in_len - strm->avail_in;
     int32_t done = slot->last ? err == Z_STREAM_END : err == Z_OK && strm->avail_in == 0 && strm->avail_out != 0;
-    slot->status = done ? 0 : -1;
+    slot->status = done ? BLOCK_OK : BLOCK_ERROR;
     slot->crc = (uint32_t)zng_crc32_z(0, slot->in, slot->in_len);
 }
 

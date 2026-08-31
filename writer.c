@@ -189,7 +189,7 @@ static void writer_submit(gzblock_writer *w, int32_t last) {
 /* Write out the next compressed block in order. */
 static int32_t writer_drain(gzblock_writer *w) {
     slot_t *slot = pipeline_wait(&w->pipeline, w->pipeline.next_drain);
-    if (slot->status != 0)
+    if (slot->status != BLOCK_OK)
         return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
     if (writer_header(w) != 0 || writer_out(w, slot->out, slot->out_len) != 0)
         return -1;

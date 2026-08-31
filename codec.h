@@ -19,6 +19,10 @@ extern "C" {
    before either, OVERFLOW wanted more output than a block may have, ERROR is invalid data. */
 enum { SEGMENT_FULL, SEGMENT_END, SEGMENT_SHORT, SEGMENT_OVERFLOW, SEGMENT_ERROR };
 
+/* How deflating a block ended, the slot's status. OK is a complete block with all of its input
+   consumed, ERROR is anything else. */
+enum { BLOCK_OK, BLOCK_ERROR = -1 };
+
 const char *segment_status_name(int32_t status);
 
 /* One persistent stream per worker, deflate or inflate by the pool's mode. */
