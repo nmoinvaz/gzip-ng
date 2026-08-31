@@ -22,7 +22,8 @@ std::vector<uint8_t> pattern(size_t len) {
 FILE *stream_of(const std::vector<uint8_t> &bytes) {
     FILE *f = tmpfile();
     EXPECT_NE(nullptr, f);
-    EXPECT_EQ(bytes.size(), fwrite(bytes.data(), 1, bytes.size(), f));
+    if (!bytes.empty())
+        EXPECT_EQ(bytes.size(), fwrite(bytes.data(), 1, bytes.size(), f));
     rewind(f);
     return f;
 }
@@ -32,7 +33,8 @@ std::vector<uint8_t> contents(FILE *f) {
     EXPECT_GE(len, 0);
     std::vector<uint8_t> bytes(static_cast<size_t>(len));
     rewind(f);
-    EXPECT_EQ(bytes.size(), fread(bytes.data(), 1, bytes.size(), f));
+    if (!bytes.empty())
+        EXPECT_EQ(bytes.size(), fread(bytes.data(), 1, bytes.size(), f));
     return bytes;
 }
 
