@@ -80,3 +80,12 @@ const uint8_t *scan_marker(const uint8_t *start, const uint8_t *end) {
 }
 
 #endif
+
+const uint8_t *scan_marker_pair(const uint8_t *start, const uint8_t *end) {
+    while ((start = scan_marker(start, end))) {
+        if (scan_empty_block(start + 4))
+            return start;
+        start++;
+    }
+    return NULL;
+}

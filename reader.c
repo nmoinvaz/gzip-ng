@@ -190,7 +190,7 @@ static int32_t reader_next_segment(gzblock_reader *r) {
                     r->scan.scanned = (size_t)(hit - bp);
                     goto read_more;
                 }
-                if (memcmp(bp + n, "\0\0\0\xff\xff", 5) != 0)
+                if (!scan_empty_block(bp + n))
                     break;
                 n += 5;
                 empties++;
@@ -433,23 +433,16 @@ static int32_t reader_member_end_step(gzblock_reader *r) {
 /* Look for a marker pair in the first stretch of compressed data. Returns 1 when one is there,
    0 when not, -1 on a read error already recorded. */
 static int32_t reader_probe(gzblock_reader *r, size_t hdr_len) {
-    const uint8_t *bp, *hit;
-    size_t limit, pos = hdr_len;
+    const uint8_t *bp;
+    size_t limit;
 
     if (reader_fill(r, hdr_len + PROBE_WINDOW) != 0)
         return -1;
     bp = buf_data(&r->io.buf);
-    limit = r->io.buf.len < hdr_len + PROBE_WINDOW ? r->io.buf.len : hdr_len + PROBE_WINDOW;
-    while (pos + 9 <= limit) {
-        hit = scan_marker(bp + pos, bp + limit - 3);
-        if (!hit)
-            break;
-        pos = (size_t)(hit - bp);
-        if (pos + 9 <= limit && memcmp(hit + 4, "\0\0\0\xff\xff", 5) == 0)
-            return 1;
-        pos++;
-    }
-    return 0;
+    limit = MIN(r->io.buf.len, hdr_len + PROBE_WINDOW);
+    if (limit < hdr_len + 9)
+        return 0;
+    return scan_marker_pair(bp + hdr_len, bp + limit - 8) != NULL;
 }
 
 /* Decide how to decode what comes next: a gzip member in block mode or plain, pass-through for data
