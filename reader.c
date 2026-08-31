@@ -8,7 +8,7 @@
 #include "scanner.h"
 
 enum { READER_HEADER, READER_PASSTHRU, READER_STREAM, READER_BLOCKS, READER_MEMBER_END, READER_END, READER_ERROR };
-enum { READER_SEGMENT_ERROR = -1, READER_SEGMENT_TOO_LARGE = -2, READER_SEGMENT_DONE = 0, READER_SEGMENT_FOUND = 1 };
+enum { READER_CUT_ERROR = -1, READER_CUT_TOO_LARGE = -2, READER_CUT_DONE = 0, READER_CUT_FOUND = 1 };
 
 typedef struct {
     gzblock_read_fn read;
@@ -168,9 +168,9 @@ static int32_t reader_cut(gzblock_reader *r, size_t n, int32_t last, int32_t pai
     return 0;
 }
 
-/* Cut the next candidate segment out of the input into seg. Returns 1 when there is one, 0 once the
-   input is used up, -1 on an error already recorded, -2 when the data in hand is longer than any
-   block could be. */
+/* Cut the next candidate segment out of the input into seg. READER_CUT_FOUND when there is one,
+   READER_CUT_DONE once the input is used up, READER_CUT_ERROR on an error already recorded,
+   READER_CUT_TOO_LARGE when the data in hand is longer than any block could be. */
 static int32_t reader_next_segment(gzblock_reader *r) {
     buf_t *b = &r->io.buf;
 
@@ -211,10 +211,10 @@ static int32_t reader_next_segment(gzblock_reader *r) {
             }
             if (n > r->scan.max_seg) {
                 if (r->scan.coal != 0)
-                    return reader_cut(r, r->scan.coal, 0, 1) != 0 ? -1 : 1;
-                return -2;
+                    return reader_cut(r, r->scan.coal, 0, 1) != 0 ? READER_CUT_ERROR : READER_CUT_FOUND;
+                return READER_CUT_TOO_LARGE;
             }
-            return reader_cut(r, n, 0, empties > 0) != 0 ? -1 : 1;
+            return reader_cut(r, n, 0, empties > 0) != 0 ? READER_CUT_ERROR : READER_CUT_FOUND;
         }
         r->scan.scanned = limit;
         if (b->len > r->scan.max_seg + 3) {
@@ -224,12 +224,12 @@ static int32_t reader_next_segment(gzblock_reader *r) {
         }
         if (r->io.eof) {
             if (b->len == 0)
-                return 0;
-            return reader_cut(r, b->len, 1, 0) != 0 ? -1 : 1;
+                return READER_CUT_DONE;
+            return reader_cut(r, b->len, 1, 0) != 0 ? READER_CUT_ERROR : READER_CUT_FOUND;
         }
     read_more:
         if (reader_fill(r, b->len + IO_CHUNK) != 0)
-            return -1;
+            return READER_CUT_ERROR;
     }
 }
 
@@ -315,13 +315,13 @@ static int32_t reader_produce(gzblock_reader *r) {
         if (slot->state != SLOT_FREE)
             break;
         rc = reader_next_segment(r);
-        if (rc == READER_SEGMENT_DONE) {
+        if (rc == READER_CUT_DONE) {
             r->scan.cut_all = 1;
             break;
         }
-        if (rc == READER_SEGMENT_ERROR)
+        if (rc == READER_CUT_ERROR)
             return -1;
-        if (rc == READER_SEGMENT_TOO_LARGE) {
+        if (rc == READER_CUT_TOO_LARGE) {
             /* The blocks are larger than assumed, which happens when the probe's guess was low.
                A pair-terminated block is valid at any size, so raise the bound and retry rather
                than fail the member. */
