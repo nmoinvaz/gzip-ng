@@ -110,6 +110,8 @@ const char *segment_status_name(int32_t status) {
     }
 }
 
+/* Inflate one slot and record what every exit of inflate_segment shares, the bytes consumed
+   and produced and the CRC of the output. */
 static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
     slot->status = inflate_segment(strm, slot, block_size);
     slot->in_used = (size_t)strm->total_in;
@@ -132,8 +134,8 @@ static void run_block(zng_stream *strm, slot_t *slot, size_t out_size) {
         err = zng_deflate(strm, Z_FULL_FLUSH); /* the second marker makes it a boundary */
     slot->out_len = out_size - strm->avail_out;
     slot->in_used = slot->in_len - strm->avail_in;
-    slot->status = slot->last ? (err == Z_STREAM_END ? 0 : -1)
-                              : (err == Z_OK && strm->avail_in == 0 && strm->avail_out != 0 ? 0 : -1);
+    int32_t done = slot->last ? err == Z_STREAM_END : err == Z_OK && strm->avail_in == 0 && strm->avail_out != 0;
+    slot->status = done ? 0 : -1;
     slot->crc = (uint32_t)zng_crc32_z(0, slot->in, slot->in_len);
 }
 
