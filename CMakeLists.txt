@@ -62,6 +62,8 @@ add_library(gzng
     codec.h
     compress.c
     compress.h
+    cutter.c
+    cutter.h
     decompress.c
     decompress.h
     format.c
