@@ -143,4 +143,3 @@ Comparing whole binaries is a different job, fork and exec noise belongs to tool
 - [zlib](https://zlib.net) and its authors Jean-loup Gailly and Mark Adler, who defined the gzip format and wrote the compression everything here rests on.
 - [zlib-ng](https://github.com/zlib-ng/zlib-ng), whose SIMD engine does the deflate, inflate, and crc work behind every number in this README.
 - [pigz](https://zlib.net/pigz/), Mark Adler's parallel gzip, whose independent blocks and rsyncable output showed the way.
-- [BGZF](https://samtools.github.io/hts-specs/), the samtools sized-member format that makes parallel decompression free.
