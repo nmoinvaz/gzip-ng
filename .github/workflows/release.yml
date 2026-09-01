@@ -51,23 +51,27 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - name: linux-x86_64
+          - name: Ubuntu GCC x86_64
             os: ubuntu-22.04
+            arch: linux-x86_64
 
-          - name: linux-arm64
+          - name: Ubuntu GCC ARM64
             os: ubuntu-22.04-arm
+            arch: linux-arm64
 
-          - name: macos-arm64
+          - name: macOS Clang ARM64
             os: macos-latest
+            arch: macos-arm64
 
-          - name: macos-x86_64
+          - name: macOS Clang x86_64
             os: macos-latest
+            arch: macos-x86_64
             cmake-args: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DGZNG_ENABLE_TESTS=OFF
             skip-tests: true
 
-          - name: windows-x64
+          - name: Windows MSVC x64
             os: windows-latest
-            cmake-args: -A x64
+            arch: windows-x64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -89,7 +93,7 @@ jobs:
       - name: Package
         if: runner.os != 'Windows'
         run: |
-          dir=gzip-ng-${{ inputs.version }}-${{ matrix.name }}
+          dir=gzip-ng-${{ inputs.version }}-${{ matrix.arch }}
           mkdir -p pkg/$dir
           cp build/gzip-ng LICENSE.md README.md pkg/$dir/
           if [ "$RUNNER_OS" = "Linux" ]; then
@@ -100,7 +104,7 @@ jobs:
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: |
-          $dir = "gzip-ng-${{ inputs.version }}-${{ matrix.name }}"
+          $dir = "gzip-ng-${{ inputs.version }}-${{ matrix.arch }}"
           New-Item -ItemType Directory -Path pkg/$dir | Out-Null
           Copy-Item build/Release/gzip-ng.exe, LICENSE.md, README.md pkg/$dir/
           Compress-Archive -Path pkg/$dir -DestinationPath "$dir.zip"
@@ -108,7 +112,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
+          name: ${{ matrix.arch }}
           path: |
             *.tar.gz
             *.zip
