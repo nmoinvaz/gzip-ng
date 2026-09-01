@@ -39,6 +39,21 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     return n;
 }
 
+/* BGZF (bgzip, BAM) records the whole member's length in a BC subfield of the extra field, which
+   makes the next member's position known before anything is inflated. Returns it, or 0 when no
+   subfield records one. */
+static uint32_t format_extra_member_size(const uint8_t *extra, size_t len) {
+    size_t pos = 0;
+
+    while (pos + 4 <= len) {
+        size_t sub = load_le16(extra + pos + 2);
+        if (extra[pos] == 'B' && extra[pos + 1] == 'C' && sub == 2 && pos + 6 <= len)
+            return (uint32_t)load_le16(extra + pos + 4) + 1;
+        pos += 4 + sub;
+    }
+    return 0;
+}
+
 size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
     size_t pos = FORMAT_HEADER_LEN;
     uint8_t flags;
@@ -64,14 +79,8 @@ size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
         end = pos + xlen;
         if (len < end)
             return 0;
-        /* BGZF (bgzip, BAM) records the whole member's length in a BC subfield, which makes the
-           next member's position known before anything is inflated. */
-        while (hdr && pos + 4 <= end) {
-            size_t sub = load_le16(buf + pos + 2);
-            if (buf[pos] == 'B' && buf[pos + 1] == 'C' && sub == 2 && pos + 6 <= end)
-                hdr->member_size = (uint32_t)load_le16(buf + pos + 4) + 1;
-            pos += 4 + sub;
-        }
+        if (hdr)
+            hdr->member_size = format_extra_member_size(buf + pos, xlen);
         pos = end;
     }
     if (flags & 8) { /* FNAME */
