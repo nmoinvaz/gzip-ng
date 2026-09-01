@@ -176,13 +176,19 @@ endif()
 
 # Every path writes the same header. Left to itself zlib-ng stamps a platform OS code that
 # RFC 1952 does not define, so --no-name on a plain stream once disagreed with block output.
+# The code itself is the platform's, 0 on Windows and 3 elsewhere.
+if(CMAKE_HOST_WIN32)
+    set(OS_WANT "00")
+else()
+    set(OS_WANT "03")
+endif()
 file(WRITE ${WORKDIR}/os.txt "${DATA}")
 foreach(variant "-n" "-n;-b;64K" "-n;-p;2")
     execute_process(COMMAND ${EXE} ${variant} -c ${WORKDIR}/os.txt OUTPUT_FILE ${WORKDIR}/os.gz RESULT_VARIABLE rc)
     file(READ ${WORKDIR}/os.gz OSHEAD HEX LIMIT 10)
     string(SUBSTRING "${OSHEAD}" 18 2 OS_BYTE)
-    if(NOT rc EQUAL 0 OR NOT OS_BYTE STREQUAL "03")
-        message(FATAL_ERROR "${variant} wrote OS byte ${OS_BYTE}, expected 03")
+    if(NOT rc EQUAL 0 OR NOT OS_BYTE STREQUAL "${OS_WANT}")
+        message(FATAL_ERROR "${variant} wrote OS byte ${OS_BYTE}, expected ${OS_WANT}")
     endif()
 endforeach()
 
