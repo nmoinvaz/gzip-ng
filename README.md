@@ -5,6 +5,7 @@ A gzip replacement built on [zlib-ng](https://github.com/zlib-ng/zlib-ng), with 
 ## Goals
 
 - Drop-in for GNU and BSD gzip, flag for flag, distro-safe defaults.
+- Compatible with the tools and wrappers around gzip.
 - Decompression parallel by default, output byte-identical at any thread count.
 - Compression serial by default, parallel independent blocks whenever threads or a block size are used.
 - zlib license.
@@ -135,3 +136,10 @@ Comparing whole binaries is a different job, fork and exec noise belongs to tool
 | `gzip-ng` | from `gzip-ng` | 0.45 s | 1130 |
 | `minigzip` | from `minigzip` | 0.47 s | 1090 |
 | `gzip` | from `gzip -6` | 1.06 s | 480 |
+
+## Thanks
+
+- [zlib](https://zlib.net) and its authors Jean-loup Gailly and Mark Adler, who defined the gzip format and wrote the compression everything here rests on.
+- [zlib-ng](https://github.com/zlib-ng/zlib-ng), whose SIMD engine does the deflate, inflate, and crc work behind every number in this README.
+- [pigz](https://zlib.net/pigz/), Mark Adler's parallel gzip, whose independent blocks and rsyncable output showed the way.
+- [BGZF](https://samtools.github.io/hts-specs/), the samtools sized-member format that makes parallel decompression free.
