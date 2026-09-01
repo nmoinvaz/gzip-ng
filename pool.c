@@ -101,6 +101,14 @@ void pool_wait(pool_t *pool, slot_t *slot) {
     pool_wait_inline(pool, slot);
 }
 
+int32_t pool_cancel(pool_t *pool, slot_t *slot) {
+    (void)pool;
+    if (slot->state != SLOT_FILLED)
+        return 0;
+    slot->state = SLOT_DONE;
+    return 1;
+}
+
 void pool_release(pool_t *pool, slot_t *slot) {
     (void)pool;
     slot->state = SLOT_FREE;

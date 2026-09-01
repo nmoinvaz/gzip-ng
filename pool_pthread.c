@@ -165,4 +165,26 @@ void pool_release(pool_t *pool, slot_t *slot) {
     pthread_mutex_unlock(&thread->mutex);
 }
 
+int32_t pool_cancel(pool_t *pool, slot_t *slot) {
+    struct pool_threads *thread = pool->thread;
+
+    if (pool->inline_run) {
+        if (slot->state != SLOT_FILLED)
+            return 0;
+        slot->state = SLOT_DONE;
+        return 1;
+    }
+    pthread_mutex_lock(&thread->mutex);
+    /* Only the newest queued slot can come back, so the queue stays contiguous. */
+    if (slot->state != SLOT_FILLED || pool->queue_head == pool->queue_tail ||
+        pool->queue[(pool->queue_tail - 1) % pool->nring] != slot) {
+        pthread_mutex_unlock(&thread->mutex);
+        return 0;
+    }
+    pool->queue_tail--;
+    slot->state = SLOT_DONE;
+    pthread_mutex_unlock(&thread->mutex);
+    return 1;
+}
+
 #endif /* GZBLOCK_THREADS && !_WIN32 */

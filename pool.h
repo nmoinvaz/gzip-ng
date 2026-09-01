@@ -64,6 +64,9 @@ int32_t pool_start(pool_t *pool, int32_t nthreads);
 void pool_stop(pool_t *pool);
 void pool_submit(pool_t *pool, slot_t *slot);
 void pool_wait(pool_t *pool, slot_t *slot);
+/* Take the most recent submission back before any worker claims it. Returns 1 with the slot done
+   and untouched, 0 when a worker already has it. */
+int32_t pool_cancel(pool_t *pool, slot_t *slot);
 void pool_release(pool_t *pool, slot_t *slot);
 
 #ifdef __cplusplus

@@ -202,6 +202,12 @@ static int32_t reader_rewind(gzblock_reader *r, const uint8_t *prefix, size_t n)
 
     if (n != 0 && buf_append(&all, prefix, n) != 0)
         return reader_oom(r);
+    /* Take back what no worker has started, newest first, so only claimed slots are waited on
+       and their wasted inflation is bounded by the worker count. */
+    for (i = r->pipeline.next_submit; i > r->pipeline.next_drain; i--) {
+        if (!pool_cancel(&r->pipeline.pool, pool_slot(&r->pipeline.pool, i - 1)))
+            break;
+    }
     for (i = r->pipeline.next_drain; i < r->pipeline.next_submit; i++) {
         slot_t *slot = pipeline_wait(&r->pipeline, i);
         if (buf_append(&all, slot->in, slot->in_len) != 0)
