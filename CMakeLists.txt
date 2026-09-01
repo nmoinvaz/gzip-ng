@@ -70,7 +70,6 @@ add_library(gzng
     format.c
     format.h
     gzng.c
-    io.h
     rolling.c
     rolling.h
     pipeline.h
