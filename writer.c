@@ -343,8 +343,7 @@ int32_t gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) 
         limit = w->rsyncable ? w->rsync_max : w->block_size;
         take = MIN(limit - w->cur->in_len, len);
         hit = w->rsyncable && writer_rsync_cut(w, buf, &take);
-        memcpy(w->cur->in + w->cur->in_len, buf, take);
-        w->cur->in_len += take;
+        slot_append(w->cur, buf, take);
         buf += take;
         len -= take;
         if (w->cur->in_len == limit || hit)

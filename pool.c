@@ -5,6 +5,7 @@
 #include "pool_p.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef GZBLOCK_THREADS
 int32_t pool_default_threads(void) {
@@ -14,6 +15,27 @@ int32_t pool_default_threads(void) {
 
 slot_t *pool_slot(pool_t *pool, size_t i) {
     return &pool->ring[i % pool->nring];
+}
+
+/* Move seg into the slot and take the slot's old buffer for its next fill, no copy either way.
+   The caller sets what the segment means. */
+void slot_swap_in(slot_t *slot, buf_t *seg) {
+    buf_t swap;
+
+    swap.p = slot->in;
+    swap.size = slot->in_size;
+    slot->in = seg->p;
+    slot->in_size = seg->size;
+    slot->in_len = seg->len;
+    seg->p = swap.p;
+    seg->size = swap.size;
+    seg->len = 0;
+}
+
+/* Append len bytes to the slot's input, which the caller has bounded to what fits. */
+void slot_append(slot_t *slot, const uint8_t *buf, size_t len) {
+    memcpy(slot->in + slot->in_len, buf, len);
+    slot->in_len += len;
 }
 
 /* Allocate the ring, nthreads * 4 slots of in_size + out_size bytes, within RING_BYTES. */

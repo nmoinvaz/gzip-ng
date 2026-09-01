@@ -200,21 +200,6 @@ static int32_t reader_pipeline_start(gzblock_reader *r, uint32_t block_size) {
     return 0;
 }
 
-/* Move seg into the slot and take the slot's old buffer for its next fill, no copy either way.
-   The caller sets what the segment means. */
-static void reader_slot_swap(slot_t *slot, buf_t *seg) {
-    buf_t swap;
-
-    swap.p = slot->in;
-    swap.size = slot->in_size;
-    slot->in = seg->p;
-    slot->in_size = seg->size;
-    slot->in_len = seg->len;
-    seg->p = swap.p;
-    seg->size = swap.size;
-    seg->len = 0;
-}
-
 /* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or
    --blocksize supplies, a block size. */
 static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size, int32_t paired) {
@@ -293,7 +278,7 @@ static int32_t reader_produce(gzblock_reader *r) {
                 return reader_fallback(r); /* no block structure at this size */
             return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->pipeline.next_submit);
         }
-        reader_slot_swap(slot, &r->cut.seg);
+        slot_swap_in(slot, &r->cut.seg);
         slot->last = r->cut.seg_last;
         slot->pair = r->cut.seg_pair;
         slot->members = 0;
@@ -461,7 +446,7 @@ static int32_t reader_members_step(gzblock_reader *r) {
             return -1;
         if (rc == 0)
             break;
-        reader_slot_swap(slot, &r->memb.seg);
+        slot_swap_in(slot, &r->memb.seg);
         slot->members = r->memb.count;
         slot->last = 0;
         slot->pair = 0;

@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "buf.h"
 #include "zlib-ng.h"
 
 #ifdef __cplusplus
@@ -38,6 +39,9 @@ typedef struct {
     uint32_t crc; /* crc32 of the uncompressed side */
     int32_t state;
 } slot_t;
+
+void slot_swap_in(slot_t *slot, buf_t *seg);
+void slot_append(slot_t *slot, const uint8_t *buf, size_t len);
 
 typedef struct pool_s {
     int32_t mode; /* POOL_INFLATE or POOL_DEFLATE */
