@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release without the v, the tag becomes v{version}
+        description: Version to release, also the tag, e.g. 2.0.0
         required: true
         type: string
       ref:
@@ -35,8 +35,8 @@ jobs:
           header=$(sed -n 's/^#define GZNG_VERSION "\([0-9.]*\)".*/\1/p' gzng.h)
           test "$cmake" = "$want" || { echo "CMakeLists.txt says $cmake, not $want"; exit 1; }
           test "$header" = "$want" || { echo "gzng.h says $header, not $want"; exit 1; }
-          if git ls-remote --exit-code origin "refs/tags/v$want" > /dev/null; then
-            echo "tag v$want already exists"
+          if git ls-remote --exit-code origin "refs/tags/$want" > /dev/null; then
+            echo "tag $want already exists"
             exit 1
           fi
 
@@ -137,7 +137,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
-          gh release create v${{ inputs.version }} dist/*
+          gh release create ${{ inputs.version }} dist/*
           --repo ${{ github.repository }}
           --target ${{ needs.check.outputs.sha }}
           --title "gzip-ng ${{ inputs.version }}"
