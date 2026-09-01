@@ -183,6 +183,38 @@ static int32_t reader_next_cut(gzblock_reader *r) {
     return rc;
 }
 
+/* Start the pool for inflate, once, its ring shared by every later member. */
+static int32_t reader_pipeline_start(gzblock_reader *r, uint32_t block_size) {
+    int32_t rc;
+
+    if (r->pipeline.started)
+        return 0;
+    r->pipeline.pool.mode = POOL_INFLATE;
+    r->pipeline.pool.block_size = block_size;
+    /* Segments are swapped in whole, so slots start without an in buffer. */
+    rc = pipeline_start(&r->pipeline, r->io.nthreads, 0, block_size);
+    if (rc == -1)
+        return reader_oom(r);
+    if (rc == -2)
+        return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
+    return 0;
+}
+
+/* Move seg into the slot and take the slot's old buffer for its next fill, no copy either way.
+   The caller sets what the segment means. */
+static void reader_slot_swap(slot_t *slot, buf_t *seg) {
+    buf_t swap;
+
+    swap.p = slot->in;
+    swap.size = slot->in_size;
+    slot->in = seg->p;
+    slot->in_size = seg->size;
+    slot->in_len = seg->len;
+    seg->p = swap.p;
+    seg->size = swap.size;
+    seg->len = 0;
+}
+
 /* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or
    --blocksize supplies, a block size. */
 static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size, int32_t paired) {
@@ -190,17 +222,8 @@ static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t b
     if (buf_append(&r->hdr, buf_data(&r->io.buf), hdr_len) != 0)
         return reader_oom(r);
     buf_drop(&r->io.buf, hdr_len);
-    if (!r->pipeline.started) {
-        int32_t rc;
-        r->pipeline.pool.mode = POOL_INFLATE;
-        r->pipeline.pool.block_size = block_size;
-        /* Segments are swapped in from the scanner, so slots start without an in buffer. */
-        rc = pipeline_start(&r->pipeline, r->io.nthreads, 0, block_size);
-        if (rc == -1)
-            return reader_oom(r);
-        if (rc == -2)
-            return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
-    }
+    if (reader_pipeline_start(r, block_size) != 0)
+        return -1;
     cutter_init(&r->cut, block_size, paired);
     r->cut_all = 0;
     pipeline_reset(&r->pipeline);
@@ -254,7 +277,6 @@ static int32_t reader_fallback(gzblock_reader *r) {
 static int32_t reader_produce(gzblock_reader *r) {
     while (!r->cut_all) {
         slot_t *slot = pool_slot(&r->pipeline.pool, r->pipeline.next_submit);
-        buf_t swap;
         int32_t rc;
 
         if (slot->state != SLOT_FREE)
@@ -271,18 +293,10 @@ static int32_t reader_produce(gzblock_reader *r) {
                 return reader_fallback(r); /* no block structure at this size */
             return reader_fail(r, Z_DATA_ERROR, "block %zu is larger than the block size", r->pipeline.next_submit);
         }
-        /* Swap buffers rather than copy, the slot keeps the segment and seg reuses the old one. */
-        swap.p = slot->in;
-        swap.size = slot->in_size;
-        slot->in = r->cut.seg.p;
-        slot->in_size = r->cut.seg.size;
-        slot->in_len = r->cut.seg.len;
+        reader_slot_swap(slot, &r->cut.seg);
         slot->last = r->cut.seg_last;
         slot->pair = r->cut.seg_pair;
         slot->members = 0;
-        r->cut.seg.p = swap.p;
-        r->cut.seg.size = swap.size;
-        r->cut.seg.len = 0;
         pipeline_submit(&r->pipeline, slot);
     }
     return 0;
@@ -391,16 +405,8 @@ static int32_t reader_probe(gzblock_reader *r, size_t hdr_len) {
 
 /* Enter sized-member mode. Members are cut whole, so the pipeline needs no cutter state. */
 static int32_t reader_start_members(gzblock_reader *r) {
-    if (!r->pipeline.started) {
-        int32_t rc;
-        r->pipeline.pool.mode = POOL_INFLATE;
-        r->pipeline.pool.block_size = PROBE_BLOCK;
-        rc = pipeline_start(&r->pipeline, r->io.nthreads, 0, PROBE_BLOCK);
-        if (rc == -1)
-            return reader_oom(r);
-        if (rc == -2)
-            return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
-    }
+    if (reader_pipeline_start(r, PROBE_BLOCK) != 0)
+        return -1;
     r->memb.seg.len = 0;
     r->memb.count = 0;
     r->memb.done = 0;
@@ -446,7 +452,6 @@ static int32_t reader_members_next(gzblock_reader *r) {
 static int32_t reader_members_step(gzblock_reader *r) {
     while (!r->memb.done) {
         slot_t *slot = pool_slot(&r->pipeline.pool, r->pipeline.next_submit);
-        buf_t swap;
         int32_t rc;
 
         if (slot->state != SLOT_FREE)
@@ -456,18 +461,10 @@ static int32_t reader_members_step(gzblock_reader *r) {
             return -1;
         if (rc == 0)
             break;
-        /* Swap buffers rather than copy, as the block pipeline does. */
-        swap.p = slot->in;
-        swap.size = slot->in_size;
-        slot->in = r->memb.seg.p;
-        slot->in_size = r->memb.seg.size;
-        slot->in_len = r->memb.seg.len;
+        reader_slot_swap(slot, &r->memb.seg);
         slot->members = r->memb.count;
         slot->last = 0;
         slot->pair = 0;
-        r->memb.seg.p = swap.p;
-        r->memb.seg.size = swap.size;
-        r->memb.seg.len = 0;
         r->memb.count = 0;
         pipeline_submit(&r->pipeline, slot);
     }
