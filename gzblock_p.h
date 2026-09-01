@@ -18,7 +18,4 @@
 #include "util.h"
 #include "zlib-ng.h"
 
-#define IO_CHUNK (256 * 1024) /* read and write in this much at a time */
-#define MSG_LEN  128          /* room for one error message */
-
 #endif /* GZBLOCK_P_H_ */

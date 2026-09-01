@@ -13,6 +13,9 @@
 #define MIN(a, b) ((a) > (b) ? (b) : (a))
 #define MAX(a, b) ((a) < (b) ? (b) : (a))
 
+#define IO_CHUNK  (256 * 1024) /* read and write in this much at a time */
+#define MSG_LEN   128          /* room for one error message */
+
 /* Reverse the bytes in a value, the compiler's own where it has one. */
 #if defined(_MSC_VER)
 #  include <stdlib.h>
