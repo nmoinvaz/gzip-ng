@@ -34,9 +34,9 @@ typedef struct {
 /* Set up for one member. The segment buffer carries over from the last one. */
 void cutter_init(cutter_t *cutter, uint32_t block_size, int32_t paired);
 
-/* Cut the next candidate segment out of b into seg and say how it went. eof means b holds all the
-   input there is. */
-int32_t cutter_next(cutter_t *cutter, buf_t *b, int32_t eof);
+/* Cut the next candidate segment out of buf into seg and say how it went. eof means buf holds
+   all the input there is. */
+int32_t cutter_next(cutter_t *cutter, buf_t *buf, int32_t eof);
 
 /* Scanning starts over from byte `from` of the input, after the caller rebuilt it. */
 void cutter_rescan(cutter_t *cutter, size_t from);

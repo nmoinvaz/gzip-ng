@@ -22,13 +22,13 @@ void cutter_init(cutter_t *cutter, uint32_t block_size, int32_t paired) {
 }
 
 /* Move the first n bytes of the input into seg. */
-static int32_t cutter_cut(cutter_t *cutter, buf_t *b, size_t n, int32_t last, int32_t pair) {
+static int32_t cutter_cut(cutter_t *cutter, buf_t *buf, size_t n, int32_t last, int32_t pair) {
     cutter->seg.len = 0;
-    if (buf_append(&cutter->seg, buf_data(b), n) != 0)
+    if (buf_append(&cutter->seg, buf_data(buf), n) != 0)
         return CUT_ERROR;
     cutter->seg_last = last;
     cutter->seg_pair = pair;
-    buf_drop(b, n);
+    buf_drop(buf, n);
     cutter->scanned = 0;
     cutter->coal = 0;
     return CUT_FOUND;
@@ -44,10 +44,10 @@ static int32_t cutter_widen(cutter_t *cutter) {
     return 1;
 }
 
-int32_t cutter_next(cutter_t *cutter, buf_t *b, int32_t eof) {
+int32_t cutter_next(cutter_t *cutter, buf_t *buf, int32_t eof) {
     for (;;) {
-        size_t limit = b->len >= 3 ? b->len - 3 : 0;
-        const uint8_t *bp = buf_data(b);
+        size_t limit = buf->len >= 3 ? buf->len - 3 : 0;
+        const uint8_t *bp = buf_data(buf);
         const uint8_t *hit = cutter->scanned < limit ? scan_marker(bp + cutter->scanned, bp + limit) : NULL;
         if (hit) {
             size_t n = (size_t)(hit - bp) + 4;
@@ -55,7 +55,7 @@ int32_t cutter_next(cutter_t *cutter, buf_t *b, int32_t eof) {
             /* Empty stored blocks right after the marker belong to this segment too, the second one
                is what makes a boundary when the header says pairs. Their bytes must be in hand. */
             for (;;) {
-                if (n + 5 > b->len) {
+                if (n + 5 > buf->len) {
                     if (eof)
                         break;
                     cutter->scanned = (size_t)(hit - bp);
@@ -82,25 +82,25 @@ int32_t cutter_next(cutter_t *cutter, buf_t *b, int32_t eof) {
             }
             if (n > cutter->max_seg) {
                 if (cutter->coal != 0)
-                    return cutter_cut(cutter, b, cutter->coal, 0, 1);
+                    return cutter_cut(cutter, buf, cutter->coal, 0, 1);
                 if (cutter_widen(cutter))
                     continue;
                 return CUT_TOO_LARGE;
             }
-            return cutter_cut(cutter, b, n, 0, empties > 0);
+            return cutter_cut(cutter, buf, n, 0, empties > 0);
         }
         cutter->scanned = limit;
-        if (b->len > cutter->max_seg + 3) {
+        if (buf->len > cutter->max_seg + 3) {
             if (cutter->coal != 0)
-                return cutter_cut(cutter, b, cutter->coal, 0, 1);
+                return cutter_cut(cutter, buf, cutter->coal, 0, 1);
             if (cutter_widen(cutter))
                 continue;
             return CUT_TOO_LARGE;
         }
         if (eof) {
-            if (b->len == 0)
+            if (buf->len == 0)
                 return CUT_DONE;
-            return cutter_cut(cutter, b, b->len, 1, 0);
+            return cutter_cut(cutter, buf, buf->len, 1, 0);
         }
         return CUT_MORE;
     }
