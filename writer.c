@@ -2,8 +2,18 @@
  * For conditions of distribution and use, see LICENSE.md
  */
 
-#include "gzblock_p.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "codec.h"
+#include "format.h"
+#include "gzblock.h"
+#include "pipeline.h"
+#include "pool.h"
 #include "rolling.h"
+#include "util.h"
+#include "zlib-ng.h"
 
 struct gzblock_writer_s {
     gzblock_write_fn write;

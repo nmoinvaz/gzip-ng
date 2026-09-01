@@ -3,10 +3,20 @@
  */
 
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "buf.h"
+#include "codec.h"
 #include "cutter.h"
-#include "gzblock_p.h"
+#include "format.h"
+#include "gzblock.h"
+#include "pipeline.h"
+#include "pool.h"
 #include "scanner.h"
+#include "util.h"
+#include "zlib-ng.h"
 
 enum { READER_HEADER, READER_PASSTHRU, READER_STREAM, READER_BLOCKS, READER_MEMBER_END, READER_END, READER_ERROR };
 

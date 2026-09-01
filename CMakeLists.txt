@@ -56,7 +56,6 @@ add_library(gzng
     reader.c
     writer.c
     gzblock.h
-    gzblock_p.h
     buf.c
     buf.h
     codec.h
