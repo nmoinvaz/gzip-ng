@@ -32,36 +32,36 @@ static int32_t block_compress_stream(FILE *in, FILE *out, int32_t level, int32_t
                                      uint64_t *total_out) {
     gzblock_writer_ctx writer_ctx = {out, 0};
     uint64_t total = 0;
-    gzblock_writer *w = gzblock_writer_open(file_write, &writer_ctx, level, strategy, block_size, threads);
+    gzblock_writer *writer = gzblock_writer_open(file_write, &writer_ctx, level, strategy, block_size, threads);
     uint8_t *buf = (uint8_t *)malloc(CHUNK);
     int32_t rc = -1;
 
-    if (!w || !buf)
+    if (!writer || !buf)
         goto done;
     if (mtime != 0 || name)
-        gzblock_writer_meta(w, mtime, name);
+        gzblock_writer_meta(writer, mtime, name);
     /* Boundaries always follow the content. It costs 0.02% of the output and keeps an edit
        local, so it is not worth putting behind a flag. */
-    gzblock_writer_rsyncable(w, 1);
+    gzblock_writer_rsyncable(writer, 1);
     for (;;) {
         size_t n = fread(buf, 1, CHUNK, in);
         if (n == 0)
             break;
         total += n;
-        if (gzblock_writer_write(w, buf, n) != 0)
+        if (gzblock_writer_write(writer, buf, n) != 0)
             goto engine_error;
     }
     if (ferror(in))
         goto done;
-    if (gzblock_writer_finish(w) != 0)
+    if (gzblock_writer_finish(writer) != 0)
         goto engine_error;
     rc = 0;
     goto done;
 engine_error:
-    fprintf(stderr, "gzip-ng: %s\n", gzblock_writer_error(w));
+    fprintf(stderr, "gzip-ng: %s\n", gzblock_writer_error(writer));
 done:
-    if (w)
-        gzblock_writer_close(w);
+    if (writer)
+        gzblock_writer_close(writer);
     free(buf);
     if (total_in)
         *total_in = total;
