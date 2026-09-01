@@ -51,7 +51,8 @@ struct gzblock_reader_s {
     int32_t cut_all; /* the cutter handed out the member's last segment */
 
     pipeline_t pipeline;
-    uint32_t crc; /* running crc and length of the member's output */
+    uint32_t crc;    /* running crc and length of the member's output */
+    uint32_t crc_op; /* crc combine operator precomputed for the pool's block size */
     size_t total_out;
 };
 
@@ -186,6 +187,7 @@ static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t b
     cutter_init(&r->cut, block_size, paired);
     r->cut_all = 0;
     pipeline_reset(&r->pipeline);
+    r->crc_op = (uint32_t)zng_crc32_combine_gen((z_off64_t)r->pipeline.pool.block_size);
     r->crc = 0;
     r->total_out = 0;
     r->io.state = READER_BLOCKS;
@@ -264,7 +266,12 @@ static int32_t reader_produce(gzblock_reader *r) {
 
 /* Hand out a finished block and account for it. The slot goes back once its output is consumed. */
 static void reader_block_out(gzblock_reader *r, slot_t *slot) {
-    r->crc = (uint32_t)zng_crc32_combine(r->crc, slot->crc, (z_off64_t)slot->out_len);
+    /* Nearly every block inflates to exactly the pool's block size, where the precomputed
+       operator folds its crc in without the general combine's matrix walk. */
+    if (slot->out_len == (size_t)r->pipeline.pool.block_size)
+        r->crc = (uint32_t)zng_crc32_combine_op(r->crc, slot->crc, r->crc_op);
+    else
+        r->crc = (uint32_t)zng_crc32_combine(r->crc, slot->crc, (z_off64_t)slot->out_len);
     r->total_out += slot->out_len;
     pipeline_drained(&r->pipeline);
     reader_handout(r, slot->out, slot->out_len, slot);

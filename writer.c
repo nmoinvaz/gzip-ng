@@ -25,6 +25,7 @@ struct gzblock_writer_s {
     pipeline_t pipeline;
     slot_t *cur; /* slot being filled */
     uint32_t crc;
+    uint32_t crc_op; /* crc combine operator precomputed for block_size */
     size_t total_in;
     int32_t hdr_written;
     int32_t finished;
@@ -65,6 +66,14 @@ static int32_t writer_out(gzblock_writer *w, const uint8_t *buf, size_t len) {
     if (w->write(w->ctx, buf, len) != len)
         return writer_fail(w, Z_ERRNO, "write error");
     return 0;
+}
+
+/* Fold a finished block's crc into the running one, with the precomputed operator for the
+   block-sized blocks that are nearly all of them. */
+static uint32_t writer_crc_combine(gzblock_writer *w, uint32_t crc, size_t len) {
+    if (len == (size_t)w->block_size)
+        return (uint32_t)zng_crc32_combine_op(w->crc, crc, w->crc_op);
+    return (uint32_t)zng_crc32_combine(w->crc, crc, (z_off64_t)len);
 }
 
 /* An ordinary gzip header, carrying only the name and time --name and --time ask for. Nothing in it
@@ -113,7 +122,7 @@ static int32_t writer_inline_end(gzblock_writer *w, int32_t last) {
         return -1;
     if (!last && writer_inline_out(w, Z_FULL_FLUSH) != 0)
         return -1;
-    w->crc = (uint32_t)zng_crc32_combine(w->crc, w->inline_crc, (z_off64_t)w->inline_fill);
+    w->crc = writer_crc_combine(w, w->inline_crc, w->inline_fill);
     w->total_in += w->inline_fill;
     w->inline_active = 0;
     return 0;
@@ -210,7 +219,7 @@ static int32_t writer_drain(gzblock_writer *w) {
         return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
     if (writer_header(w) != 0 || writer_out(w, slot->out, slot->out_len) != 0)
         return -1;
-    w->crc = (uint32_t)zng_crc32_combine(w->crc, slot->crc, (z_off64_t)slot->in_len);
+    w->crc = writer_crc_combine(w, slot->crc, slot->in_len);
     w->total_in += slot->in_len;
     pool_release(&w->pipeline.pool, slot);
     pipeline_drained(&w->pipeline);
@@ -251,6 +260,7 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
     w->write = write;
     w->ctx = ctx;
     w->block_size = block_size;
+    w->crc_op = (uint32_t)zng_crc32_combine_gen((z_off64_t)block_size);
     w->level = level;
     w->strategy = strategy;
     w->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
