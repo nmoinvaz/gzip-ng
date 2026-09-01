@@ -57,10 +57,12 @@ jobs:
             cxx-compiler: clang++
             arch: linux-x86_64
 
-          - name: Ubuntu Clang ARM64
+          # zlib-ng develop's eor3 crc kernel does not build with the clang this image carries,
+          # so the ARM64 leg stays on gcc.
+          - name: Ubuntu GCC ARM64
             os: ubuntu-22.04-arm
-            compiler: clang
-            cxx-compiler: clang++
+            compiler: gcc
+            cxx-compiler: g++
             arch: linux-arm64
 
           - name: macOS Clang ARM64
