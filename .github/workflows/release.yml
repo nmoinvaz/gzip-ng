@@ -1,0 +1,139 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release without the v, the tag becomes v{version}
+        required: true
+        type: string
+      ref:
+        description: Commit, tag, or branch to build
+        required: true
+        type: string
+        default: main
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      # The sources carry the version twice, and a release must match both.
+      - name: Version matches the sources
+        run: |
+          want="${{ inputs.version }}"
+          cmake=$(sed -n 's/^project(gzip-ng VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          header=$(sed -n 's/^#define GZNG_VERSION "\([0-9.]*\)".*/\1/p' gzng.h)
+          test "$cmake" = "$want" || { echo "CMakeLists.txt says $cmake, not $want"; exit 1; }
+          test "$header" = "$want" || { echo "gzng.h says $header, not $want"; exit 1; }
+          if git ls-remote --exit-code origin "refs/tags/v$want" > /dev/null; then
+            echo "tag v$want already exists"
+            exit 1
+          fi
+
+      - name: Resolve the commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.name }}
+    needs: check
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-22.04
+
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+
+          - name: macos-arm64
+            os: macos-latest
+
+          - name: macos-x86_64
+            os: macos-latest
+            cmake-args: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DGZNG_ENABLE_TESTS=OFF
+            skip-tests: true
+
+          - name: windows-x64
+            os: windows-latest
+            cmake-args: -A x64
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Generate project files
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake-args }}
+
+      - name: Build project
+        run: cmake --build build -j 3 --config Release
+
+      - name: Run tests
+        if: ${{ !matrix.skip-tests }}
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package
+        if: runner.os != 'Windows'
+        run: |
+          dir=gzip-ng-${{ inputs.version }}-${{ matrix.name }}
+          mkdir -p pkg/$dir
+          cp build/gzip-ng LICENSE.md README.md pkg/$dir/
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            strip pkg/$dir/gzip-ng
+          fi
+          tar -czf $dir.tar.gz -C pkg $dir
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $dir = "gzip-ng-${{ inputs.version }}-${{ matrix.name }}"
+          New-Item -ItemType Directory -Path pkg/$dir | Out-Null
+          Copy-Item build/Release/gzip-ng.exe, LICENSE.md, README.md pkg/$dir/
+          Compress-Archive -Path pkg/$dir -DestinationPath "$dir.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            *.tar.gz
+            *.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt
+
+      - name: Create the tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create v${{ inputs.version }} dist/*
+          --repo ${{ github.repository }}
+          --target ${{ needs.check.outputs.sha }}
+          --title "gzip-ng ${{ inputs.version }}"
+          --generate-notes
