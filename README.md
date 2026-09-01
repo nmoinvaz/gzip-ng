@@ -95,7 +95,7 @@ header | block 1 … 00 00 FF FF 00 00 00 FF FF | block 2 … 00 00 FF FF 00 00 
 
 ### Parallel decompression
 
-- The reader parses the gzip header and looks at the first megabyte of compressed data for a marker pair. One found means independent blocks and a parallel decode, none means plain serial inflate, as for any gzip file. With one thread there is nothing to gain from blocks, so plain inflate takes every member.
+- For each member, the reader parses the gzip header and looks at the first megabyte of compressed data for a marker pair. One found means independent blocks and a parallel decode, none means plain serial inflate, as for any gzip file. A `--blocksize` skips the probe and assumes blocks of exactly that size. With one thread there is nothing to gain from blocks, so plain inflate takes every member.
 - A scanner finds every `00 00 FF FF`, one empty stored block, with SIMD filtering for the zero pair the way `memchr` filters for a byte. A second empty stored block behind it makes a boundary.
 - Each segment between boundaries is inflated on its own by a worker into a slot the size of a block, with its CRC taken there, and the blocks are handed out in order.
 - `pigz --rsyncable --independent` ends a block at every rsync point, about every 4 KiB. The reader gathers those until about a block size is in hand before handing them to a worker, since a slot per 4 KiB costs more to hand off than to inflate.
