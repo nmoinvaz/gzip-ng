@@ -70,6 +70,7 @@ add_library(gzng
     format.c
     format.h
     gzng.c
+    io.h
     rolling.c
     rolling.h
     pipeline.h
@@ -92,7 +93,13 @@ if(BUILD_SHARED_LIBS)
         set_property(TARGET gzng APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gzng.map)
     endif()
 endif()
-target_link_libraries(gzng PUBLIC zlib-ng::zlib)
+# The bundled zlib-ng builds shared and static side by side and zlib-ng::zlib names the shared
+# one, so a static gzng takes the static library and the executables stay self contained.
+if(NOT BUILD_SHARED_LIBS AND TARGET zlib-ng::zlibstatic)
+    target_link_libraries(gzng PUBLIC zlib-ng::zlibstatic)
+else()
+    target_link_libraries(gzng PUBLIC zlib-ng::zlib)
+endif()
 
 if(GZNG_THREADS)
     find_package(Threads REQUIRED)
