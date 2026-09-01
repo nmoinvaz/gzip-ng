@@ -19,16 +19,21 @@ struct gzblock_writer_s {
     gzblock_write_fn write;
     void *ctx;
     uint32_t block_size;
-    int32_t level, strategy, nthreads;
+    int32_t level;
+    int32_t strategy;
+    int32_t nthreads;
     pipeline_t pipeline;
     slot_t *cur; /* slot being filled */
     uint32_t crc;
     size_t total_in;
-    int32_t hdr_written, finished, failed;
+    int32_t hdr_written;
+    int32_t finished;
+    int32_t failed;
     uint32_t mtime;
     char name[FORMAT_NAME_MAX];
     int32_t rsyncable; /* end blocks at rolling hash hits so edits stay local */
-    uint32_t rsync_hash, rsync_mask;
+    uint32_t rsync_hash;
+    uint32_t rsync_mask;
     size_t rsync_max; /* a block is cut on size alone only here */
     size_t rsync_min; /* no early end before this much of the block is filled */
     int32_t err;      /* zlib error code once failed */
@@ -38,7 +43,8 @@ struct gzblock_writer_s {
        stream, so a flush does not shorten it. Blocks end at block_size, or at a rolling hash hit
        when the writer is rsyncable. */
     zng_stream strm;
-    int32_t strm_init, inline_active;
+    int32_t strm_init;
+    int32_t inline_active;
     size_t inline_fill; /* input bytes of the inline block so far */
     uint32_t inline_crc;
     uint8_t *obuf; /* IO_CHUNK of output space for the inline stream */

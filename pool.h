@@ -23,14 +23,17 @@ enum { POOL_INFLATE, POOL_DEFLATE };
 
 typedef struct {
     uint8_t *in; /* input block or compressed segment, owned by the slot */
-    size_t in_len, in_size;
+    size_t in_len;
+    size_t in_size;
     int32_t last; /* final piece of the input */
     int32_t pair; /* the segment ends with a marker pair, a boundary in its own right */
     uint8_t *out;
-    size_t out_size;         /* grows past block_size for pair-terminated and final segments */
-    int32_t level, strategy; /* deflate settings for this block */
-    int32_t status;          /* SEGMENT_* for inflate, BLOCK_* for deflate */
-    size_t out_len, in_used;
+    size_t out_size; /* grows past block_size for pair-terminated and final segments */
+    int32_t level;   /* deflate settings for this block */
+    int32_t strategy;
+    int32_t status; /* SEGMENT_* for inflate, BLOCK_* for deflate */
+    size_t out_len;
+    size_t in_used;
     uint32_t crc; /* crc32 of the uncompressed side */
     int32_t state;
 } slot_t;
@@ -38,12 +41,14 @@ typedef struct {
 typedef struct pool_s {
     int32_t mode; /* POOL_INFLATE or POOL_DEFLATE */
     uint32_t block_size;
-    int32_t level, strategy; /* deflate settings */
-    size_t out_size;         /* bytes in each slot's out buffer */
+    int32_t level; /* deflate settings */
+    int32_t strategy;
+    size_t out_size; /* bytes in each slot's out buffer */
     slot_t *ring;
     size_t nring;
     slot_t **queue; /* filled slots in fill order, at most nring */
-    size_t queue_head, queue_tail;
+    size_t queue_head;
+    size_t queue_tail;
     int32_t abort;
     zng_stream strm;             /* stream for working slots on the calling thread */
     int32_t inline_run;          /* no worker threads, slots are worked on demand */
