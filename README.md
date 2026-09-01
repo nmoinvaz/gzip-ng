@@ -120,23 +120,28 @@ Comparing whole binaries is a different job, fork and exec noise belongs to tool
 
 * Apple M5, 10 cores.
 * 512 MiB of mixed source, build output, and text, 4.8 to 1 under `gzip -6`.
-* zlib-ng 2.3.3, pigz 2.8, gzip 1.14, level 6, `hyperfine` mean of 3.
+* zlib-ng 2.3.3, pigz 2.8, gzip 1.14, bgzip 1.24, MiGz 2.0.beta-1 on OpenJDK 26, level 6, `hyperfine` mean of 3.
+* MiGz runs as a small Java CLI over its streams, JVM start included.
 
 | Compress | Wall | MiB/s | Output | Of input |
 |---|---|---|---|---|
-| `gzip-ng -p 10` | 0.39 s | 1330 | 111.9 MiB | 21.9% |
-| `pigz -p 10` | 1.02 s | 504 | 107.1 MiB | 20.9% |
-| `gzip-ng` | 2.44 s | 210 | 109.9 MiB | 21.5% |
-| `minigzip` | 2.47 s | 208 | 109.9 MiB | 21.5% |
-| `gzip -6` | 6.35 s | 81 | 107.3 MiB | 21.0% |
+| `gzip-ng -p 10` | 0.82 s | 620 | 110.5 MiB | 21.6% |
+| `pigz -p 10` | 2.19 s | 230 | 107.1 MiB | 20.9% |
+| `gzip-ng` | 4.80 s | 107 | 108.7 MiB | 21.2% |
+| `minigzip` | 5.13 s | 100 | 108.7 MiB | 21.2% |
+| `gzip -6` | 13.88 s | 37 | 107.2 MiB | 20.9% |
 
 | Decompress | Input | Wall | MiB/s |
 |---|---|---|---|
-| `gzip-ng -p 10` | from `gzip-ng -p 10` | 0.07 s | 7570 |
-| `pigz` | from `pigz -p 10` | 0.44 s | 1170 |
-| `gzip-ng` | from `gzip-ng` | 0.45 s | 1130 |
-| `minigzip` | from `minigzip` | 0.47 s | 1090 |
-| `gzip` | from `gzip -6` | 1.06 s | 480 |
+| `gzip-ng -p 10` | from `gzip-ng -p 10` | 0.09 s | 5440 |
+| `gzip-ng -p 10` | from `bgzip -@ 10` | 0.10 s | 5080 |
+| `gzip-ng -p 10` | from MiGz | 0.13 s | 4060 |
+| `bgzip -d -@ 10` | from `bgzip -@ 10` | 0.16 s | 3260 |
+| `MiGz` | from MiGz | 0.20 s | 2530 |
+| `gzip-ng` | from `gzip-ng` | 0.54 s | 950 |
+| `minigzip` | from `minigzip` | 0.58 s | 880 |
+| `pigz` | from `pigz -p 10` | 0.75 s | 690 |
+| `gzip` | from `gzip -6` | 2.15 s | 240 |
 
 ## Thanks
 
