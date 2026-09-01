@@ -1,4 +1,4 @@
-/* gzblock_p.h -- private interfaces shared by the gzblock core, reader, and writer
+/* gzblock_p.h -- the shared prelude of the reader and writer
  * For conditions of distribution and use, see LICENSE.md
  */
 
@@ -15,7 +15,6 @@
 #include "gzblock.h"
 #include "pipeline.h"
 #include "pool.h"
-#include "rolling.h"
 #include "util.h"
 #include "zlib-ng.h"
 

@@ -2,7 +2,12 @@
  * For conditions of distribution and use, see LICENSE.md
  */
 
-#include "gzblock_p.h"
+#include <stdlib.h>
+#include <string.h>
+
+#include "codec.h"
+#include "gzblock.h"
+#include "util.h"
 
 /* The output is full. A loose block may take any size, so give it the rest of the buffer, doubled
    up to GZBLOCK_MAX_BLOCK once used up. Returns 1 with room to inflate into. */

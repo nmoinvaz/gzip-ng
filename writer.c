@@ -3,6 +3,7 @@
  */
 
 #include "gzblock_p.h"
+#include "rolling.h"
 
 struct gzblock_writer_s {
     gzblock_write_fn write;
