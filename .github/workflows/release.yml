@@ -10,7 +10,7 @@ on:
         description: Commit, tag, or branch to build
         required: true
         type: string
-        default: main
+        default: develop
 
 permissions:
   contents: write
