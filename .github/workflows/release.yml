@@ -88,7 +88,8 @@ jobs:
 
       - name: Run tests
         if: ${{ !matrix.skip-tests }}
-        run: ctest --test-dir build -C Release --output-on-failure
+        timeout-minutes: 20
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 120
 
       - name: Package
         if: runner.os != 'Windows'

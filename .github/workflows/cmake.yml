@@ -103,7 +103,8 @@ jobs:
         run: cmake --build build -j 3 --config Release
 
       - name: Run tests
-        run: ctest --test-dir build -C Release --output-on-failure
+        timeout-minutes: 20
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 120
 
       - name: Build benchmarks
         if: ${{ !matrix.cmake-args }}
