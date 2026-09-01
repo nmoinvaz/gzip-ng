@@ -36,12 +36,14 @@ find_package(zlib-ng CONFIG QUIET)
 if(NOT TARGET zlib-ng::zlib)
     include(FetchContent)
     if(NOT DEFINED ZLIBNG_TAG)
-        set(ZLIBNG_TAG 2.3.3)
+        set(ZLIBNG_TAG develop)
     endif()
     set(ZLIB_COMPAT OFF CACHE BOOL "" FORCE)
     set(ZLIB_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     set(ZLIBNG_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     set(WITH_GTEST OFF CACHE BOOL "" FORCE)
+    # Sanitizers apply globally through GZNG_SANITIZER above, zlib-ng's own machinery stays off.
+    set(WITH_SANITIZER OFF CACHE STRING "" FORCE)
     message(STATUS "Git checking out zlib-ng ${ZLIBNG_TAG}")
     FetchContent_Declare(zlib-ng
         GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git
