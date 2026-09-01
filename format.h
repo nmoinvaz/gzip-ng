@@ -37,6 +37,7 @@ typedef struct {
     const char *name; /* NULL or empty stores no name */
     int32_t level;    /* the extra flags byte reports how hard deflate worked */
     int32_t strategy;
+    uint32_t member_size; /* whole member bytes when a BGZF BC subfield records them, 0 otherwise */
 } format_header;
 
 /* Lay a member header into buf, at most FORMAT_HEADER_MAX bytes. Returns its length. */

@@ -18,7 +18,16 @@
 #include "util.h"
 #include "zlib-ng.h"
 
-enum { READER_HEADER, READER_PASSTHRU, READER_STREAM, READER_BLOCKS, READER_MEMBER_END, READER_END, READER_ERROR };
+enum {
+    READER_HEADER,
+    READER_PASSTHRU,
+    READER_STREAM,
+    READER_BLOCKS,
+    READER_MEMBERS,
+    READER_MEMBER_END,
+    READER_END,
+    READER_ERROR
+};
 
 typedef struct {
     gzblock_read_fn read;
@@ -43,9 +52,17 @@ typedef struct {
     uint8_t *out_buf; /* IO_CHUNK, output of strm, or bytes passed through */
 } reader_inflate;
 
+/* Sized members, BGZF, cut whole and decoded in parallel with headers and trailers included. */
+typedef struct {
+    buf_t seg;     /* member group being assembled for a slot */
+    int32_t count; /* whole members in seg */
+    int32_t done;  /* the input's next bytes are not a sized member */
+} reader_members;
+
 struct gzblock_reader_s {
     reader_io io;
     reader_inflate stream;
+    reader_members memb;
     cutter_t cut;
     buf_t hdr;       /* this member's header, kept for the fallback */
     int32_t cut_all; /* the cutter handed out the member's last segment */
@@ -262,6 +279,7 @@ static int32_t reader_produce(gzblock_reader *r) {
         slot->in_len = r->cut.seg.len;
         slot->last = r->cut.seg_last;
         slot->pair = r->cut.seg_pair;
+        slot->members = 0;
         r->cut.seg.p = swap.p;
         r->cut.seg.size = swap.size;
         r->cut.seg.len = 0;
@@ -371,11 +389,108 @@ static int32_t reader_probe(gzblock_reader *r, size_t hdr_len) {
     return scan_marker_pair(bp + hdr_len, bp + limit - 8) != NULL;
 }
 
+/* Enter sized-member mode. Members are cut whole, so the pipeline needs no cutter state. */
+static int32_t reader_start_members(gzblock_reader *r) {
+    if (!r->pipeline.started) {
+        int32_t rc;
+        r->pipeline.pool.mode = POOL_INFLATE;
+        r->pipeline.pool.block_size = PROBE_BLOCK;
+        rc = pipeline_start(&r->pipeline, r->io.nthreads, 0, PROBE_BLOCK);
+        if (rc == -1)
+            return reader_oom(r);
+        if (rc == -2)
+            return reader_fail(r, Z_MEM_ERROR, "cannot start threads");
+    }
+    r->memb.seg.len = 0;
+    r->memb.count = 0;
+    r->memb.done = 0;
+    pipeline_reset(&r->pipeline);
+    r->io.state = READER_MEMBERS;
+    return 0;
+}
+
+/* Gather whole sized members into seg until about a block of input is in hand. Returns 1 with a
+   group to submit, 0 when the input's next bytes are not a sized member, with whatever the group
+   already holds, -1 on an error already recorded. */
+static int32_t reader_members_next(gzblock_reader *r) {
+    for (;;) {
+        format_header hdr;
+        size_t hdr_len;
+
+        if (r->memb.seg.len >= (size_t)r->pipeline.pool.block_size)
+            return 1;
+        hdr_len = format_header_parse(buf_data(&r->io.buf), r->io.buf.len, &hdr);
+        if (hdr_len != 0 && hdr_len != (size_t)-1 && hdr.member_size >= hdr_len + 8 &&
+            r->io.buf.len < hdr.member_size && !r->io.eof) {
+            if (reader_fill(r, hdr.member_size) != 0)
+                return -1;
+            continue;
+        }
+        if (hdr_len == 0 && !r->io.eof) {
+            if (reader_fill(r, r->io.buf.len + IO_CHUNK) != 0)
+                return -1;
+            continue;
+        }
+        if (hdr_len == 0 || hdr_len == (size_t)-1 || hdr.member_size < hdr_len + 8 || r->io.buf.len < hdr.member_size) {
+            r->memb.done = 1; /* the header path decides what the rest is */
+            return r->memb.seg.len != 0;
+        }
+        if (buf_append(&r->memb.seg, buf_data(&r->io.buf), hdr.member_size) != 0)
+            return reader_oom(r);
+        buf_drop(&r->io.buf, hdr.member_size);
+        r->memb.count++;
+    }
+}
+
+/* Keep the pool fed with member groups and hand out the next one in order. */
+static int32_t reader_members_step(gzblock_reader *r) {
+    while (!r->memb.done) {
+        slot_t *slot = pool_slot(&r->pipeline.pool, r->pipeline.next_submit);
+        buf_t swap;
+        int32_t rc;
+
+        if (slot->state != SLOT_FREE)
+            break;
+        rc = reader_members_next(r);
+        if (rc < 0)
+            return -1;
+        if (rc == 0)
+            break;
+        /* Swap buffers rather than copy, as the block pipeline does. */
+        swap.p = slot->in;
+        swap.size = slot->in_size;
+        slot->in = r->memb.seg.p;
+        slot->in_size = r->memb.seg.size;
+        slot->in_len = r->memb.seg.len;
+        slot->members = r->memb.count;
+        slot->last = 0;
+        slot->pair = 0;
+        r->memb.seg.p = swap.p;
+        r->memb.seg.size = swap.size;
+        r->memb.seg.len = 0;
+        r->memb.count = 0;
+        pipeline_submit(&r->pipeline, slot);
+    }
+    if (pipeline_has_pending(&r->pipeline)) {
+        slot_t *slot = pipeline_wait(&r->pipeline, r->pipeline.next_drain);
+        if (slot->status != SEGMENT_FULL)
+            return reader_fail(r, Z_DATA_ERROR, "member %d is %s", r->io.members, segment_status_name(slot->status));
+        r->io.members += slot->members;
+        pipeline_drained(&r->pipeline);
+        reader_handout(r, slot->out, slot->out_len, slot);
+        return 0;
+    }
+    /* Every group is drained and the input goes on with something else. */
+    r->io.state = READER_HEADER;
+    return 0;
+}
+
 /* Decide how to decode what comes next: a gzip member in block mode or plain, pass-through for data
    that is not gzip, or the end. */
 static int32_t reader_header(gzblock_reader *r) {
     size_t want = 1024, hdr_len;
     uint32_t hdr_block_size;
+    format_header hdr;
 
     for (;;) {
         if (reader_fill(r, want) != 0)
@@ -389,7 +504,7 @@ static int32_t reader_header(gzblock_reader *r) {
                 r->io.state = READER_END; /* trailing garbage after a member, ignored */
             return 0;
         }
-        hdr_len = format_header_parse(buf_data(&r->io.buf), r->io.buf.len, NULL);
+        hdr_len = format_header_parse(buf_data(&r->io.buf), r->io.buf.len, &hdr);
         if (hdr_len == (size_t)-1)
             return reader_fail(r, Z_DATA_ERROR, "not in gzip format");
         if (hdr_len != 0)
@@ -410,6 +525,10 @@ static int32_t reader_header(gzblock_reader *r) {
         reader_start_stream(r);
         return 0;
     }
+    /* A sized member's end is known before anything inflates, so members decode whole and in
+       parallel, with nothing probed, rewound, or inflated twice. */
+    if (hdr.member_size != 0)
+        return reader_start_members(r);
     /* Nothing in a header says how a member is cut, so a caller's hint decides, or the probe. */
     hdr_block_size = r->io.block_hint;
     /* A block size that would cost more memory than is sensible. */
@@ -488,6 +607,9 @@ static int32_t reader_advance(gzblock_reader *r) {
         case READER_BLOCKS:
             rc = reader_blocks(r);
             break;
+        case READER_MEMBERS:
+            rc = reader_members_step(r);
+            break;
         case READER_MEMBER_END:
             rc = reader_member_end_step(r);
             break;
@@ -547,6 +669,7 @@ void gzblock_reader_close(gzblock_reader *r) {
     zng_inflateEnd(&r->stream.strm);
     free(r->stream.out_buf);
     cutter_free(&r->cut);
+    free(r->memb.seg.p);
     free(r->hdr.p);
     free(r->io.buf.p);
     free(r);

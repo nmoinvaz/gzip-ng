@@ -10,9 +10,10 @@
 #include "util.h"
 
 /* The output is full. A loose block may take any size, so give it the rest of the buffer, doubled
-   up to GZBLOCK_MAX_BLOCK once used up. Returns 1 with room to inflate into. */
+   up to GZBLOCK_MAX_BLOCK once used up. Returns 1 with room to inflate into. The fill is measured
+   by pointer rather than total_out, which member resets zero mid-slot. */
 static int32_t grow_output(zng_stream *strm, slot_t *slot) {
-    size_t have = (size_t)strm->total_out;
+    size_t have = (size_t)(strm->next_out - slot->out);
 
     if (have == slot->out_size) {
         size_t size = MIN(have * 2, (size_t)GZBLOCK_MAX_BLOCK);
@@ -38,7 +39,7 @@ static int32_t inflate_segment(zng_stream *strm, slot_t *slot, uint32_t block_si
     size_t left = slot->in_len;
     int32_t err, boundary, aligned, exhausted;
 
-    zng_inflateReset(strm);
+    zng_inflateReset2(strm, -MAX_WBITS); /* back to raw, a member slot may have rewrapped it */
     strm->next_in = (z_const uint8_t *)slot->in;
     strm->avail_in = 0;
     strm->next_out = slot->out;
@@ -115,6 +116,51 @@ const char *segment_status_name(int32_t status) {
     }
 }
 
+/* Inflate whole gzip members back to back, zlib checking each header, crc, and length. Sized
+   members cut exactly, so the only clean end is all input consumed at a member's end. */
+static int32_t inflate_members(zng_stream *strm, slot_t *slot) {
+    size_t left = slot->in_len;
+    int32_t err;
+
+    zng_inflateReset2(strm, MAX_WBITS + 16);
+    strm->next_in = (z_const uint8_t *)slot->in;
+    strm->avail_in = 0;
+    strm->next_out = slot->out;
+    strm->avail_out = (uint32_t)slot->out_size;
+    for (;;) {
+        if (strm->avail_in == 0 && left != 0) {
+            uint32_t chunk = clamp_u32(left);
+            strm->avail_in = chunk;
+            left -= chunk;
+        }
+        err = zng_inflate(strm, Z_NO_FLUSH);
+        if (err == Z_STREAM_END) {
+            if (strm->avail_in == 0 && left == 0)
+                return SEGMENT_FULL;
+            zng_inflateReset(strm); /* the next member follows directly */
+            continue;
+        }
+        if (err != Z_OK)
+            return SEGMENT_ERROR;
+        if (strm->avail_out == 0) {
+            if (!grow_output(strm, slot))
+                return SEGMENT_OVERFLOW;
+            continue;
+        }
+        if (strm->avail_in == 0 && left == 0)
+            return SEGMENT_SHORT; /* input ended inside a member */
+    }
+}
+
+/* Run a member slot. The totals reset with each member, so the fill is measured by pointer and
+   the crc is left to the per-member trailers zlib already checked. */
+static void run_members(zng_stream *strm, slot_t *slot) {
+    slot->status = inflate_members(strm, slot);
+    slot->in_used = slot->in_len - strm->avail_in;
+    slot->out_len = (size_t)(strm->next_out - slot->out);
+    slot->crc = 0;
+}
+
 /* Inflate one slot and record what every exit of inflate_segment shares, the bytes consumed
    and produced and the CRC of the output. */
 static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
@@ -161,6 +207,8 @@ void codec_end(pool_t *pool, zng_stream *strm) {
 void codec_run(pool_t *pool, zng_stream *strm, slot_t *slot) {
     if (pool->mode == POOL_DEFLATE)
         run_block(strm, slot, pool->out_size);
+    else if (slot->members != 0)
+        run_members(strm, slot);
     else
         run_segment(strm, slot, pool->block_size);
 }

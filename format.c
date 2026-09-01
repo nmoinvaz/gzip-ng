@@ -64,6 +64,14 @@ size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
         end = pos + xlen;
         if (len < end)
             return 0;
+        /* BGZF (bgzip, BAM) records the whole member's length in a BC subfield, which makes the
+           next member's position known before anything is inflated. */
+        while (hdr && pos + 4 <= end) {
+            size_t sub = load_le16(buf + pos + 2);
+            if (buf[pos] == 'B' && buf[pos + 1] == 'C' && sub == 2 && pos + 6 <= end)
+                hdr->member_size = (uint32_t)load_le16(buf + pos + 4) + 1;
+            pos += 4 + sub;
+        }
         pos = end;
     }
     if (flags & 8) { /* FNAME */

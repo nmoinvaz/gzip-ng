@@ -25,8 +25,9 @@ typedef struct {
     uint8_t *in; /* input block or compressed segment, owned by the slot */
     size_t in_len;
     size_t in_size;
-    int32_t last; /* final piece of the input */
-    int32_t pair; /* the segment ends with a marker pair, a boundary in its own right */
+    int32_t last;    /* final piece of the input */
+    int32_t pair;    /* the segment ends with a marker pair, a boundary in its own right */
+    int32_t members; /* whole gzip members in the input, 0 for a raw deflate segment */
     uint8_t *out;
     size_t out_size; /* grows past block_size for pair-terminated and final segments */
     int32_t level;   /* deflate settings for this block */
