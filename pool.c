@@ -101,6 +101,8 @@ void pool_wait(pool_t *pool, slot_t *slot) {
     pool_wait_inline(pool, slot);
 }
 
+/* Take the most recent submission back before any worker claims it. Returns 1 with the slot done
+   and untouched, 0 when a worker already has it. */
 int32_t pool_cancel(pool_t *pool, slot_t *slot) {
     (void)pool;
     if (slot->state != SLOT_FILLED)

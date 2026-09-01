@@ -165,6 +165,8 @@ void pool_release(pool_t *pool, slot_t *slot) {
     pthread_mutex_unlock(&thread->mutex);
 }
 
+/* Take the most recent submission back before any worker claims it. Returns 1 with the slot done
+   and untouched, 0 when a worker already has it. */
 int32_t pool_cancel(pool_t *pool, slot_t *slot) {
     struct pool_threads *thread = pool->thread;
 
