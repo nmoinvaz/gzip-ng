@@ -6,13 +6,32 @@
 
 #include <string.h>
 
-/* Trailing zero counts for the marker scanners. */
+/* Trailing zero counts for the marker scanners, the compiler's own where it has one. */
+#if defined(_MSC_VER) && !defined(__clang__)
+#  include <intrin.h>
+static inline uint32_t gzng_ctz32(uint32_t v) {
+    unsigned long i;
+    _BitScanForward(&i, v);
+    return (uint32_t)i;
+}
+static inline uint32_t gzng_ctz64(uint64_t v) {
+#  if defined(_M_X64) || defined(_M_ARM64)
+    unsigned long i;
+    _BitScanForward64(&i, v);
+    return (uint32_t)i;
+#  else
+    uint32_t lo = (uint32_t)v;
+    return lo != 0 ? gzng_ctz32(lo) : 32 + gzng_ctz32((uint32_t)(v >> 32));
+#  endif
+}
+#else
 static inline uint32_t gzng_ctz32(uint32_t v) {
     return (uint32_t)__builtin_ctz(v);
 }
 static inline uint32_t gzng_ctz64(uint64_t v) {
     return (uint32_t)__builtin_ctzll(v);
 }
+#endif
 
 /* The check behind the zero filter, the marker's remaining bytes, and for the pair scan the
    empty stored block behind them. pair is a constant at every call, so each caller gets its own
