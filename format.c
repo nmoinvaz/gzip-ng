@@ -39,16 +39,20 @@ size_t format_header_build(uint8_t *buf, const format_header *hdr) {
     return n;
 }
 
-/* BGZF (bgzip, BAM) records the whole member's length in a BC subfield of the extra field, which
-   makes the next member's position known before anything is inflated. Returns it, or 0 when no
-   subfield records one. */
-static uint32_t format_extra_member_size(const uint8_t *extra, size_t len) {
+/* Sized members make the next member's position known before anything is inflated. Returns the
+   whole member's length, or 0 when no subfield records a size. */
+static uint32_t format_extra_member_size(const uint8_t *extra, size_t len, uint32_t *data_size) {
     size_t pos = 0;
 
     while (pos + 4 <= len) {
         size_t sub = load_le16(extra + pos + 2);
+        /* BGZF (bgzip, BAM) records the whole member's length in BC. */
         if (extra[pos] == 'B' && extra[pos + 1] == 'C' && sub == 2 && pos + 6 <= len)
             return (uint32_t)load_le16(extra + pos + 4) + 1;
+        /* MiGz records only the deflate data's length in MZ, completed by the caller once the
+           whole header has been measured. */
+        if (extra[pos] == 'M' && extra[pos + 1] == 'Z' && sub == 4 && pos + 8 <= len)
+            *data_size = load_le32(extra + pos + 4);
         pos += 4 + sub;
     }
     return 0;
@@ -56,6 +60,7 @@ static uint32_t format_extra_member_size(const uint8_t *extra, size_t len) {
 
 size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
     size_t pos = FORMAT_HEADER_LEN;
+    uint32_t data_size = 0;
     uint8_t flags;
 
     if (hdr)
@@ -80,7 +85,7 @@ size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
         if (len < end)
             return 0;
         if (hdr)
-            hdr->member_size = format_extra_member_size(buf + pos, xlen);
+            hdr->member_size = format_extra_member_size(buf + pos, xlen, &data_size);
         pos = end;
     }
     if (flags & 8) { /* FNAME */
@@ -105,6 +110,9 @@ size_t format_header_parse(const uint8_t *buf, size_t len, format_header *hdr) {
             return 0;
         pos += 2;
     }
+    /* An MZ size counts only the deflate data, the header and trailer complete the member. */
+    if (hdr && hdr->member_size == 0 && data_size != 0 && data_size < UINT32_MAX - pos - 8)
+        hdr->member_size = (uint32_t)pos + data_size + 8;
     return pos;
 }
 
