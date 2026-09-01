@@ -70,6 +70,16 @@ Compresses files in place, file to file.gz, removing the input unless kept. With
 
 Exit status is 0, 1 on errors, 2 on warnings, as gzip behaves.
 
+## Differences from pigz
+
+- Blocks are always independent. pigz chains each block's dictionary into the next unless `--independent` asks otherwise, gzip-ng only writes the independent, pair-marked form. Independence costs about 1% of output size against chained pigz and buys parallel decompression, damage isolation, and cheap deltas, when the input changes and is compressed again, only the blocks around the change come out different.
+- Block boundaries follow the content. A rolling hash ends each block, so an insertion in the input moves the boundaries with it, and every block past the change compresses to the same bytes as before. pigz cuts at fixed offsets unless `--rsyncable`. Here the property is always on for block output, costing about 0.02% of it, and `--rsyncable` only matters for the plain serial stream.
+- Decompression is parallel. pigz inflates every file serially, its extra threads only read, write, and check. gzip-ng probes for the marker pair and inflates blocks across the pool, for its own output and for `pigz --independent` output alike, falling back to plain inflate for any other gzip file.
+- `--blocksize` is the tradeoff knob. Independent blocks trade ratio for decode granularity and delta size, both endpoints keeping parallel decompression. Raising it recovers most of the ratio distance to chained pigz, 83% at `-b 1M` on a mixed corpus, lowering it shrinks how much of the output changes when the input does.
+- The deflate, inflate, and crc engine is zlib-ng, with SIMD in the block boundary scanner as well.
+- The core is a library. The block reader and writer sit behind callback IO in gzblock.h, and the command line is one caller of it.
+- Not carried over from pigz: zopfli's `-11`, zlib and zip output formats, and `--suffix`.
+
 ## How it works
 
 ### Parallel compression
