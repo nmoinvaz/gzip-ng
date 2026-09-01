@@ -84,6 +84,7 @@ enum {
     OPT_FIXED,
     OPT_TRANSPARENT,
     OPT_ASCII,
+    OPT_INDEPENDENT,
     OPT_BLOCKSIZE,
     OPT_PROCESSES,
     OPT_FAST,
@@ -126,6 +127,7 @@ static const option_desc option_table[] = {
     {      OPT_FIXED,   0,       "fixed",         NULL,   NULL,                                              "fixed codes strategy"},
     {OPT_TRANSPARENT, 'T',          NULL,         NULL,   NULL,                                         "store without compressing"},
     {      OPT_ASCII, 'A',          NULL,         NULL,   NULL,                             "text mode, accepted for compatibility"},
+    {OPT_INDEPENDENT, 'i', "independent",         NULL,   NULL,                     "accepted for compatibility, blocks always are"},
     {  OPT_BLOCKSIZE, 'b',   "blocksize",         NULL, "size",                     "average bytes per block, K, M, and G suffixes"},
     {  OPT_PROCESSES, 'p',   "processes",         NULL,    "n", "threads to use, which asks for blocks, 0 picks the number of CPUs"},
     {       OPT_FAST,   0,        "fast",         NULL,   NULL,                                          "compress faster, level 1"},
@@ -280,6 +282,8 @@ static int32_t apply(gzng_options *opt, const option_desc *desc, const char *val
     case OPT_ASCII:
         opt->text_mode = 1;
         break;
+    case OPT_INDEPENDENT:
+        break; /* pigz --independent, what the writer does anyway */
     case OPT_FAST:
         opt->level = 1;
         break;
