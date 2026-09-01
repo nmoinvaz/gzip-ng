@@ -2,15 +2,20 @@
  * For conditions of distribution and use, see LICENSE.md
  */
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <time.h>
-#include <unistd.h>
+
+#ifdef _WIN32
+#  include "win32/compat.h"
+#else
+#  include <dirent.h>
+#  include <unistd.h>
+#  include <utime.h>
+#endif
 
 #include "compress.h"
 #include "decompress.h"
@@ -231,17 +236,21 @@ static int32_t process_stdio(const gzng_options *opt) {
 /* gzip carries the input file's mode and times onto the output, and --name on decompression prefers
    the time stored in the header. */
 static void copy_attrs(const char *out_path, const struct stat *ist, uint32_t mtime) {
-    struct timeval tv[2];
+    struct utimbuf times;
 
     chmod(out_path, ist->st_mode & 07777);
-    tv[0].tv_sec = ist->st_atime;
-    tv[0].tv_usec = 0;
-    tv[1].tv_sec = mtime != 0 ? (time_t)mtime : ist->st_mtime;
-    tv[1].tv_usec = 0;
-    utimes(out_path, tv);
+    times.actime = ist->st_atime;
+    times.modtime = mtime != 0 ? (time_t)mtime : ist->st_mtime;
+    utime(out_path, &times);
 }
 
-/* A new name is durable only once its directory is synced too. */
+/* A new name is durable only once its directory is synced too. Windows has no way to ask, the
+   file's own flush in process_file is all --synchronous can give there. */
+#ifdef _WIN32
+static void sync_dir(const char *out_path) {
+    (void)out_path;
+}
+#else
 static void sync_dir(const char *out_path) {
     const char *slash = strrchr(out_path, '/');
     char dir_path[GZ_PATH_MAX];
@@ -257,6 +266,7 @@ static void sync_dir(const char *out_path) {
         close(fd);
     }
 }
+#endif
 
 /* ===========================================================================
  * Integrity testing
@@ -528,6 +538,11 @@ int main(int argc, char **argv) {
     list_totals totals = {0, 0, 0};
     int32_t nfiles = 0, rc = GZ_OK, ret;
 
+#ifdef _WIN32
+    /* Compressed bytes pass through stdio verbatim, so the console pair must not cook them. */
+    _setmode(_fileno(stdin), _O_BINARY);
+    _setmode(_fileno(stdout), _O_BINARY);
+#endif
     gzng_options_init(&opt);
     gzng_options_personas(&opt, argv[0]);
     ret = gzng_options_parse(&opt, argc, argv, &nfiles);

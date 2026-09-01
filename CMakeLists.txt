@@ -104,6 +104,12 @@ if(NOT GZNG_SIMD)
 endif()
 
 add_executable(gzip-ng main.c options.c options.h)
+if(WIN32)
+    # The command uses the POSIX names, which the UCRT hides under /std:c11 unless asked.
+    target_sources(gzip-ng PRIVATE win32/compat.h)
+    target_compile_definitions(gzip-ng PRIVATE _CRT_DECLARE_NONSTDC_NAMES=1 _CRT_NONSTDC_NO_WARNINGS
+                                               _CRT_SECURE_NO_WARNINGS)
+endif()
 if(BUILD_SHARED_LIBS)
     # The format helpers are not part of the exported API, so the command builds its own copy.
     target_sources(gzip-ng PRIVATE format.c)
