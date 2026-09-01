@@ -1,6 +1,6 @@
-# cli-inplace.cmake -- In-place file semantics that the stream harness does not cover, the input
-#   is removed unless --keep, --stdout keeps it, -T copies through untouched, and threads do not
-#   change the compressed bytes.
+# cli-tests.cmake -- End-to-end checks of the command that the stream harness does not cover,
+#   in-place and --keep semantics, headers and names, listing, testing, recursion, and that
+#   threads do not change the compressed bytes.
 
 file(REMOVE_RECURSE ${WORKDIR})
 file(MAKE_DIRECTORY ${WORKDIR})

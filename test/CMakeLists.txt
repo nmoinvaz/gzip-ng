@@ -75,6 +75,6 @@ add_cav_test(rsyncable "-DCOMPRESS_ARGS=--rsyncable\;-k\;-c")
 add_cav_test(rsyncable-blocks "-DCOMPRESS_ARGS=--rsyncable\;-b\;64K\;-k\;-c")
 add_cav_test(blocks-threads "-DCOMPRESS_ARGS=-b\;64K\;-p\;3\;-k\;-c" "-DDECOMPRESS_ARGS=-d\;-p\;2\;-k\;-c")
 
-add_test(NAME cli-inplace COMMAND ${CMAKE_COMMAND}
+add_test(NAME cli-tests COMMAND ${CMAKE_COMMAND}
     -DEXE=$<TARGET_FILE:gzip-ng> -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/clitest
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli-inplace.cmake)
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cli-tests.cmake)
