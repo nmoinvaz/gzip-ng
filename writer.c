@@ -47,7 +47,7 @@ struct gzblock_writer_s {
     int32_t inline_active;
     size_t inline_fill; /* input bytes of the inline block so far */
     uint32_t inline_crc;
-    uint8_t *obuf; /* IO_CHUNK of output space for the inline stream */
+    uint8_t *out_buf; /* IO_CHUNK of output space for the inline stream */
 };
 
 /* ===========================================================================
@@ -95,13 +95,13 @@ static int32_t writer_inline_out(gzblock_writer *w, int32_t flush) {
     int32_t err;
     do {
         size_t have;
-        w->strm.next_out = w->obuf;
+        w->strm.next_out = w->out_buf;
         w->strm.avail_out = IO_CHUNK;
         err = zng_deflate(&w->strm, flush);
         if (err == Z_STREAM_ERROR)
             return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
         have = IO_CHUNK - w->strm.avail_out;
-        if (have != 0 && writer_out(w, w->obuf, have) != 0)
+        if (have != 0 && writer_out(w, w->out_buf, have) != 0)
             return -1;
     } while (w->strm.avail_out == 0);
     return 0;
@@ -259,10 +259,10 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
     w->pipeline.pool.block_size = block_size;
     w->pipeline.pool.level = level;
     w->pipeline.pool.strategy = strategy;
-    w->obuf = (uint8_t *)malloc(IO_CHUNK);
-    if (!w->obuf || writer_pool_size(w, block_size) != 0) {
+    w->out_buf = (uint8_t *)malloc(IO_CHUNK);
+    if (!w->out_buf || writer_pool_size(w, block_size) != 0) {
         pipeline_free(&w->pipeline);
-        free(w->obuf);
+        free(w->out_buf);
         free(w);
         return NULL;
     }
@@ -356,11 +356,11 @@ int32_t gzblock_writer_setparams(gzblock_writer *w, int32_t level, int32_t strat
         int32_t err;
         for (;;) {
             size_t have;
-            w->strm.next_out = w->obuf;
+            w->strm.next_out = w->out_buf;
             w->strm.avail_out = IO_CHUNK;
             err = zng_deflateParams(&w->strm, level, strategy);
             have = IO_CHUNK - w->strm.avail_out;
-            if (have != 0 && writer_out(w, w->obuf, have) != 0)
+            if (have != 0 && writer_out(w, w->out_buf, have) != 0)
                 return -1;
             if (err != Z_BUF_ERROR)
                 break;
@@ -425,6 +425,6 @@ void gzblock_writer_close(gzblock_writer *w) {
     pipeline_free(&w->pipeline);
     if (w->strm_init)
         zng_deflateEnd(&w->strm);
-    free(w->obuf);
+    free(w->out_buf);
     free(w);
 }
