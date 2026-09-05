@@ -118,30 +118,12 @@ Comparing whole binaries is a different job, fork and exec noise belongs to tool
 
 ### Results
 
-* Apple M5, 10 cores.
-* 512 MiB of mixed source, build output, and text, 4.8 to 1 under `gzip -6`.
-* zlib-ng 2.3.3, pigz 2.8, gzip 1.14, bgzip 1.24, MiGz 2.0.beta-1 on OpenJDK 26, level 6, `hyperfine` mean of 3.
-* MiGz runs as a small Java CLI over its streams, JVM start included.
+Whole-tool comparisons live in [gzipbench](https://github.com/nmoinvaz/gzipbench),
+which runs the full matrix, level ladders 1 through 9, thread sweeps, the
+cross-decode grid, and a deflate block census, all against tools built on
+zlib-ng develop, and graphs each run:
 
-| Compress | Wall | MiB/s | Output | Of input |
-|---|---|---|---|---|
-| `gzip-ng -p 10` | 0.82 s | 620 | 110.5 MiB | 21.6% |
-| `pigz -p 10` | 2.19 s | 230 | 107.1 MiB | 20.9% |
-| `gzip-ng` | 4.80 s | 107 | 108.7 MiB | 21.2% |
-| `minigzip` | 5.13 s | 100 | 108.7 MiB | 21.2% |
-| `gzip -6` | 13.88 s | 37 | 107.2 MiB | 20.9% |
-
-| Decompress | Input | Wall | MiB/s |
-|---|---|---|---|
-| `gzip-ng -p 10` | from `gzip-ng -p 10` | 0.09 s | 5440 |
-| `gzip-ng -p 10` | from `bgzip -@ 10` | 0.10 s | 5080 |
-| `gzip-ng -p 10` | from MiGz | 0.13 s | 4060 |
-| `bgzip -d -@ 10` | from `bgzip -@ 10` | 0.16 s | 3260 |
-| `MiGz` | from MiGz | 0.20 s | 2530 |
-| `gzip-ng` | from `gzip-ng` | 0.54 s | 950 |
-| `minigzip` | from `minigzip` | 0.58 s | 880 |
-| `pigz` | from `pigz -p 10` | 0.75 s | 690 |
-| `gzip` | from `gzip -6` | 2.15 s | 240 |
+![All tools, compress and decompress](https://raw.githubusercontent.com/nmoinvaz/gzipbench/main/results/all-tools.svg)
 
 ## Thanks
 
