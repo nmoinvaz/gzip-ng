@@ -293,4 +293,30 @@ TEST(block_reader, false_lone_marker_in_a_strict_block) {
         EXPECT_EQ(data, block_read(packed, nthreads, 65536)) << "nthreads " << nthreads;
 }
 
+TEST(block_reader, flushed_blocks_of_any_length) {
+    /* A flush or a settings change ends the block early, down to a single byte, and the reader has
+       to take each as a block whether or not it was told a block size. */
+    auto data = varied_data(3 << 20);
+    for (int rsync : {0, 1}) {
+        std::vector<uint8_t> out;
+        gzblock_writer *w = gzblock_writer_open(vec_write, &out, 6, Z_DEFAULT_STRATEGY, 64 * 1024, 2);
+        ASSERT_NE(nullptr, w);
+        ASSERT_EQ(0, gzblock_writer_rsyncable(w, rsync));
+        size_t pos = 0;
+        for (size_t cut : {size_t(1), size_t(7), size_t(5000), size_t(70000), size_t(200001), data.size()}) {
+            ASSERT_EQ(0, gzblock_writer_write(w, data.data() + pos, cut - pos));
+            ASSERT_EQ(0, gzblock_writer_flush(w));
+            ASSERT_EQ(0, gzblock_writer_setparams(w, cut % 2 ? 1 : 9, Z_DEFAULT_STRATEGY));
+            pos = cut;
+        }
+        ASSERT_EQ(0, gzblock_writer_finish(w));
+        gzblock_writer_close(w);
+        EXPECT_EQ(data, whole_inflate(out, data.size()));
+        for (int nthreads : {1, 3}) {
+            EXPECT_EQ(data, block_read(out, nthreads)) << "rsync " << rsync << " nthreads " << nthreads;
+            EXPECT_EQ(data, block_read(out, nthreads, 64 * 1024)) << "hinted, rsync " << rsync;
+        }
+    }
+}
+
 }  // namespace

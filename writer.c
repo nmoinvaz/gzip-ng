@@ -39,16 +39,6 @@ struct gzblock_writer_s {
     size_t rsync_min; /* no early end before this much of the block is filled */
     int32_t err;      /* zlib error code once failed */
     char msg[MSG_LEN];
-
-    /* A block that has to be flushed part way continues on the calling thread as one deflate
-       stream, so a flush does not shorten it. Blocks end at block_size, or at a rolling hash hit
-       when the writer is rsyncable. */
-    zng_stream strm;
-    int32_t strm_init;
-    int32_t inline_active;
-    size_t inline_fill; /* input bytes of the inline block so far */
-    uint32_t inline_crc;
-    uint8_t *out_buf; /* IO_CHUNK of output space for the inline stream */
 };
 
 /* ===========================================================================
@@ -96,101 +86,10 @@ static int32_t writer_header(gzblock_writer *w) {
 }
 
 /* ===========================================================================
- * Inline continuation for flush and parameter changes
- */
-
-/* Run the inline stream with flush until its output is drained to the file. */
-static int32_t writer_inline_out(gzblock_writer *w, int32_t flush) {
-    int32_t err;
-    do {
-        size_t have;
-        w->strm.next_out = w->out_buf;
-        w->strm.avail_out = IO_CHUNK;
-        err = zng_deflate(&w->strm, flush);
-        if (err == Z_STREAM_ERROR)
-            return writer_fail(w, Z_STREAM_ERROR, "deflate failed");
-        have = IO_CHUNK - w->strm.avail_out;
-        if (have != 0 && writer_out(w, w->out_buf, have) != 0)
-            return -1;
-    } while (w->strm.avail_out == 0);
-    return 0;
-}
-
-/* The inline block is complete, seal it the way the pool does and account for it. */
-static int32_t writer_inline_end(gzblock_writer *w, int32_t last) {
-    if (writer_inline_out(w, last ? Z_FINISH : Z_SYNC_FLUSH) != 0)
-        return -1;
-    if (!last && writer_inline_out(w, Z_FULL_FLUSH) != 0)
-        return -1;
-    w->crc = writer_crc_combine(w, w->inline_crc, w->inline_fill);
-    w->total_in += w->inline_fill;
-    w->inline_active = 0;
-    return 0;
-}
-
-/* Feed len bytes, at most what is left of the block, to the inline stream. */
-static int32_t writer_inline_feed(gzblock_writer *w, const uint8_t *buf, size_t len) {
-    w->strm.next_in = (z_const uint8_t *)buf;
-    w->strm.avail_in = (uint32_t)len;
-    w->inline_crc = (uint32_t)zng_crc32_z(w->inline_crc, buf, len);
-    w->inline_fill += len;
-    if (writer_inline_out(w, Z_NO_FLUSH) != 0)
-        return -1;
-    if (w->inline_fill == w->block_size)
-        return writer_inline_end(w, 0);
-    return 0;
-}
-
-static int32_t writer_drain(gzblock_writer *w);
-
-static int32_t writer_drain_all(gzblock_writer *w) {
-    while (pipeline_has_pending(&w->pipeline)) {
-        if (writer_drain(w) != 0)
-            return -1;
-    }
-    return 0;
-}
-
-/* Move the block being filled onto the inline stream. Everything before it goes to the file first,
-   so the inline output can follow directly. */
-static int32_t writer_inline_begin(gzblock_writer *w) {
-    if (writer_drain_all(w) != 0)
-        return -1;
-    if (writer_header(w) != 0)
-        return -1;
-    if (!w->strm_init) {
-        memset(&w->strm, 0, sizeof(w->strm));
-        if (zng_deflateInit2(&w->strm, w->level, Z_DEFLATED, -MAX_WBITS, 8, w->strategy) != Z_OK)
-            return writer_fail(w, Z_MEM_ERROR, "out of memory");
-        w->strm_init = 1;
-    } else {
-        zng_deflateReset(&w->strm);
-        zng_deflateParams(&w->strm, w->level, w->strategy);
-    }
-    w->inline_active = 1;
-    w->inline_fill = 0;
-    w->inline_crc = 0;
-    if (w->cur) {
-        slot_t *slot = w->cur;
-        w->cur = NULL;
-        if (slot->in_len != 0 && writer_inline_feed(w, slot->in, slot->in_len) != 0)
-            return -1;
-        pool_release(&w->pipeline.pool, slot);
-    }
-    return 0;
-}
-
-/* A partly filled block moves to the inline stream, so it can be flushed or reconfigured without
-   ending early. No-op when there is no such block. */
-static int32_t writer_inline_migrate(gzblock_writer *w) {
-    if (!w->inline_active && w->cur && w->cur->in_len != 0)
-        return writer_inline_begin(w);
-    return 0;
-}
-
-/* ===========================================================================
  * Blocks through the pool
  */
+
+static int32_t writer_drain(gzblock_writer *w);
 
 /* Take the next free slot to fill, draining finished ones to make room. */
 static int32_t writer_acquire(gzblock_writer *w) {
@@ -224,6 +123,21 @@ static int32_t writer_drain(gzblock_writer *w) {
     pool_release(&w->pipeline.pool, slot);
     pipeline_drained(&w->pipeline);
     return 0;
+}
+
+static int32_t writer_drain_all(gzblock_writer *w) {
+    while (pipeline_has_pending(&w->pipeline)) {
+        if (writer_drain(w) != 0)
+            return -1;
+    }
+    return 0;
+}
+
+/* End the block being filled early. A marker pair ends every block, which makes any length a
+   valid one. */
+static void writer_cut(gzblock_writer *w) {
+    if (w->cur && w->cur->in_len != 0)
+        writer_submit(w, 0);
 }
 
 /* ===========================================================================
@@ -269,10 +183,8 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
     w->pipeline.pool.block_size = block_size;
     w->pipeline.pool.level = level;
     w->pipeline.pool.strategy = strategy;
-    w->out_buf = (uint8_t *)malloc(IO_CHUNK);
-    if (!w->out_buf || writer_pool_size(w, block_size) != 0) {
+    if (writer_pool_size(w, block_size) != 0) {
         pipeline_free(&w->pipeline);
-        free(w->out_buf);
         free(w);
         return NULL;
     }
@@ -330,14 +242,6 @@ int32_t gzblock_writer_write(gzblock_writer *w, const uint8_t *buf, size_t len) 
     while (len != 0) {
         size_t take;
         int32_t hit;
-        if (w->inline_active) {
-            take = MIN(w->block_size - w->inline_fill, len);
-            if (writer_inline_feed(w, buf, take) != 0)
-                return -1;
-            buf += take;
-            len -= take;
-            continue;
-        }
         if (!w->cur && writer_acquire(w) != 0)
             return -1;
         limit = w->rsyncable ? w->rsync_max : w->block_size;
@@ -357,26 +261,9 @@ int32_t gzblock_writer_setparams(gzblock_writer *w, int32_t level, int32_t strat
         return -1;
     if (level == w->level && strategy == w->strategy)
         return 0;
-    /* Input already taken for the current block keeps the old settings. deflateParams() applies
-       them to it and switches mid-stream, so the block stays one stream. */
-    if (writer_inline_migrate(w) != 0)
-        return -1;
-    if (w->inline_active) {
-        int32_t err;
-        for (;;) {
-            size_t have;
-            w->strm.next_out = w->out_buf;
-            w->strm.avail_out = IO_CHUNK;
-            err = zng_deflateParams(&w->strm, level, strategy);
-            have = IO_CHUNK - w->strm.avail_out;
-            if (have != 0 && writer_out(w, w->out_buf, have) != 0)
-                return -1;
-            if (err != Z_BUF_ERROR)
-                break;
-        }
-        if (err != Z_OK)
-            return writer_fail(w, Z_STREAM_ERROR, "deflateParams failed");
-    }
+    /* Input already taken for the current block keeps the old settings, in a block that ends
+       here. */
+    writer_cut(w);
     w->level = level;
     w->strategy = strategy;
     return 0;
@@ -385,10 +272,7 @@ int32_t gzblock_writer_setparams(gzblock_writer *w, int32_t level, int32_t strat
 int32_t gzblock_writer_flush(gzblock_writer *w) {
     if (w->failed || w->finished)
         return -1;
-    if (writer_inline_migrate(w) != 0)
-        return -1;
-    if (w->inline_active)
-        return writer_inline_out(w, Z_SYNC_FLUSH);
+    writer_cut(w);
     if (writer_drain_all(w) != 0)
         return -1;
     return writer_header(w);
@@ -401,18 +285,12 @@ int32_t gzblock_writer_finish(gzblock_writer *w) {
         return -1;
     if (w->finished)
         return 0;
-    if (w->inline_active) {
-        /* The inline block is the last one and ends the stream itself. */
-        if (writer_inline_end(w, 1) != 0)
-            return -1;
-    } else {
-        /* The last block ends the deflate stream, an empty one if the input ended on a boundary. */
-        if (!w->cur && writer_acquire(w) != 0)
-            return -1;
-        writer_submit(w, 1);
-        if (writer_drain_all(w) != 0)
-            return -1;
-    }
+    /* The last block ends the deflate stream, an empty one if the input ended on a boundary. */
+    if (!w->cur && writer_acquire(w) != 0)
+        return -1;
+    writer_submit(w, 1);
+    if (writer_drain_all(w) != 0)
+        return -1;
     format_trailer_build(trailer, w->crc, (uint64_t)w->total_in);
     if (writer_out(w, trailer, sizeof(trailer)) != 0)
         return -1;
@@ -432,8 +310,5 @@ void gzblock_writer_close(gzblock_writer *w) {
     if (!w)
         return;
     pipeline_free(&w->pipeline);
-    if (w->strm_init)
-        zng_deflateEnd(&w->strm);
-    free(w->out_buf);
     free(w);
 }
