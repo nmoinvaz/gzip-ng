@@ -263,7 +263,10 @@ TEST(options, parse_size) {
     EXPECT_EQ(1u << 20, gzng_parse_size("1M"));
     EXPECT_EQ(0u, gzng_parse_size("1G")); /* over the engine cap */
     EXPECT_EQ(256u << 20, gzng_parse_size("256M"));
-    EXPECT_EQ(4096u, gzng_parse_size("4096"));
+    EXPECT_EQ(131072u, gzng_parse_size("128")) << "a bare number counts KiB";
+    EXPECT_EQ(4096u << 10, gzng_parse_size("4096"));
+    EXPECT_EQ(0u, gzng_parse_size("262145"));
+    EXPECT_EQ(0u, gzng_parse_size("18014398509481985K")) << "a count that would wrap to 1K";
     EXPECT_EQ(0u, gzng_parse_size("0"));
     EXPECT_EQ(0u, gzng_parse_size("x"));
     EXPECT_EQ(0u, gzng_parse_size("12KB"));

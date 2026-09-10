@@ -23,27 +23,28 @@ void gzng_options_init(gzng_options *opt) {
 uint32_t gzng_parse_size(const char *arg) {
     char *end;
     unsigned long long v = strtoull(arg, &end, 10);
+    uint32_t shift = 10; /* a bare number counts KiB, the way pigz reads it */
 
     switch (*end) {
     case 'k':
     case 'K':
-        v <<= 10;
         end++;
         break;
     case 'm':
     case 'M':
-        v <<= 20;
+        shift = 20;
         end++;
         break;
     case 'g':
     case 'G':
-        v <<= 30;
+        shift = 30;
         end++;
         break;
     }
-    if (end == arg || *end != 0 || v == 0 || v > GZBLOCK_MAX_BLOCK)
+    /* The bound is checked before the shift, which could otherwise wrap a huge count small. */
+    if (end == arg || *end != 0 || v == 0 || v > (GZBLOCK_MAX_BLOCK >> shift))
         return 0;
-    return (uint32_t)v;
+    return (uint32_t)(v << shift);
 }
 
 void gzng_options_personas(gzng_options *opt, const char *argv0) {
@@ -128,7 +129,7 @@ static const option_desc option_table[] = {
     {OPT_TRANSPARENT, 'T',          NULL,         NULL,   NULL,                                         "store without compressing"},
     {      OPT_ASCII, 'A',          NULL,         NULL,   NULL,                             "text mode, accepted for compatibility"},
     {OPT_INDEPENDENT, 'i', "independent",         NULL,   NULL,                     "accepted for compatibility, blocks always are"},
-    {  OPT_BLOCKSIZE, 'b',   "blocksize",         NULL, "size",                     "average bytes per block, K, M, and G suffixes"},
+    {  OPT_BLOCKSIZE, 'b',   "blocksize",         NULL, "size",            "average block size in KiB, or with a K, M, or G suffix"},
     {  OPT_PROCESSES, 'p',   "processes",         NULL,    "n", "threads to use, which asks for blocks, 0 picks the number of CPUs"},
     {       OPT_FAST,   0,        "fast",         NULL,   NULL,                                          "compress faster, level 1"},
     {       OPT_BEST,   0,        "best",         NULL,   NULL,                                          "compress better, level 9"},

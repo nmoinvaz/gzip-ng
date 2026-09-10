@@ -48,7 +48,8 @@ int32_t gzng_options_parse(gzng_options *opt, int32_t argc, char **argv, int32_t
 
 void gzng_usage(FILE *out);
 
-/* Parse a size with an optional K, M, or G suffix. Returns 0 when it is not usable. */
+/* Parse a size with an optional K, M, or G suffix, a bare number counting KiB. Returns 0 when it
+   is not usable. */
 uint32_t gzng_parse_size(const char *arg);
 
 #ifdef __cplusplus
