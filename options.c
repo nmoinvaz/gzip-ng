@@ -14,7 +14,7 @@
 
 void gzng_options_init(gzng_options *opt) {
     memset(opt, 0, sizeof(*opt));
-    opt->level = 6;
+    opt->level = 7;
     opt->strategy = Z_DEFAULT_STRATEGY;
     opt->name_mode = -1;
     opt->time_mode = -1;
@@ -168,7 +168,7 @@ void gzng_usage(FILE *out) {
         spellings(&option_table[i], buf, sizeof(buf));
         fprintf(out, "  %-*s  %s\n", (int32_t)width, buf, option_table[i].help);
     }
-    fprintf(out, "  %-*s  %s\n", (int)width, "-1 .. -9", "compression level, 6 by default");
+    fprintf(out, "  %-*s  %s\n", (int)width, "-1 .. -9", "compression level, 7 by default");
 }
 
 static const option_desc *find_letter(char letter) {

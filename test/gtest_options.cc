@@ -35,7 +35,7 @@ TEST(options, defaults) {
     gzng_options opt;
     gzng_options_init(&opt);
     EXPECT_EQ(0, opt.decompress);
-    EXPECT_EQ(6, opt.level);
+    EXPECT_EQ(7, opt.level);
     EXPECT_EQ(0u, opt.block_size);
     EXPECT_EQ(0, opt.threads);
 }

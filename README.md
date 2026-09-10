@@ -53,7 +53,7 @@ Compresses files in place, file to file.gz, removing the input unless kept. With
 | `-M` `--time` | Save and restore the time |
 | `-v` `--verbose` | Report each file processed |
 | `-q` `--quiet` | Suppress warnings |
-| `-1` .. `-9` | Compression level, 6 by default |
+| `-1` .. `-9` | Compression level, 7 by default |
 | `--fast` `--best` | Level 1 and level 9 |
 | `-b` `--blocksize` *size* | Average block size in KiB, or with a K, M, or G suffix |
 | `-p` `--processes` *n* | Threads to use, which asks for blocks, 0 picks the number of CPUs |
