@@ -33,12 +33,14 @@ if(NOT TARGET GTest::GTest)
 endif()
 
 add_executable(gtest_gzng
-    gtest_block.cc
+    gtest_block.h
     gtest_compress.cc
     gtest_decompress.cc
     gtest_format.cc
     gtest_gzng.cc
     gtest_options.cc
+    gtest_reader.cc
+    gtest_writer.cc
     ${CMAKE_SOURCE_DIR}/options.c)
 target_link_libraries(gtest_gzng PRIVATE gzng GTest::Main)
 if(GZNG_SANITIZER STREQUAL "Memory")
