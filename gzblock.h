@@ -63,16 +63,16 @@ int32_t gzblock_writer_errcode(const gzblock_writer *w);
 /* Free, without finishing if that has not happened. */
 void gzblock_writer_close(gzblock_writer *w);
 
-/* Reader. Decodes gzip data, member by member. A member found to be cut into independent blocks,
-   or any member when block_size is nonzero, is inflated as blocks on nthreads threads at once,
-   nthreads of 0 picking the number of CPUs. Other members, and every member when nthreads is 1,
-   are streamed through plain inflate. Input that is not gzip at all is passed through unchanged
-   and trailing garbage after the last member is ignored.
+/* Reader. Decodes gzip data, member by member. A member found to be cut into independent blocks
+   is inflated as blocks on nthreads threads at once, nthreads of 0 picking the number of CPUs.
+   Other members, and every member when nthreads is 1, are streamed through plain inflate. Input
+   that is not gzip at all is passed through unchanged and trailing garbage after the last member
+   is ignored.
    head holds bytes already taken from the input that come before what read() returns, or NULL. */
 typedef struct gzblock_reader_s gzblock_reader;
 
 gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
-                                    uint32_t block_size, int32_t nthreads);
+                                    int32_t nthreads);
 /* 0, or -1 on error. */
 int32_t gzblock_reader_read(gzblock_reader *r, uint8_t *buf, size_t len, size_t *got);
 /* Hand out the next piece of output without copying. *p and *n describe bytes owned by the reader,

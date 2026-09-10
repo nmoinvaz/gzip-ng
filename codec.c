@@ -9,95 +9,61 @@
 #include "gzblock.h"
 #include "util.h"
 
-/* The output is full. A loose block may take any size, so give it the rest of the buffer, doubled
-   up to GZBLOCK_MAX_BLOCK once used up. Returns 1 with room to inflate into. The fill is measured
-   by pointer rather than total_out, which member resets zero mid-slot. */
+/* The output is full. A block may take any size, so double the buffer, up to GZBLOCK_MAX_BLOCK.
+   Returns 1 with room to inflate into. The fill is measured by pointer rather than total_out,
+   which member resets zero mid-slot. */
 static int32_t grow_output(zng_stream *strm, slot_t *slot) {
     size_t have = (size_t)(strm->next_out - slot->out);
+    size_t size = MIN(have * 2, (size_t)GZBLOCK_MAX_BLOCK);
+    uint8_t *grown;
 
-    if (have == slot->out_size) {
-        size_t size = MIN(have * 2, (size_t)GZBLOCK_MAX_BLOCK);
-        uint8_t *grown;
-        /* Out of memory reads as a block too large to hold, which it is. */
-        if (size <= have || !(grown = (uint8_t *)realloc(slot->out, size)))
-            return 0;
-        slot->out = grown;
-        slot->out_size = size;
-    }
+    /* Out of memory reads as a block too large to hold, which it is. */
+    if (size <= have || !(grown = (uint8_t *)realloc(slot->out, size)))
+        return 0;
+    slot->out = grown;
+    slot->out_size = size;
     strm->next_out = slot->out + have;
-    strm->avail_out = (uint32_t)(slot->out_size - have);
+    strm->avail_out = (uint32_t)(size - have);
     return 1;
 }
 
-/* Inflate one segment into the slot's output and say how it ended. A strict block must fill
-   exactly block_size. A loose one, ending at a marker pair or the end of the stream, is a block at
-   whatever size it produces, since no chance pattern makes a pair, so its output grows on demand
-   and any clean end of the input completes it. */
-static int32_t inflate_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
-    int32_t loose = slot->pair || slot->last;
-    int32_t want_marker = 0; /* output complete, the trailing empty stored block is still to come */
+/* Inflate one segment into the slot's output and say how it ended. Every segment ends at a marker
+   pair or the end of the stream and is a block at whatever size it produces, since no chance
+   pattern makes a pair, so its output grows on demand and any clean end of the input completes
+   it. */
+static int32_t inflate_segment(zng_stream *strm, slot_t *slot) {
     size_t left = slot->in_len;
-    int32_t err, boundary, aligned, exhausted;
+    int32_t err;
 
     zng_inflateReset2(strm, -MAX_WBITS); /* back to raw, a member slot may have rewrapped it */
     strm->next_in = (z_const uint8_t *)slot->in;
     strm->avail_in = 0;
     strm->next_out = slot->out;
-    strm->avail_out = block_size; /* the buffer holds at least this much */
+    strm->avail_out = (uint32_t)slot->out_size;
     for (;;) {
         if (strm->avail_in == 0 && left != 0) {
             uint32_t chunk = clamp_u32(left);
             strm->avail_in = chunk;
             left -= chunk;
         }
+        /* A full buffer grows before inflate needs the room. One at the cap is left to inflate,
+           which needs none for the empty stored blocks of a marker. */
+        if (strm->avail_out == 0)
+            grow_output(strm, slot);
         /* Z_BLOCK returns at every block boundary, where data_type reports the position. */
         err = zng_inflate(strm, Z_BLOCK);
         if (err == Z_OK && (strm->data_type & (64 | 128)) == (64 | 128))
             err = zng_inflate(strm, Z_BLOCK); /* past the final block, conclude the stream */
         if (err == Z_STREAM_END)
             return SEGMENT_END;
+        if (err == Z_BUF_ERROR && strm->avail_out == 0)
+            return SEGMENT_OVERFLOW;
         if (err != Z_OK)
             return SEGMENT_ERROR;
-        boundary = (strm->data_type & 128) != 0; /* just finished a deflate block */
-        aligned = (strm->data_type & 7) == 0;    /* and landed on a byte boundary */
-        exhausted = (strm->avail_in == 0 && left == 0);
-
-        if (want_marker) {
-            /* Only empty stored blocks may follow a full block, one from a full flush, two when
-               pigz --independent wrote it. */
-            if (!boundary && strm->avail_in == 0) {
-                if (exhausted)
-                    return SEGMENT_SHORT; /* cut inside the marker */
-                continue;
-            }
-            if (!(boundary && aligned)) {
-                if (exhausted || !loose || !grow_output(strm, slot))
-                    return SEGMENT_OVERFLOW;
-                want_marker = 0; /* a loose block carries on past block_size */
-                continue;
-            }
-            if (exhausted)
-                return SEGMENT_FULL;
-            continue; /* another empty stored block */
-        }
-        if (strm->avail_out != 0) {
-            if (!exhausted)
-                continue; /* more deflate blocks to go */
-            /* Strict blocks must land exactly on block_size, a loose one is done at any clean
-               boundary. */
-            return loose && boundary && aligned ? SEGMENT_FULL : SEGMENT_SHORT;
-        }
-        /* The output is full. */
-        if (!boundary) {
-            if (exhausted)
-                return SEGMENT_SHORT;
-            if (loose && grow_output(strm, slot))
-                continue;
-            return SEGMENT_OVERFLOW;
-        }
-        if (exhausted)
-            return aligned ? SEGMENT_FULL : SEGMENT_SHORT;
-        want_marker = 1;
+        /* Complete once the input ends just past a deflate block on a byte boundary. Ending
+           anywhere else, the cut fell inside a block. */
+        if (strm->avail_in == 0 && left == 0)
+            return (strm->data_type & 128) && (strm->data_type & 7) == 0 ? SEGMENT_FULL : SEGMENT_SHORT;
     }
 }
 
@@ -163,8 +129,8 @@ static void run_members(zng_stream *strm, slot_t *slot) {
 
 /* Inflate one slot and record what every exit of inflate_segment shares, the bytes consumed
    and produced and the CRC of the output. */
-static void run_segment(zng_stream *strm, slot_t *slot, uint32_t block_size) {
-    slot->status = inflate_segment(strm, slot, block_size);
+static void run_segment(zng_stream *strm, slot_t *slot) {
+    slot->status = inflate_segment(strm, slot);
     slot->in_used = (size_t)strm->total_in;
     slot->out_len = (size_t)strm->total_out;
     slot->crc = (uint32_t)zng_crc32_z(0, slot->out, slot->out_len);
@@ -210,5 +176,5 @@ void codec_run(pool_t *pool, zng_stream *strm, slot_t *slot) {
     else if (slot->members != 0)
         run_members(strm, slot);
     else
-        run_segment(strm, slot, pool->block_size);
+        run_segment(strm, slot);
 }

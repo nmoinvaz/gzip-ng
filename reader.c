@@ -47,9 +47,8 @@ struct gzblock_reader_s {
 
     int32_t state;
     int32_t nthreads;
-    uint32_t block_hint; /* block size to assume when a header records none */
-    int32_t members;     /* gzip members finished so far */
-    int32_t err;         /* zlib error code once failed */
+    int32_t members; /* gzip members finished so far */
+    int32_t err;     /* zlib error code once failed */
     char msg[MSG_LEN];
 
     const uint8_t *next; /* next output to deliver */
@@ -182,7 +181,6 @@ static int32_t reader_pipeline_start(gzblock_reader *r, uint32_t block_size) {
     if (r->pipeline.started)
         return 0;
     r->pipeline.pool.mode = POOL_INFLATE;
-    r->pipeline.pool.block_size = block_size;
     /* Segments are swapped in whole, so slots start without an in buffer. */
     rc = pipeline_start(&r->pipeline, r->nthreads, 0, block_size);
     if (rc == -1)
@@ -192,16 +190,15 @@ static int32_t reader_pipeline_start(gzblock_reader *r, uint32_t block_size) {
     return 0;
 }
 
-/* Enter block mode for a member whose header (the first hdr_len bytes of buf) records, or
-   --blocksize supplies, a block size. */
-static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size, int32_t paired) {
+/* Enter block mode for a member whose header is the first hdr_len bytes of the input. */
+static int32_t reader_start_blocks(gzblock_reader *r, size_t hdr_len, uint32_t block_size) {
     r->hdr.len = 0;
     if (buf_append(&r->hdr, buf_data(&r->in_buf), hdr_len) != 0)
         return reader_oom(r);
     buf_drop(&r->in_buf, hdr_len);
     if (reader_pipeline_start(r, block_size) != 0)
         return -1;
-    cutter_init(&r->cut, block_size, paired);
+    cutter_init(&r->cut, block_size);
     r->cut_all = 0;
     pipeline_reset(&r->pipeline);
     r->crc = 0;
@@ -271,7 +268,6 @@ static int32_t reader_produce(gzblock_reader *r) {
         }
         slot_swap_in(slot, &r->cut.seg);
         slot->last = r->cut.seg_last;
-        slot->pair = r->cut.seg_pair;
         slot->members = 0;
         pipeline_submit(&r->pipeline, slot);
     }
@@ -355,7 +351,7 @@ static int32_t reader_member_end_step(gzblock_reader *r) {
  * Member headers and the boundary probe
  */
 
-/* Probe defaults when nothing declares a block size, the coalescing target and how far to look. */
+/* The coalescing target and how far the probe looks. */
 #define PROBE_BLOCK  (128u << 10)
 #define PROBE_WINDOW (1u << 20)
 
@@ -394,7 +390,7 @@ static int32_t reader_members_next(gzblock_reader *r) {
         format_header hdr;
         size_t hdr_len;
 
-        if (r->memb.seg.len >= (size_t)r->pipeline.pool.block_size)
+        if (r->memb.seg.len >= PROBE_BLOCK)
             return 1;
         hdr_len = format_header_parse(buf_data(&r->in_buf), r->in_buf.len, &hdr);
         if (hdr_len != 0 && hdr_len != (size_t)-1 && hdr.member_size >= hdr_len + 8 &&
@@ -435,7 +431,6 @@ static int32_t reader_members_step(gzblock_reader *r) {
         slot_swap_in(slot, &r->memb.seg);
         slot->members = r->memb.count;
         slot->last = 0;
-        slot->pair = 0;
         r->memb.count = 0;
         pipeline_submit(&r->pipeline, slot);
     }
@@ -457,7 +452,6 @@ static int32_t reader_members_step(gzblock_reader *r) {
    that is not gzip, or the end. */
 static int32_t reader_header(gzblock_reader *r) {
     size_t want = 1024, hdr_len;
-    uint32_t hdr_block_size;
     format_header hdr;
 
     for (;;) {
@@ -497,27 +491,18 @@ static int32_t reader_header(gzblock_reader *r) {
        parallel, with nothing probed, rewound, or inflated twice. */
     if (hdr.member_size != 0)
         return reader_start_members(r);
-    /* Nothing in a header says how a member is cut, so a caller's hint decides, or the probe. */
-    hdr_block_size = r->block_hint;
-    /* A block size that would cost more memory than is sensible. */
-    if (hdr_block_size > GZBLOCK_MAX_BLOCK) {
+    /* An early marker pair means someone wrote independent chunks, the full flush behind a pair
+       resets the dictionary, so decode them in parallel. Anything else inflates serially as
+       before. A lone marker says nothing, a sync flush writes the same bytes and keeps the
+       dictionary. */
+    switch (reader_probe(r, hdr_len)) {
+    case -1:
+        return -1;
+    case 0:
         reader_start_stream(r);
         return 0;
     }
-    if (hdr_block_size == 0) {
-        /* No declared size and no hint. An early marker pair means someone wrote independent
-           chunks, the full flush behind a pair resets the dictionary, so decode them in
-           parallel. Anything else inflates serially as before. */
-        switch (reader_probe(r, hdr_len)) {
-        case -1:
-            return -1;
-        case 0:
-            reader_start_stream(r);
-            return 0;
-        }
-        return reader_start_blocks(r, hdr_len, PROBE_BLOCK, 1);
-    }
-    return reader_start_blocks(r, hdr_len, hdr_block_size, 0);
+    return reader_start_blocks(r, hdr_len, PROBE_BLOCK);
 }
 
 /* ===========================================================================
@@ -525,7 +510,7 @@ static int32_t reader_header(gzblock_reader *r) {
  */
 
 gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8_t *head, size_t head_len,
-                                    uint32_t block_size, int32_t nthreads) {
+                                    int32_t nthreads) {
     gzblock_reader *r;
 
     if (!read)
@@ -541,7 +526,6 @@ gzblock_reader *gzblock_reader_open(gzblock_read_fn read, void *ctx, const uint8
     }
     r->read = read;
     r->ctx = ctx;
-    r->block_hint = block_size > GZBLOCK_MAX_BLOCK ? 0 : block_size;
     r->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
     r->out_buf = (uint8_t *)malloc(IO_CHUNK);
     if (!r->out_buf || (head_len != 0 && buf_append(&r->in_buf, head, head_len) != 0)) {

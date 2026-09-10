@@ -27,10 +27,9 @@ typedef struct {
     size_t in_len;
     size_t in_size;
     int32_t last;    /* final piece of the input */
-    int32_t pair;    /* the segment ends with a marker pair, a boundary in its own right */
     int32_t members; /* whole gzip members in the input, 0 for a raw deflate segment */
     uint8_t *out;
-    size_t out_size; /* grows past block_size for pair-terminated and final segments */
+    size_t out_size; /* grows past block_size for segments that inflate larger */
     int32_t level;   /* deflate settings for this block */
     int32_t strategy;
     int32_t status; /* SEGMENT_* for inflate, BLOCK_* for deflate */
@@ -44,8 +43,7 @@ void slot_swap_in(slot_t *slot, buf_t *seg);
 void slot_append(slot_t *slot, const uint8_t *buf, size_t len);
 
 typedef struct pool_s {
-    int32_t mode; /* POOL_INFLATE or POOL_DEFLATE */
-    uint32_t block_size;
+    int32_t mode;  /* POOL_INFLATE or POOL_DEFLATE */
     int32_t level; /* deflate settings */
     int32_t strategy;
     size_t out_size; /* bytes in each slot's out buffer */

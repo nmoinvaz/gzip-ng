@@ -102,10 +102,9 @@ size_t mem_read(void *ctx, uint8_t *buf, size_t len) {
     return n;
 }
 
-std::vector<uint8_t> block_read(const std::vector<uint8_t> &packed, int nthreads, uint32_t block_size = 0,
-                                size_t io_chunk = 65521) {
+std::vector<uint8_t> block_read(const std::vector<uint8_t> &packed, int nthreads, size_t io_chunk = 65521) {
     MemIn in{packed.data(), packed.size(), 0, io_chunk};
-    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, block_size, nthreads);
+    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, nthreads);
     EXPECT_NE(nullptr, r);
     std::vector<uint8_t> out;
     uint8_t buf[65521];
@@ -131,7 +130,7 @@ TEST(block_reader, zero_copy_handout) {
     auto data = sample_data(500000);
     auto packed = block_compress(data, 64 * 1024, 2);
     MemIn in{packed.data(), packed.size(), 0, 65521};
-    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, 0, 3);
+    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, 3);
     ASSERT_NE(nullptr, r);
     std::vector<uint8_t> out;
     for (;;) {
@@ -267,35 +266,35 @@ TEST(block_reader, false_pair_in_a_block_larger_than_the_probe_assumes) {
         EXPECT_EQ(data, block_read(out, nthreads)) << "nthreads " << nthreads;
 }
 
-TEST(block_reader, false_lone_marker_in_a_strict_block) {
-    /* Full flushes without pairs cut a member into blocks that must be exactly the size the caller
-       names, and a chance marker in stored data looks like an early cut. */
-    auto data = sample_data(300000);
-    const uint8_t marker[4] = {0, 0, 0xff, 0xff};
-    memcpy(data.data() + 20000, marker, sizeof(marker));
-    std::vector<uint8_t> packed(zng_compressBound(data.size()) + 1024);
-    zng_stream strm;
-    memset(&strm, 0, sizeof(strm));
-    ASSERT_EQ(Z_OK, zng_deflateInit2(&strm, 0, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY));
-    strm.next_out = packed.data();
-    strm.avail_out = static_cast<uint32_t>(packed.size());
-    for (size_t pos = 0; pos < data.size(); pos += 65536) {
-        size_t n = std::min<size_t>(65536, data.size() - pos);
-        strm.next_in = data.data() + pos;
-        strm.avail_in = static_cast<uint32_t>(n);
-        ASSERT_EQ(pos + n < data.size() ? Z_OK : Z_STREAM_END,
-                  zng_deflate(&strm, pos + n < data.size() ? Z_FULL_FLUSH : Z_FINISH));
-    }
-    packed.resize(strm.total_out);
-    zng_deflateEnd(&strm);
+TEST(block_reader, lone_flush_markers_are_not_boundaries) {
+    /* A sync flush writes the same marker as a full flush and keeps the dictionary, so a member of
+       lone markers says nothing about independent blocks and has to inflate as one stream. */
+    auto data = sample_data(1 << 20);
+    for (int flush : {Z_SYNC_FLUSH, Z_FULL_FLUSH}) {
+        std::vector<uint8_t> packed(zng_compressBound(data.size()) + 1024);
+        zng_stream strm;
+        memset(&strm, 0, sizeof(strm));
+        ASSERT_EQ(Z_OK, zng_deflateInit2(&strm, 6, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY));
+        strm.next_out = packed.data();
+        strm.avail_out = static_cast<uint32_t>(packed.size());
+        for (size_t pos = 0; pos < data.size(); pos += 65536) {
+            size_t n = std::min<size_t>(65536, data.size() - pos);
+            strm.next_in = data.data() + pos;
+            strm.avail_in = static_cast<uint32_t>(n);
+            ASSERT_EQ(pos + n < data.size() ? Z_OK : Z_STREAM_END,
+                      zng_deflate(&strm, pos + n < data.size() ? flush : Z_FINISH));
+        }
+        packed.resize(strm.total_out);
+        zng_deflateEnd(&strm);
 
-    for (int nthreads : {1, 3})
-        EXPECT_EQ(data, block_read(packed, nthreads, 65536)) << "nthreads " << nthreads;
+        for (int nthreads : {1, 3})
+            EXPECT_EQ(data, block_read(packed, nthreads)) << "flush " << flush << " nthreads " << nthreads;
+    }
 }
 
 TEST(block_reader, flushed_blocks_of_any_length) {
     /* A flush or a settings change ends the block early, down to a single byte, and the reader has
-       to take each as a block whether or not it was told a block size. */
+       to take each as a block. */
     auto data = varied_data(3 << 20);
     for (int rsync : {0, 1}) {
         std::vector<uint8_t> out;
@@ -312,10 +311,8 @@ TEST(block_reader, flushed_blocks_of_any_length) {
         ASSERT_EQ(0, gzblock_writer_finish(w));
         gzblock_writer_close(w);
         EXPECT_EQ(data, whole_inflate(out, data.size()));
-        for (int nthreads : {1, 3}) {
+        for (int nthreads : {1, 3})
             EXPECT_EQ(data, block_read(out, nthreads)) << "rsync " << rsync << " nthreads " << nthreads;
-            EXPECT_EQ(data, block_read(out, nthreads, 64 * 1024)) << "hinted, rsync " << rsync;
-        }
     }
 }
 

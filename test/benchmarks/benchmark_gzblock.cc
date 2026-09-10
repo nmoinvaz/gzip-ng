@@ -81,7 +81,7 @@ const std::vector<uint8_t> &plain_packed() {
 
 void read_all(const std::vector<uint8_t> &packed, int nthreads) {
     MemIn in{packed.data(), packed.size(), 0};
-    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, 0, nthreads);
+    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, nthreads);
     for (;;) {
         const uint8_t *p;
         size_t n;

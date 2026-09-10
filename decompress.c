@@ -20,11 +20,11 @@ static size_t file_read(void *ctx, uint8_t *buf, size_t len) {
     return n;
 }
 
-int32_t gzng_decompress_stream(FILE *in, FILE *out, const uint8_t *head, size_t head_len, uint32_t block_size,
-                               int32_t threads, uint64_t *total_in, uint64_t *total_out) {
+int32_t gzng_decompress_stream(FILE *in, FILE *out, const uint8_t *head, size_t head_len, int32_t threads,
+                               uint64_t *total_in, uint64_t *total_out) {
     gzblock_reader_ctx reader_ctx = {in, head_len};
     uint64_t total = 0;
-    gzblock_reader *reader = gzblock_reader_open(file_read, &reader_ctx, head, head_len, block_size, threads);
+    gzblock_reader *reader = gzblock_reader_open(file_read, &reader_ctx, head, head_len, threads);
 
     if (!reader)
         return -1;

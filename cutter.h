@@ -19,20 +19,19 @@ extern "C" {
    memory. */
 enum { CUT_ERROR = -1, CUT_TOO_LARGE = -2, CUT_DONE = 0, CUT_FOUND = 1, CUT_MORE = 2 };
 
+/* Boundaries are marker pairs. A lone marker is never one, since a sync flush writes the same
+   bytes as a full flush and keeps the dictionary. */
 typedef struct {
     uint32_t block_size; /* the coalescing target */
-    int32_t paired;      /* boundaries are marker pairs, lone markers are not candidates */
-    int32_t pair_seen;   /* a pair turned up in this member, so treat it as pair-delimited */
     size_t max_seg;      /* how much input to hold looking for one boundary */
     size_t scanned;      /* bytes of the input already scanned for markers */
     size_t coal;         /* rightmost pair end while coalescing small chunks, 0 when not */
     buf_t seg;           /* segment most recently cut */
-    int32_t seg_last;    /* the segment ends the input */
-    int32_t seg_pair;    /* the segment ends with a marker pair */
+    int32_t seg_last;    /* the segment ends the input, every other one ends with a marker pair */
 } cutter_t;
 
 /* Set up for one member. The segment buffer carries over from the last one. */
-void cutter_init(cutter_t *cutter, uint32_t block_size, int32_t paired);
+void cutter_init(cutter_t *cutter, uint32_t block_size);
 
 /* Cut the next candidate segment out of buf into seg and say how it went. eof means buf holds
    all the input there is. */

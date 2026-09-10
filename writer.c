@@ -170,7 +170,6 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
     w->nthreads = nthreads > 0 ? nthreads : pool_default_threads();
 
     w->pipeline.pool.mode = POOL_DEFLATE;
-    w->pipeline.pool.block_size = block_size;
     w->pipeline.pool.level = level;
     w->pipeline.pool.strategy = strategy;
     if (writer_pool_size(w, block_size) != 0) {
