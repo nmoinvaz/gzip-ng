@@ -33,7 +33,8 @@ struct gzblock_writer_s {
     char name[FORMAT_NAME_MAX];
     int32_t rsyncable; /* end blocks at rolling hash hits so edits stay local */
     uint32_t rsync_hash;
-    uint32_t rsync_mask;
+    uint32_t rsync_mask_lo; /* strict mask while the block is short of block_size */
+    uint32_t rsync_mask_hi; /* loose mask once it is past */
     size_t rsync_max; /* a block is cut on size alone only here */
     size_t rsync_min; /* no early end before this much of the block is filled */
     int32_t err;      /* zlib error code once failed */
@@ -180,10 +181,12 @@ gzblock_writer *gzblock_writer_open(gzblock_write_fn write, void *ctx, int32_t l
     return w;
 }
 
-/* With --rsyncable the block size is a target rather than a ceiling. A boundary is wanted
-   every block_size / 2 bytes and refused before that much is buffered, which averages one block
-   of block_size, and a block is cut on size alone only at twice it. That headroom leaves all but
-   a few percent of boundaries content-defined. */
+/* With --rsyncable the block size is a target rather than a ceiling. Boundaries are refused
+   before half a block is buffered and forced at twice one, and between those FastCDC's
+   normalized cut crowds them just past block_size, a strict mask that rarely hits while the
+   block is short of the target and a loose one that hits quickly once it is past. That puts the
+   average about a tenth above block_size with every boundary content-defined. Content the hash
+   never hits, such as a run of one byte, is still cut at twice it. */
 int32_t gzblock_writer_rsyncable(gzblock_writer *w, int32_t on) {
     if (!w || w->hdr_written || w->failed)
         return -1;
@@ -192,7 +195,8 @@ int32_t gzblock_writer_rsyncable(gzblock_writer *w, int32_t on) {
         return 0;
     }
     w->rsync_min = w->block_size / 2;
-    w->rsync_mask = rolling_mask(w->rsync_min);
+    w->rsync_mask_lo = rolling_mask((size_t)w->block_size * 4);
+    w->rsync_mask_hi = rolling_mask(w->block_size / 8);
     w->rsync_max = (size_t)w->block_size * 2;
     if (writer_pool_size(w, w->rsync_max) != 0)
         return w->failed = 1, -1;
@@ -210,13 +214,17 @@ int32_t gzblock_writer_meta(gzblock_writer *w, uint32_t mtime, const char *name)
 }
 
 /* A hash hit after the minimum fill ends the block there, so boundaries follow the content and
-   an edit re-aligns at the next hit instead of shifting every block. Shortens take to end at the
-   first such hit. Returns 1 on a hit. */
+   an edit re-aligns at the next hit instead of shifting every block. The strict mask covers the
+   input up to a full block_size and the loose mask what lies past it. Shortens take to end at
+   the first hit. Returns 1 on a hit. */
 static int32_t writer_rsync_cut(gzblock_writer *w, const uint8_t *buf, size_t *take) {
     size_t fill = w->cur->in_len;
     size_t first = fill + 1 >= w->rsync_min ? 0 : w->rsync_min - fill - 1;
-    size_t hit = rolling_find(&w->rsync_hash, w->rsync_mask, buf, *take, first);
+    size_t lo_end = fill >= w->block_size ? 0 : MIN(*take, w->block_size - fill);
+    size_t hit = rolling_find(&w->rsync_hash, w->rsync_mask_lo, buf, lo_end, first);
 
+    if (hit == lo_end && *take > lo_end)
+        hit = rolling_find(&w->rsync_hash, w->rsync_mask_hi, buf, *take, lo_end);
     if (hit == *take)
         return 0;
     *take = hit + 1;
