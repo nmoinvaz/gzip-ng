@@ -150,4 +150,79 @@ TEST(block_reader, flushed_blocks_of_any_length) {
     }
 }
 
+/* One gzip member whose header carries a BGZF size subfield. It records the member's own length
+   unless a size is given to record instead. */
+std::vector<uint8_t> sized_member(const uint8_t *data, size_t len, size_t size = 0) {
+    std::vector<uint8_t> packed(zng_compressBound(len) + 64);
+    const uint8_t head[16] = {0x1f, 0x8b, 8, 4, 0, 0, 0, 0, 0, 0xff, 6, 0, 'B', 'C', 2, 0};
+    zng_stream strm;
+    memset(&strm, 0, sizeof(strm));
+    EXPECT_EQ(Z_OK, zng_deflateInit2(&strm, 6, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY));
+    strm.next_in = data;
+    strm.avail_in = static_cast<uint32_t>(len);
+    strm.next_out = packed.data() + sizeof(head) + 2;
+    strm.avail_out = static_cast<uint32_t>(packed.size() - sizeof(head) - 2 - FORMAT_TRAILER_LEN);
+    EXPECT_EQ(Z_STREAM_END, zng_deflate(&strm, Z_FINISH));
+    packed.resize(sizeof(head) + 2 + strm.total_out + FORMAT_TRAILER_LEN);
+    zng_deflateEnd(&strm);
+
+    if (size == 0)
+        size = packed.size();
+    memcpy(packed.data(), head, sizeof(head));
+    packed[16] = static_cast<uint8_t>(size - 1);
+    packed[17] = static_cast<uint8_t>((size - 1) >> 8);
+    format_trailer_build(packed.data() + packed.size() - FORMAT_TRAILER_LEN,
+                         static_cast<uint32_t>(zng_crc32_z(0, data, len)), len);
+    return packed;
+}
+
+/* Read to the end of the first len bytes or to the first error. Returns 0, or the error code. */
+int32_t read_errcode(const std::vector<uint8_t> &packed, size_t len, int nthreads) {
+    MemIn in{packed.data(), len, 0, 65521};
+    gzblock_reader *r = gzblock_reader_open(mem_read, &in, nullptr, 0, nthreads);
+    EXPECT_NE(nullptr, r);
+    std::vector<uint8_t> buf(65521);
+    int32_t err = 0;
+    for (;;) {
+        size_t got = 0;
+        if (gzblock_reader_read(r, buf.data(), buf.size(), &got) != 0) {
+            err = gzblock_reader_errcode(r);
+            break;
+        }
+        if (got == 0)
+            break;
+    }
+    gzblock_reader_close(r);
+    return err;
+}
+
+TEST(block_reader, sized_members_cut_short_end_early) {
+    /* The input ends inside a member whose header promised more, at the first member and at a
+       later one, inside the data and inside the header. No whole member is left to decode in
+       parallel, so the reader has to stream what there is to its end rather than go around
+       between the header and members it never gets. */
+    auto data = varied_data(600000);
+    std::vector<uint8_t> packed;
+    for (size_t pos = 0; pos < data.size(); pos += 0x8000) {
+        auto member = sized_member(data.data() + pos, std::min<size_t>(0x8000, data.size() - pos));
+        packed.insert(packed.end(), member.begin(), member.end());
+    }
+
+    for (int nthreads : {1, 3}) {
+        EXPECT_EQ(data, block_read(packed, nthreads)) << "nthreads " << nthreads;
+        for (size_t cut : {size_t(14), size_t(500), packed.size() / 2, packed.size() - 9, packed.size() - 1})
+            EXPECT_EQ(Z_BUF_ERROR, read_errcode(packed, cut, nthreads)) << "cut " << cut << " nthreads " << nthreads;
+    }
+}
+
+TEST(block_reader, size_too_small_is_not_a_size) {
+    /* A size that could not hold the header and trailer says nothing about where the member
+       ends, and the member decodes as any other does. */
+    auto data = varied_data(30000);
+    auto packed = sized_member(data.data(), data.size(), 1);
+
+    for (int nthreads : {1, 3})
+        EXPECT_EQ(data, block_read(packed, nthreads)) << "nthreads " << nthreads;
+}
+
 }  // namespace

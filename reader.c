@@ -488,9 +488,17 @@ static int32_t reader_header(gzblock_reader *r) {
         return 0;
     }
     /* A sized member's end is known before anything inflates, so members decode whole and in
-       parallel, with nothing probed, rewound, or inflated twice. */
-    if (hdr.member_size != 0)
-        return reader_start_members(r);
+       parallel, with nothing probed, rewound, or inflated twice. That takes the whole member in
+       hand. One the input ends inside of is streamed, which reports where it ends, and a size
+       too small to hold the header and trailer is not a size at all. */
+    if (hdr.member_size >= hdr_len + FORMAT_TRAILER_LEN) {
+        if (reader_fill(r, hdr.member_size) != 0)
+            return -1;
+        if (r->in_buf.len >= hdr.member_size)
+            return reader_start_members(r);
+        reader_start_stream(r);
+        return 0;
+    }
     /* An early marker pair means someone wrote independent chunks, the full flush behind a pair
        resets the dictionary, so decode them in parallel. Anything else inflates serially as
        before. A lone marker says nothing, a sync flush writes the same bytes and keeps the
